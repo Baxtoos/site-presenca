@@ -8,6 +8,12 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
 
+# Scripts de instalação dispensáveis (acelerações nativas opcionais do cliente Docker dos testes).
+ignoredBuiltDependencies:
+  - cpu-features
+  - protobufjs
+  - ssh2
+
 # Versões centralizadas: cada package.json usa "catalog:".
 catalog:
   # ferramentas
@@ -22,7 +28,7 @@ catalog:
   "@next/eslint-plugin-next": ^16.0.1
   prettier: ^3.6.2
   dependency-cruiser: ^16.10.0
-  vitest: ^3.2.4
+  vitest: ^4.1.12
   tsx: ^4.20.5
   "@types/node": ^22.18.0
   # web
@@ -40,13 +46,17 @@ catalog:
   "@nestjs/testing": ^11.1.6
   "@nestjs/cli": ^11.0.10
   fastify: ^5.6.0
+  "@fastify/helmet": ^13.2.0
+  pino: ^10.4.0
+  pino-pretty: ^13.2.0
   reflect-metadata: ^0.2.2
   rxjs: ^7.8.2
   unplugin-swc: ^1.5.7
   "@swc/core": ^1.13.5
   # dados e contratos
   zod: ^4.1.5
-  drizzle-orm: ^0.44.5
+  drizzle-orm: ^0.45.4
   drizzle-kit: ^0.31.4
   pg: ^8.16.3
   "@types/pg": ^8.15.5
+  "@testcontainers/postgresql": ^12.2.1

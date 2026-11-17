@@ -2,13 +2,15 @@ import { Controller, Get, HttpStatus, Inject, Res } from "@nestjs/common";
 import type { HealthResponse, ReadinessResponse } from "@presenca/contracts";
 import type { DbHandle } from "@presenca/db";
 import type { FastifyReply } from "fastify";
+import { ENV, type Env } from "../config/env";
 import { DB } from "../database/database.module";
-
-const VERSION = process.env.APP_VERSION ?? "dev";
 
 @Controller()
 export class HealthController {
-  constructor(@Inject(DB) private readonly db: Pick<DbHandle, "ping">) {}
+  constructor(
+    @Inject(DB) private readonly db: Pick<DbHandle, "ping">,
+    @Inject(ENV) private readonly env: Pick<Env, "APP_VERSION">,
+  ) {}
 
   /** Processo vivo. Não toca em dependências externas. */
   @Get("healthz")
@@ -16,7 +18,7 @@ export class HealthController {
     return {
       status: "ok",
       service: "api",
-      version: VERSION,
+      version: this.env.APP_VERSION,
       uptimeSeconds: Math.floor(process.uptime()),
     };
   }
@@ -31,7 +33,7 @@ export class HealthController {
       database = { status: "down" };
     }
     const ok = database.status === "up";
-    reply.status(ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
+    void reply.status(ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
     return { status: ok ? "ready" : "not_ready", checks: { database } };
   }
 }

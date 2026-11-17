@@ -16,8 +16,9 @@ export default defineConfig({
   schema: "./src/schema/index.ts",
   out: "./migrations",
   schemaFilter: ["app"],
+  casing: "snake_case",
   dbCredentials: { url },
-  migrations: { schema: "app", table: "__migrations" },
+  migrations: { schema: "migrations", table: "journal" },
   strict: true,
   verbose: true,
 });

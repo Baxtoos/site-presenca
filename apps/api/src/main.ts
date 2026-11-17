@@ -1,8 +1,10 @@
 import "reflect-metadata";
 import { resolve } from "node:path";
 import { NestFactory } from "@nestjs/core";
-import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
+import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { AppModule } from "./app.module";
+import { configureApp, createFastifyAdapter } from "./common/http";
+import { createLogger, PinoNestLogger } from "./common/logger";
 import { loadEnv } from "./config/env";
 
 // Em desenvolvimento lê o .env da raiz do monorepo; em produção as variáveis vêm do ambiente.
@@ -15,13 +17,16 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 async function bootstrap(): Promise<void> {
-  // Valida antes de criar o app: o adaptador HTTP também depende do ambiente (trustProxy).
+  // Valida antes de criar o app: adaptador HTTP e logger também dependem do ambiente.
   const env = loadEnv();
+  const logger = createLogger(env);
+
   const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({ bodyLimit: 64 * 1024, trustProxy: env.TRUST_PROXY }),
+    AppModule.forRoot(env),
+    createFastifyAdapter(env, logger),
+    { logger: new PinoNestLogger(logger) },
   );
-  app.enableShutdownHooks();
+  await configureApp(app, env, logger);
   await app.listen(env.API_PORT, "0.0.0.0");
 }
 

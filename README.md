@@ -79,4 +79,10 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
 | `app_api`    | API        | só DML, sujeito a RLS, sem DDL                   |
 | `app_worker` | worker     | permissões por tabela (definidas nas migrations) |
 
+Para conferir que os papéis têm só essas permissões (com a infraestrutura no ar):
+
+```bash
+pnpm --filter @presenca/db verify:roles
+```
+
 As senhas em `.env.example` e `infra/postgres/init` servem só para desenvolvimento local.

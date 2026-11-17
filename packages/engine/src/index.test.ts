@@ -79,9 +79,9 @@ describe("maxAbsenceUnits", () => {
   });
 
   it("recusa tempos por encontro igual a zero", () => {
-    expect(() =>
-      maxAbsenceUnits({ mode: "manual", manualMaxUnits: 3, unitsPerClass: 0 }),
-    ).toThrow(/unitsPerClass/);
+    expect(() => maxAbsenceUnits({ mode: "manual", manualMaxUnits: 3, unitsPerClass: 0 })).toThrow(
+      /unitsPerClass/,
+    );
   });
 
   it("recusa presença mínima fora de 0–100%", () => {

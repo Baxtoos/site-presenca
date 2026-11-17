@@ -19,7 +19,10 @@ const trustProxySchema = z
       .map((s) => s.trim())
       .filter(Boolean);
     if (list.length === 0) {
-      ctx.addIssue({ code: "custom", message: "use false, um número de saltos ou uma lista de IPs" });
+      ctx.addIssue({
+        code: "custom",
+        message: "use false, um número de saltos ou uma lista de IPs",
+      });
       return z.NEVER;
     }
     return list;
@@ -33,11 +36,23 @@ const envSchema = z
     DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "precisa ser uma URL postgres://"),
     REDIS_URL: z.string().regex(/^rediss?:\/\//, "precisa ser uma URL redis://"),
     TRUST_PROXY: trustProxySchema,
+    LOG_LEVEL: z
+      .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+      .default("info"),
+    /** Publica /openapi.json. Padrão: ligado fora de produção. */
+    OPENAPI_ENABLED: z.stringbool().optional(),
+    APP_VERSION: z.string().default("dev"),
   })
   .refine((env) => !(env.NODE_ENV === "production" && env.TRUST_PROXY === true), {
     path: ["TRUST_PROXY"],
     message: "não use true em produção; informe o número de saltos ou os IPs do proxy",
-  });
+  })
+  .transform((env) => ({
+    ...env,
+    OPENAPI_ENABLED: env.OPENAPI_ENABLED ?? env.NODE_ENV !== "production",
+    /** Origem do app web, normalizada (sem barra final), para comparar com o cabeçalho Origin. */
+    WEB_ORIGIN: new URL(env.WEB_ORIGIN).origin,
+  }));
 
 export type Env = z.infer<typeof envSchema>;
 export const ENV = Symbol("ENV");

@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./migrate": {
+      "types": "./dist/migrate.d.ts",
+      "default": "./dist/migrate.js"
     }
   },
   "files": [
@@ -16,21 +20,27 @@
     "migrations"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
+    "test:int": "vitest run --config vitest.int.config.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:generate:custom": "drizzle-kit generate --custom",
+    "db:migrate": "pnpm build && node dist/cli/migrate.js",
+    "db:seed": "pnpm build && node dist/cli/seed.js",
+    "db:studio": "drizzle-kit studio",
+    "verify:roles": "node scripts/verify-roles.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
     "pg": "catalog:"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "drizzle-kit": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

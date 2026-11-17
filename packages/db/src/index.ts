@@ -51,15 +51,24 @@ export function createDb(options: CreateDbOptions): DbHandle {
   };
 }
 
+export interface TxContext {
+  userId: string;
+  /** Vai para a trilha de auditoria (attendance_log_events.request_id). */
+  requestId?: string;
+}
+
 /**
  * Abre uma transação já identificada com o usuário.
  * As políticas de RLS leem `app.user_id`; sem ele, nenhuma linha é visível (falha fechada).
  * O `true` em set_config faz o valor valer só dentro desta transação.
  */
-export async function withUser<T>(db: Db, userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
-  if (!UUID_RE.test(userId)) throw new TypeError("withUser: userId precisa ser um UUID");
+export async function withUser<T>(db: Db, ctx: TxContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  if (!UUID_RE.test(ctx.userId)) throw new TypeError("withUser: userId precisa ser um UUID");
   return db.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('app.user_id', ${userId}, true)`);
+    await tx.execute(sql`select set_config('app.user_id', ${ctx.userId}, true)`);
+    if (ctx.requestId) {
+      await tx.execute(sql`select set_config('app.request_id', ${ctx.requestId}, true)`);
+    }
     return fn(tx);
   });
 }

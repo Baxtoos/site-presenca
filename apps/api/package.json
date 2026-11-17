@@ -15,6 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fastify/helmet": "catalog:",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-fastify": "catalog:",
@@ -22,6 +23,7 @@
     "@presenca/db": "workspace:*",
     "@presenca/engine": "workspace:*",
     "fastify": "catalog:",
+    "pino": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "zod": "catalog:"
@@ -31,6 +33,7 @@
     "@nestjs/testing": "catalog:",
     "@swc/core": "catalog:",
     "@types/node": "catalog:",
+    "pino-pretty": "catalog:",
     "typescript": "catalog:",
     "unplugin-swc": "catalog:",
     "vitest": "catalog:"
