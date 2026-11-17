@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/* Tokens do app (tinta azul de caneta, papel frio). O design completo chega com as telas. */
+@theme {
+  --color-paper: #f4f6f8;
+  --color-ink: #15212c;
+  --color-muted: #56657a;
+  --color-line: #d9e0e8;
+  --color-accent: #1d5c8c;
+  --color-ok: #2c7a4b;
+  --color-fail: #ae2a22;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #0e141a;
+    --color-ink: #e4eaf0;
+    --color-muted: #9aa9b8;
+    --color-line: #2a3642;
+    --color-accent: #74aee0;
+    --color-ok: #6cc891;
+    --color-fail: #f07a72;
+    color-scheme: dark;
+  }
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}

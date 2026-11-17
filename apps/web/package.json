@@ -1,0 +1,27 @@
+{
+  "name": "@presenca/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Interface (Next.js). Fala só com a API, pelo proxy /api. Nunca acessa o banco.",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@presenca/contracts": "workspace:*",
+    "@presenca/engine": "workspace:*",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

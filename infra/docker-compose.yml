@@ -1,0 +1,43 @@
+# Serviços de apoio para desenvolvimento local. Sobe com:  pnpm infra:up
+# Todas as portas ficam presas a 127.0.0.1: nada é exposto para a rede.
+name: presenca
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      # Superusuário só para o init local; a aplicação usa os papéis criados em postgres/init.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d presenca"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    # Captura todos os e-mails enviados em desenvolvimento. Interface: http://localhost:8025
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+
+volumes:
+  pgdata:

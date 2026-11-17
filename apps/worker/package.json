@@ -1,0 +1,28 @@
+{
+  "name": "@presenca/worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Processo separado: envia alertas (outbox) e roda tarefas agendadas.",
+  "main": "./dist/main.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@presenca/db": "workspace:*",
+    "@presenca/emails": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
