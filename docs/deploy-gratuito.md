@@ -80,6 +80,13 @@ DATABASE_URL_OWNER="$(grep ^DATABASE_URL_OWNER= ~/presenca-producao.env | cut -d
 
 1. Crie a conta em upstash.com e um banco Redis, região **us-east-1**.
 2. Copie a URL que começa com `rediss://` (com TLS). Ela será o `REDIS_URL` da API.
+   Formato: `rediss://default:SENHA@NOME.upstash.io:6379`. A senha é o mesmo "token" que o painel
+   mostra; use a conexão **Redis (TCP)**, não a de REST.
+
+Já foi testado com um Redis do Upstash: a API sobe com `redis: up` no `/readyz` e o limite de
+tentativas funciona (as 10 primeiras requisições passam e a 11ª recebe 429 com `Retry-After`). Cada
+tentativa usa poucos comandos, então os 500 mil por mês do plano gratuito sobram para um grupo de
+alunos.
 
 ## 5. Chaves do push (opcional)
 
