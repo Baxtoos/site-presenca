@@ -10,14 +10,20 @@
  * Ao sair da conta, o app apaga o cache de páginas (ver lib/offline-cache.ts).
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `presenca-static-${VERSION}`;
 const PAGES_CACHE = "presenca-pages";
 const OFFLINE_URL = "/offline";
 const NAV_TIMEOUT_MS = 4000;
 
 /** Páginas que valem a pena abrir offline (todas da área logada). Login e cadastro, não. */
-const CACHEABLE_PAGES = [/^\/$/, /^\/hoje$/, /^\/materias\/[^/]+$/, /^\/semestres(\/[^/]+)?$/];
+const CACHEABLE_PAGES = [
+  /^\/$/,
+  /^\/hoje$/,
+  /^\/avisos$/,
+  /^\/materias\/[^/]+$/,
+  /^\/semestres(\/[^/]+)?$/,
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -120,4 +126,44 @@ self.addEventListener("fetch", (event) => {
   }
   // O resto (dados RSC das navegações do Next, etc.) vai direto para a rede. Sem internet, o Next
   // faz uma navegação completa, que cai no handleNavigation acima.
+});
+
+// ---------------------------------------------------------------------------------------------
+// Notificações (Web Push). O worker manda { title, body, url, tag } cifrado com VAPID.
+
+self.addEventListener("push", (event) => {
+  let data = { title: "Monitor de Presenças", body: "Você tem um aviso novo.", url: "/avisos" };
+  try {
+    data = { ...data, ...event.data.json() };
+  } catch {
+    // Conteúdo fora do formato: mostra o aviso genérico.
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: data.tag,
+      lang: "pt-BR",
+      data: { url: data.url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url ?? "/avisos", self.location.origin);
+  // Só abre páginas do próprio app.
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        await open.focus();
+        return open.navigate(target.href);
+      }
+      return self.clients.openWindow(target.href);
+    })(),
+  );
 });

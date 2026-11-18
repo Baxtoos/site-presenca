@@ -7,6 +7,7 @@ import type { Env } from "./config/env";
 import { DatabaseModule } from "./database/database.module";
 import { HealthController } from "./health/health.controller";
 import { MailModule } from "./mail/mail.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { OpenApiController } from "./openapi/openapi.controller";
 import { RedisModule } from "./redis/redis.module";
 
@@ -24,6 +25,7 @@ export class AppModule {
         AuthModule,
         AcademicModule,
         AttendanceModule,
+        NotificationsModule,
       ],
       controllers: [HealthController, OpenApiController],
     };

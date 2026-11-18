@@ -11,6 +11,7 @@ import type { AttendanceTotals } from "@presenca/engine";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { assertVersioned } from "../common/versioning";
 import { DbService } from "../database/db.service";
+import { ThresholdAlerts } from "../notifications/threshold-alerts";
 import { NO_ATTENDANCE, scheduleColumns, subjectColumns, toSchedule, toSubject } from "./mappers";
 import { SemestersService } from "./semesters.service";
 
@@ -23,6 +24,7 @@ export class SubjectsService {
   constructor(
     private readonly db: DbService,
     private readonly semesters: SemestersService,
+    private readonly alerts: ThresholdAlerts,
   ) {}
 
   list(semesterId: string): Promise<Subject[]> {
@@ -73,7 +75,11 @@ export class SubjectsService {
         .where(and(eq(subjects.id, id), eq(subjects.version, expectedVersion)))
         .returning({ id: subjects.id });
       await assertVersioned(rows, () => this.exists(tx, id), "Matéria não encontrada.");
-      return this.load(tx, id);
+      // Regras novas mudam o limite: pode cruzar (ou voltar abaixo de) um marco sem nenhuma falta nova.
+      const subject = await this.load(tx, id);
+      const [row] = await tx.select().from(subjects).where(eq(subjects.id, id));
+      await this.alerts.evaluate(tx, row!, subject.summary);
+      return subject;
     });
   }
 

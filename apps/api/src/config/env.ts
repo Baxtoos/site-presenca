@@ -55,6 +55,10 @@ const envSchema = z
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
 
+    // ---- Web Push (opcional: sem a chave, o app não oferece push) ----
+    /** Chave pública VAPID (a privada fica só no worker). Gerar: `npx web-push generate-vapid-keys`. */
+    VAPID_PUBLIC_KEY: optionalString,
+
     // ---- Login com Google (opcional: sem as duas variáveis, o botão some) ----
     GOOGLE_CLIENT_ID: optionalString,
     GOOGLE_CLIENT_SECRET: optionalString,

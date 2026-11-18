@@ -7,16 +7,13 @@ interface MessageSummary {
   Created: string;
 }
 
-/**
- * Espera chegar um e-mail para o endereço com o assunto informado, criado depois de `since`,
- * e devolve o link com token que está nele.
- */
-export async function waitForLink(
+/** Espera chegar um e-mail para o endereço com o assunto informado, criado depois de `since`. */
+export async function waitForEmail(
   to: string,
   subject: string,
   since: Date,
   timeoutMs = 15_000,
-): Promise<string> {
+): Promise<{ subject: string; text: string; html: string }> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const query = encodeURIComponent(`to:"${to}" subject:"${subject}"`);
@@ -26,13 +23,26 @@ export async function waitForLink(
     const message = search.messages.find((m) => new Date(m.Created) >= since);
     if (message) {
       const full = (await (await fetch(`${MAILPIT}/api/v1/message/${message.ID}`)).json()) as {
+        Subject: string;
         Text: string;
+        HTML: string;
       };
-      const link = full.Text.match(/https?:\/\/\S+?token=[A-Za-z0-9_-]{43}/)?.[0];
-      if (!link) throw new Error(`e-mail "${subject}" sem link com token`);
-      return link;
+      return { subject: full.Subject, text: full.Text, html: full.HTML };
     }
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
   throw new Error(`nenhum e-mail "${subject}" para ${to} em ${timeoutMs} ms`);
+}
+
+/** Como `waitForEmail`, mas devolve o link com token que está no e-mail. */
+export async function waitForLink(
+  to: string,
+  subject: string,
+  since: Date,
+  timeoutMs = 15_000,
+): Promise<string> {
+  const { text } = await waitForEmail(to, subject, since, timeoutMs);
+  const link = text.match(/https?:\/\/\S+?token=[A-Za-z0-9_-]{43}/)?.[0];
+  if (!link) throw new Error(`e-mail "${subject}" sem link com token`);
+  return link;
 }

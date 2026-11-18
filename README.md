@@ -202,6 +202,48 @@ Tudo dentro da API, sem serviço externo de identidade.
   `e2e/tests/offline.spec.ts`. O teste do service worker só roda contra o build de produção (como
   no CI); em `next dev` ele é pulado.
 
+## Avisos e notificações
+
+- **Marcos de alerta** (50/75/90/100% do limite de faltas), regra pura em
+  `packages/engine/src/thresholds.ts` (testada por propriedades): cada marco de cada matéria tem
+  `armed`/`cycle` em `subject_threshold_state`. Cruzar um marco armado desarma, soma um ciclo e gera
+  o aviso; voltar abaixo dele (falta apagada, abonada ou corrigida) rearma. Num salto que cruza
+  vários marcos, só o mais grave é enviado; os outros ficam registrados como pulados.
+- **Outbox transacional:** a API avalia os marcos **na mesma transação** que muda os números
+  (registrar, corrigir, apagar presença ou mudar as regras da matéria) e grava em
+  `notification_logs`: a central (`in_app`) já entregue, e-mail e push como `pending`. O
+  `dedupe_key` (`threshold:{matéria}:{marco}:{ciclo}`) com `UNIQUE (dedupe_key, channel)` impede
+  aviso repetido. Um trigger faz `pg_notify('presenca_outbox')`, que só sai no COMMIT.
+- **Worker** (`apps/worker`): escuta o NOTIFY (reconecta sozinho) e varre a fila a cada 30 s como
+  rede de segurança. Reserva lotes com `FOR UPDATE SKIP LOCKED` e um prazo de 5 min (se o worker
+  morrer no meio, outro retoma). Falhas tentam de novo em 1, 2, 4, 8, 16 min, até 6 tentativas.
+  Decide na hora do envio: e-mail só para quem confirmou o endereço; preferências valem as atuais.
+  - **E-mail:** os mesmos transportes da API (`@presenca/emails/transport`: SMTP/Mailpit, Resend),
+    com o id do aviso como chave de idempotência.
+  - **Web Push (VAPID):** biblioteca `web-push` 3.6.7. Aparelho que cancelou (404/410) é apagado;
+    o que falha 5 vezes seguidas também. Sem chaves VAPID, os pushes ficam como pulados.
+  - **Horário silencioso:** dentro da janela do aluno (no fuso dele), o envio é adiado para o fim
+    dela sem gastar tentativa. A central recebe na hora.
+  - **Lembrete de chamada:** diário (se ficou aula de hoje sem registro) ou semanal (últimos 7 dias),
+    no horário escolhido, no fuso do aluno; feriados não contam. Vai por push, ou por e-mail se o
+    aluno não tem push. Um por dia (`dedupe_key`).
+  - **Limpeza de hora em hora:** chaves de idempotência com mais de 24 h, sessões vencidas há 7
+    dias, links de uso único vencidos.
+  - Permissões (migration `0004_notifications`): o `app_worker` lê só as colunas necessárias. Dos
+    registros de presença, só "qual aula tem registro" (nunca status, motivo ou observação).
+- **API:** `GET /v1/notifications` (cursor, contador de não lidos), `POST /v1/notifications/:id/read`,
+  `POST /v1/notifications/read-all`, `POST /v1/notifications/test` (um a cada 20 s),
+  `GET|PUT /v1/notification-preferences`, `POST|DELETE /v1/push-subscriptions` (endereço de outra
+  conta → 409 `PUSH_ENDPOINT_IN_USE`).
+- **Web:** sino com contador no cabeçalho, página `/avisos`, preferências em Conta (marcos, e-mail,
+  push por aparelho com "Enviar teste", lembrete, horário silencioso). O service worker mostra o
+  push e abre a página do aviso ao tocar. Ao sair, o push daquele aparelho é desativado.
+- **Configurar o push:** `pnpm --filter @presenca/worker exec web-push generate-vapid-keys`. A
+  chave pública vai em `VAPID_PUBLIC_KEY` (API e worker), a privada **só** no worker
+  (`VAPID_PRIVATE_KEY`), mais `VAPID_SUBJECT` (mailto: ou https:). O push precisa do build de
+  produção (service worker) e de um navegador com serviço de push: não funciona em aba anônima nem
+  no Chromium de testes.
+
 ## API
 
 - **Erros:** sempre `application/problem+json` (RFC 9457), com `code` estável e `requestId`.

@@ -16,12 +16,13 @@ import {
 import { schema, type Tx } from "@presenca/db";
 import { isoWeekday } from "@presenca/engine";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { loadSummary } from "../academic/summary";
+import { loadSummary, type SubjectRow } from "../academic/summary";
 import { isUniqueViolation } from "../auth/user-mapper";
 import { ClockService } from "../common/clock";
 import { type IdempotentResult, IdempotencyService } from "../common/idempotency";
 import { assertVersioned } from "../common/versioning";
 import { DbService } from "../database/db.service";
+import { ThresholdAlerts } from "../notifications/threshold-alerts";
 import {
   type AttendanceRow,
   brDate,
@@ -46,7 +47,15 @@ export class AttendanceService {
     private readonly db: DbService,
     private readonly idempotency: IdempotencyService,
     private readonly clock: ClockService,
+    private readonly alerts: ThresholdAlerts,
   ) {}
+
+  /** Resumo recalculado e, na mesma transação, os alertas de marco que a mudança causou. */
+  private async summarizeAndAlert(tx: Tx, subject: SubjectRow) {
+    const summary = await loadSummary(tx, subject);
+    await this.alerts.evaluate(tx, subject, summary);
+    return summary;
+  }
 
   // ---------------------------------------------------------------- criar
 
@@ -164,7 +173,7 @@ export class AttendanceService {
       throw error;
     }
 
-    return { record: toRecord(row), summary: await loadSummary(tx, subject) };
+    return { record: toRecord(row), summary: await this.summarizeAndAlert(tx, subject) };
   }
 
   private conflict(existingId?: string) {
@@ -223,7 +232,7 @@ export class AttendanceService {
       const row = await assertVersioned(rows, async () => true, "Registro não encontrado.");
 
       const [subject] = await tx.select().from(subjects).where(eq(subjects.id, row.subjectId));
-      return { record: toRecord(row), summary: await loadSummary(tx, subject!) };
+      return { record: toRecord(row), summary: await this.summarizeAndAlert(tx, subject!) };
     });
   }
 
@@ -247,7 +256,7 @@ export class AttendanceService {
         "Registro não encontrado.",
       );
       const [subject] = await tx.select().from(subjects).where(eq(subjects.id, row.subjectId));
-      return { summary: await loadSummary(tx, subject!) };
+      return { summary: await this.summarizeAndAlert(tx, subject!) };
     });
   }
 

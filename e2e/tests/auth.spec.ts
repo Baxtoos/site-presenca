@@ -4,6 +4,12 @@ import { waitForLink } from "./mailpit";
 const uniqueEmail = (testInfo: { project: { name: string } }) =>
   `e2e.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
 
+/** Sai pela página Conta (no celular o botão do cabeçalho fica escondido). */
+async function logout(page: Page) {
+  await page.goto("/conta");
+  await page.getByRole("region", { name: "Sair" }).getByRole("button", { name: "Sair" }).click();
+}
+
 /** Abre o link do e-mail no mesmo endereço do teste (o e-mail usa WEB_ORIGIN). */
 async function openEmailLink(page: Page, link: string) {
   const url = new URL(link);
@@ -44,7 +50,7 @@ test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → 
   await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
 
   // Sair e entrar de novo; senha errada mostra a mensagem genérica.
-  await page.getByRole("button", { name: "Sair" }).click();
+  await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/\/entrar$/);
   await page.getByLabel("E-mail").fill(email);
@@ -56,7 +62,7 @@ test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → 
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
 
   // Esqueci a senha (pedido feito deslogado).
-  await page.getByRole("button", { name: "Sair" }).click();
+  await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Esqueci a senha" }).click();
   await expect(page.getByRole("heading", { name: "Esqueci a senha" })).toBeVisible();
@@ -74,7 +80,7 @@ test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → 
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
 
   // A senha antiga não funciona mais.
-  await page.getByRole("button", { name: "Sair" }).click();
+  await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);

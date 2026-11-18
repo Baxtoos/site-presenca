@@ -69,10 +69,12 @@ jobs:
       - run: pnpm db:migrate
       - run: pnpm build
 
-      - name: Sobe API e web
+      - name: Sobe API, worker e web
         run: |
           # NODE_ENV=test: sem consulta externa de senhas vazadas; resto igual ao .env de desenvolvimento.
           NODE_ENV=test nohup node apps/api/dist/main.js > api.log 2>&1 &
+          # O worker entrega os alertas por e-mail (Mailpit) que o E2E de avisos confere.
+          NODE_ENV=test nohup node apps/worker/dist/main.js > worker.log 2>&1 &
           nohup pnpm --filter @presenca/web start > web.log 2>&1 &
           curl -sf --retry 30 --retry-delay 2 --retry-all-errors http://localhost:4000/readyz
           curl -sf --retry 30 --retry-delay 2 --retry-all-errors -o /dev/null http://localhost:3000/entrar
@@ -89,6 +91,7 @@ jobs:
             e2e/playwright-report
             e2e/test-results
             api.log
+            worker.log
             web.log
           retention-days: 7
 

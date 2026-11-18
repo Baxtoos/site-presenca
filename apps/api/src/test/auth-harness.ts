@@ -29,6 +29,10 @@ export class FakeGoogle implements GoogleOAuth {
   }
 }
 
+/** Chave pública VAPID de teste (só é repassada ao navegador; a assinatura é do worker). */
+export const TEST_VAPID_PUBLIC_KEY =
+  "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM";
+
 /** Relógio de teste: "agora" fixo, que cada teste pode mover. Padrão: 18/11/2026 12:00 em São Paulo (quarta). */
 export class FakeClock extends ClockService {
   instant = new Date("2026-11-18T15:00:00Z");
@@ -63,6 +67,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
     env: {
       DATABASE_URL: db.urls.app_api,
       REDIS_URL: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
+      VAPID_PUBLIC_KEY: TEST_VAPID_PUBLIC_KEY,
     },
     override: (builder) =>
       builder

@@ -2,7 +2,7 @@
   "name": "@presenca/worker",
   "version": "0.0.0",
   "private": true,
-  "description": "Processo separado: envia alertas (outbox) e roda tarefas agendadas.",
+  "description": "Processo separado: entrega os avisos do outbox (e-mail, push), gera lembretes de chamada e limpa dados expirados.",
   "main": "./dist/main.js",
   "files": [
     "dist"
@@ -12,15 +12,21 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
+    "@presenca/contracts": "workspace:*",
     "@presenca/db": "workspace:*",
     "@presenca/emails": "workspace:*",
+    "pg": "catalog:",
+    "web-push": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@types/web-push": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { NotificationBell } from "@/components/notifications/bell";
 import { OfflineProvider } from "@/components/offline-provider";
 import { ToastProvider } from "@/components/toast";
-import { getMe } from "@/lib/api-server";
+import { notificationListSchema } from "@presenca/contracts";
+import { apiGet, getMe } from "@/lib/api-server";
 import { LogoutButton } from "./home-client";
 import { NavLink } from "./nav-link";
 
@@ -11,6 +13,7 @@ import { NavLink } from "./nav-link";
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const me = await getMe();
   if (!me) redirect("/entrar");
+  const { unreadCount } = await apiGet("/v1/notifications?limit=1", notificationListSchema);
 
   return (
     <ToastProvider>
@@ -41,7 +44,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 <NavLink href="/semestres">Semestres</NavLink>
                 <NavLink href="/conta">Conta</NavLink>
               </nav>
-              <LogoutButton />
+              <NotificationBell unread={unreadCount} />
+              {/* No celular, "Sair" fica na página Conta: o cabeçalho não cabe tudo. */}
+              <div className="hidden shrink-0 sm:block">
+                <LogoutButton />
+              </div>
             </div>
           </header>
           <main className="mx-auto grid w-full max-w-3xl grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-28 pt-6">

@@ -138,3 +138,23 @@ export function magicLinkMessage(params: { url: string; newAccount: boolean }): 
       "O link vale por 15 minutos e funciona uma vez. Se você não pediu este acesso, ignore este e-mail.",
   });
 }
+
+/**
+ * Aviso do app (alerta de faltas, lembrete de chamada). O título e o texto vêm de
+ * `notificationContent` (contracts), os mesmos da central e do push.
+ */
+export function noticeMessage(params: {
+  name: string;
+  title: string;
+  body: string;
+  url: string;
+  settingsUrl: string;
+}): RenderedEmail {
+  return render(params.title, {
+    title: params.title,
+    paragraphs: [`Olá, ${params.name}.`, params.body],
+    actionLabel: "Abrir no app",
+    actionUrl: params.url,
+    footnote: `Você recebe este e-mail porque os avisos por e-mail estão ligados. Para mudar, abra ${params.settingsUrl}.`,
+  });
+}

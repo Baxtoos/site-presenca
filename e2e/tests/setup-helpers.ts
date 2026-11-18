@@ -18,6 +18,9 @@ export function isoWeekday(iso: string): number {
   return day === 0 ? 7 : day;
 }
 
+export const uniqueEmail = (testInfo: TestInfo, slug: string) =>
+  `e2e.${slug}.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
+
 /**
  * Conta nova + semestre em volta de hoje + uma matéria com aula de 2 tempos no dia da semana de
  * hoje (limite de 18 tempos). Termina no semestre, com o card da matéria visível.
@@ -25,17 +28,13 @@ export function isoWeekday(iso: string): number {
 export async function setupStudentWithClassToday(
   page: Page,
   testInfo: TestInfo,
-  opts: { name: string; slug: string; subject: string },
+  opts: { name: string; slug: string; subject: string; email?: string },
 ): Promise<string> {
   const today = todayInSaoPaulo();
   await page.goto("/cadastro");
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
   await page.getByLabel("Nome").fill(opts.name);
-  await page
-    .getByLabel("E-mail")
-    .fill(
-      `e2e.${opts.slug}.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`,
-    );
+  await page.getByLabel("E-mail").fill(opts.email ?? uniqueEmail(testInfo, opts.slug));
   await page.getByLabel("Senha", { exact: true }).fill(`senha-forte-${opts.slug}-e2e`);
   await page.getByRole("button", { name: "Criar conta" }).click();
 

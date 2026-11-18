@@ -1,0 +1,72 @@
+import webpush, { WebPushError } from "web-push";
+
+export interface PushTarget {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+export interface PushMessage {
+  title: string;
+  body: string;
+  url: string;
+  /** Avisos com a mesma tag se substituem na tela (ex.: o lembrete do dia). */
+  tag: string;
+}
+
+export type PushOutcome =
+  | { ok: true }
+  /** O aparelho cancelou a inscrição (404/410): apagar. */
+  | { ok: false; gone: true; error: string }
+  | { ok: false; gone: false; error: string };
+
+export interface PushSender {
+  readonly configured: boolean;
+  send(target: PushTarget, message: PushMessage, urgent: boolean): Promise<PushOutcome>;
+}
+
+/** Web Push com VAPID (biblioteca web-push: criptografia do conteúdo e assinatura). */
+export class WebPushSender implements PushSender {
+  readonly configured: boolean;
+
+  constructor(
+    private readonly vapid: { publicKey?: string; privateKey?: string; subject: string },
+  ) {
+    this.configured = Boolean(vapid.publicKey && vapid.privateKey);
+  }
+
+  async send(target: PushTarget, message: PushMessage, urgent: boolean): Promise<PushOutcome> {
+    try {
+      await webpush.sendNotification(
+        { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
+        JSON.stringify(message),
+        {
+          vapidDetails: {
+            subject: this.vapid.subject,
+            publicKey: this.vapid.publicKey!,
+            privateKey: this.vapid.privateKey!,
+          },
+          // Um alerta de faltas que chega um dia depois ainda serve; uma semana depois, não.
+          TTL: 24 * 60 * 60,
+          urgency: urgent ? "high" : "normal",
+          timeout: 10_000,
+        },
+      );
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof WebPushError) {
+        const gone = error.statusCode === 404 || error.statusCode === 410;
+        return {
+          ok: false,
+          gone,
+          error: `push ${error.statusCode}: ${error.body || error.message}`,
+        };
+      }
+      return {
+        ok: false,
+        gone: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+}

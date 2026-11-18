@@ -12,6 +12,7 @@ import {
 } from "./auth";
 import { academicRoutes } from "./academic-routes";
 import { attendanceRoutes } from "./attendance-routes";
+import { notificationRoutes } from "./notification-routes";
 import { healthResponseSchema, readinessResponseSchema } from "./health";
 
 export type { HttpMethod, RouteDef, RouteResponse } from "./route-types";
@@ -194,6 +195,9 @@ export const routes = {
 
   // ---- Presença, aulas de hoje e simulador ----
   ...attendanceRoutes,
+
+  // ---- Notificações, preferências e push ----
+  ...notificationRoutes,
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteName = keyof typeof routes;

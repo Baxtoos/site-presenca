@@ -66,5 +66,11 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow, `rolagem lateral em ${url}`).toBeLessThanOrEqual(0);
+    // E a navegação mostra todos os links inteiros (sem rolar dentro dela).
+    const navOverflow = await page.evaluate(() => {
+      const nav = document.querySelector('nav[aria-label="Principal"]')!;
+      return nav.scrollWidth - nav.clientWidth;
+    });
+    expect(navOverflow, `navegação cortada em ${url}`).toBeLessThanOrEqual(0);
   }
 });

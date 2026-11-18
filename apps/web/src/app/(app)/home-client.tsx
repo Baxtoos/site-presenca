@@ -7,6 +7,7 @@ import { Alert, Button } from "@/components/ui";
 import { useOffline } from "@/components/offline-provider";
 import { api, ApiError } from "@/lib/api-client";
 import { clearOfflineData } from "@/lib/offline-cache";
+import { disablePushOnThisDevice } from "@/lib/push-client";
 import { plural } from "@/lib/format";
 
 export function LogoutButton() {
@@ -28,7 +29,10 @@ export function LogoutButton() {
           return;
         }
         setPending(true);
-        void api("/v1/auth/logout", { method: "POST" })
+        // Este aparelho para de receber os avisos desta conta (antes de a sessão acabar).
+        void disablePushOnThisDevice()
+          .catch(() => undefined)
+          .then(() => api("/v1/auth/logout", { method: "POST" }))
           .catch(() => undefined)
           // Páginas guardadas e fila offline têm dados desta conta: não ficam no aparelho.
           .then(() => clearOfflineData(offline.userId).catch(() => undefined))

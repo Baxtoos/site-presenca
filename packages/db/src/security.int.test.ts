@@ -330,10 +330,26 @@ describe("auditoria e versão", () => {
 });
 
 describe("papéis", () => {
-  it("o worker lê notificações de todos, mas não os registros de presença", async () => {
+  it("o worker lê notificações de todos, mas dos registros de presença só o necessário para o lembrete", async () => {
     const worker = db.pools.app_worker;
     expect(await count(worker, "select 1 from notification_logs")).toBe(2);
-    await expect(worker.query("select * from attendance_logs")).rejects.toThrow(
+    // Lembrete de chamada: saber QUAIS aulas têm registro, sem ver o conteúdo deles.
+    expect(
+      await count(
+        worker,
+        "select user_id, subject_id, schedule_id, class_date from attendance_logs",
+      ),
+    ).toBeGreaterThanOrEqual(2);
+    for (const column of ["*", "status", "note", "reason", "is_excused", "units_missed"]) {
+      await expect(worker.query(`select ${column} from attendance_logs`)).rejects.toThrow(
+        /permission denied/,
+      );
+    }
+    // Pode criar avisos (lembretes), mas não apagar o histórico de ninguém.
+    await expect(worker.query("delete from notification_logs")).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(worker.query("update semesters set label = 'x'")).rejects.toThrow(
       /permission denied/,
     );
   });
