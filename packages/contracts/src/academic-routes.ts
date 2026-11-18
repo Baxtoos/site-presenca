@@ -188,4 +188,16 @@ export const academicRoutes = {
     request: { params: exceptionParamsSchema },
     responses: { 204: { description: "Removida" }, 404: notFound },
   },
+  exportSemesterXlsx: {
+    method: "GET",
+    path: "/v1/semesters/:id/export.xlsx",
+    summary: "Exporta a planilha .xlsx do semestre (resumo com fórmulas, histórico e grade)",
+    tag: "Exportação",
+    auth: true,
+    request: { params: idParamsSchema },
+    responses: {
+      200: { description: "Planilha .xlsx em streaming" },
+      404: notFound,
+    },
+  },
 } as const satisfies Record<string, RouteDef>;

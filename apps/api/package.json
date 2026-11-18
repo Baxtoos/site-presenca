@@ -28,6 +28,7 @@
     "@presenca/engine": "workspace:*",
     "arctic": "catalog:",
     "drizzle-orm": "catalog:",
+    "exceljs": "catalog:",
     "fastify": "catalog:",
     "ioredis": "catalog:",
     "pino": "catalog:",

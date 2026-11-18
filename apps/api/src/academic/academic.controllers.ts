@@ -37,6 +37,8 @@ import {
 import type { FastifyReply } from "fastify";
 import { IfMatchVersion, setEtag } from "../common/versioning";
 import { ZodPipe } from "../common/zod.pipe";
+import { RateLimit } from "../rate-limit/rate-limit";
+import { ExcelExportService } from "./excel-export.service";
 import { ExceptionsService } from "./exceptions.service";
 import { SemestersService } from "./semesters.service";
 import { SubjectsService } from "./subjects.service";
@@ -50,6 +52,7 @@ export class SemestersController {
     private readonly semesters: SemestersService,
     private readonly subjects: SubjectsService,
     private readonly exceptions: ExceptionsService,
+    private readonly excel: ExcelExportService,
   ) {}
 
   @Get()
@@ -134,6 +137,23 @@ export class SemestersController {
     @Param(new ZodPipe(exceptionParamsSchema)) params: { id: string; exceptionId: string },
   ): Promise<void> {
     await this.exceptions.remove(params.id, params.exceptionId);
+  }
+
+  // ---- exportação Excel (.xlsx) ----
+
+  @Get(":id/export.xlsx")
+  @RateLimit({ bucket: "export", by: "user", limit: 10, windowSeconds: 3600 })
+  async exportXlsx(
+    @Param(idPipe) { id }: IdParams,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<Buffer> {
+    const { buffer, filename } = await this.excel.exportSemester(id);
+    void reply.header(
+      "content-type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    void reply.header("content-disposition", `attachment; filename="${filename}"`);
+    return buffer;
   }
 }
 

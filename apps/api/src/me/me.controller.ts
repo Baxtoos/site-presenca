@@ -8,8 +8,12 @@ import {
   Param,
   Patch,
   Res,
+  UnauthorizedException,
 } from "@nestjs/common";
 import {
+  AuthErrorCode,
+  type DeleteMeBody,
+  deleteMeBodySchema,
   type MeResponse,
   sessionIdParamsSchema,
   type SessionsResponse,
@@ -17,19 +21,22 @@ import {
   updateMeBodySchema,
 } from "@presenca/contracts";
 import { schema } from "@presenca/db";
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import type { FastifyReply } from "fastify";
 import { type AuthContext, CurrentAuth } from "../auth/decorators";
+import { PasswordService } from "../auth/password.service";
 import { SessionService } from "../auth/session.service";
 import { toMe } from "../auth/user-mapper";
 import { ZodPipe } from "../common/zod.pipe";
 import { DbService } from "../database/db.service";
+import { RateLimit } from "../rate-limit/rate-limit";
 
 @Controller("v1/me")
 export class MeController {
   constructor(
     private readonly db: DbService,
     private readonly sessions: SessionService,
+    private readonly passwords: PasswordService,
   ) {}
 
   @Get()
@@ -55,6 +62,119 @@ export class MeController {
     });
     if (!user) throw new NotFoundException();
     return toMe(user);
+  }
+
+  @Get("export.json")
+  @RateLimit({ bucket: "export", by: "user", limit: 10, windowSeconds: 3600 })
+  async exportData(@Res({ passthrough: true }) reply: FastifyReply) {
+    const data = await this.db.tx(async (tx) => {
+      const user = await tx.query.users.findFirst();
+      if (!user) throw new NotFoundException();
+
+      const preferences = await tx.query.notificationPreferences.findFirst();
+      const semesters = await tx
+        .select()
+        .from(schema.semesters)
+        .orderBy(asc(schema.semesters.startsOn));
+      const subjects = await tx.select().from(schema.subjects).orderBy(asc(schema.subjects.name));
+      const schedules = await tx
+        .select()
+        .from(schema.subjectSchedules)
+        .orderBy(asc(schema.subjectSchedules.weekday), asc(schema.subjectSchedules.startsAt));
+      const calendarExceptions = await tx
+        .select()
+        .from(schema.calendarExceptions)
+        .orderBy(asc(schema.calendarExceptions.startsOn));
+      const attendanceLogs = await tx
+        .select()
+        .from(schema.attendanceLogs)
+        .orderBy(asc(schema.attendanceLogs.classDate), asc(schema.attendanceLogs.createdAt));
+      const auditEvents = await tx
+        .select()
+        .from(schema.attendanceLogEvents)
+        .orderBy(asc(schema.attendanceLogEvents.id));
+      const sharedTemplates = await tx
+        .select()
+        .from(schema.sharedTemplates)
+        .orderBy(asc(schema.sharedTemplates.createdAt));
+      const templateImports = await tx
+        .select()
+        .from(schema.templateImports)
+        .orderBy(asc(schema.templateImports.importedAt));
+      const notifications = await tx
+        .select({
+          id: schema.notificationLogs.id,
+          kind: schema.notificationLogs.kind,
+          subjectId: schema.notificationLogs.subjectId,
+          thresholdPct: schema.notificationLogs.thresholdPct,
+          payload: schema.notificationLogs.payload,
+          readAt: schema.notificationLogs.readAt,
+          createdAt: schema.notificationLogs.createdAt,
+        })
+        .from(schema.notificationLogs)
+        .where(eq(schema.notificationLogs.channel, "in_app"))
+        .orderBy(asc(schema.notificationLogs.createdAt));
+
+      return {
+        exportedAt: new Date().toISOString(),
+        user: {
+          ...toMe(user),
+          createdAt: user.createdAt.toISOString(),
+          updatedAt: user.updatedAt.toISOString(),
+        },
+        notificationPreferences: preferences ?? null,
+        semesters,
+        subjects,
+        schedules,
+        calendarExceptions,
+        attendanceLogs,
+        auditEvents,
+        sharedTemplates,
+        templateImports,
+        notifications,
+      };
+    });
+
+    void reply.header("content-type", "application/json; charset=utf-8");
+    void reply.header("content-disposition", 'attachment; filename="meus-dados-presenca.json"');
+    return data;
+  }
+
+  @Delete()
+  @HttpCode(204)
+  @RateLimit({ bucket: "account-delete", by: "user", limit: 5, windowSeconds: 900 })
+  async deleteAccount(
+    @Body(new ZodPipe(deleteMeBodySchema)) body: DeleteMeBody,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<void> {
+    await this.db.tx(async (tx) => {
+      const user = await tx.query.users.findFirst();
+      if (!user) throw new NotFoundException();
+
+      if (user.passwordHash !== null) {
+        const ok =
+          typeof body.password === "string" &&
+          (await this.passwords.verify(user.passwordHash, body.password));
+        if (!ok) {
+          throw new UnauthorizedException({
+            code: AuthErrorCode.invalidCredentials,
+            detail: "Senha incorreta.",
+          });
+        }
+      } else {
+        const ok = typeof body.email === "string" && body.email === user.email;
+        if (!ok) {
+          throw new UnauthorizedException({
+            code: AuthErrorCode.invalidCredentials,
+            detail: "O e-mail informado não confere com o da conta.",
+          });
+        }
+      }
+
+      await tx.execute(sql`select app.delete_current_user()`);
+    });
+
+    this.sessions.clearCookie(reply);
   }
 
   @Get("sessions")

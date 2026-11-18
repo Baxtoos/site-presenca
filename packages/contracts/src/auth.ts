@@ -73,6 +73,21 @@ export type UpdateMeBody = z.infer<typeof updateMeBodySchema>;
 
 export const sessionIdParamsSchema = z.object({ id: z.uuid({ error: "Sessão inválida." }) });
 
+/**
+ * Confirmação para excluir a conta (LGPD):
+ * - se a conta tem senha (`hasPassword: true`), exige a `password` atual;
+ * - se entrou só por magic link ou Google (`hasPassword: false`), exige o `email` da conta.
+ */
+export const deleteMeBodySchema = z
+  .object({
+    password: z.string().min(1).max(128).optional(),
+    email: emailSchema.optional(),
+  })
+  .refine((b) => Boolean(b.password || b.email), {
+    error: "Confirme sua senha ou seu e-mail para excluir a conta.",
+  });
+export type DeleteMeBody = z.infer<typeof deleteMeBodySchema>;
+
 // ---- Respostas ----
 
 export const meResponseSchema = z.object({

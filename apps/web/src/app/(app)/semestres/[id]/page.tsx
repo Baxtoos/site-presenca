@@ -48,16 +48,25 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
       </header>
 
       <section className="grid gap-3" aria-labelledby="materias">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="materias" className="font-semibold">
             Matérias
           </h2>
-          <Link
-            href={`/semestres/${semester.id}/materias/nova`}
-            className="inline-flex min-h-10 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink"
-          >
-            Adicionar matéria
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={`/api/v1/semesters/${semester.id}/export.xlsx`}
+              download
+              className="inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink hover:border-accent/50"
+            >
+              Exportar Excel (.xlsx)
+            </a>
+            <Link
+              href={`/semestres/${semester.id}/materias/nova`}
+              className="inline-flex min-h-10 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink"
+            >
+              Adicionar matéria
+            </Link>
+          </div>
         </div>
         {subjects.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line bg-surface p-6 text-sm text-muted">

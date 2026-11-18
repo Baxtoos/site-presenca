@@ -158,6 +158,11 @@ Em _Settings → Secrets and variables → Actions_, crie os segredos:
 Depois, em _Actions → Worker (pontual) → Run workflow_, rode uma vez à mão e veja o log: tem de
 aparecer "ciclo único concluído". A partir daí ele roda sozinho a cada 15 minutos.
 
+> **Atalho:** se você estiver no computador com o Git autenticado e o arquivo `~/presenca-producao.env`,
+> rode `bash infra/prod/finish-deploy.sh`: ele pede os valores que faltarem (`WEB_ORIGIN`,
+> `API_INTERNAL_URL`, `REDIS_URL`, `SMTP_URL`, `MAIL_FROM`), grava em `~/presenca-producao.env`,
+> envia todos os segredos ao GitHub Actions, dispara o primeiro ciclo do worker e confere o deploy.
+
 - **Repositório privado:** o GitHub dá 2000 min/mês de graça e cada execução gasta ~1 min. Edite o
   `cron` em `.github/workflows/worker.yml` para `*/30`.
 - Se o repositório ficar 60 dias sem nenhum commit, o GitHub pode desligar os agendamentos;
@@ -190,8 +195,9 @@ Depois, à mão, no site:
 
 ## 12. Rotina
 
-- **Backup:** `docker run --rm postgres:17-alpine pg_dump "<ADMIN_DATABASE_URL>" > backup.sql`
-  (guarde o arquivo em local seguro; contém dados dos alunos).
+- **Backup (com teste de restauração):** `bash infra/prod/backup.sh --verify`
+  (gera um dump compactado em `~/backups-presenca/` com permissão `600` e testa a restauração em
+  um container PostgreSQL 17 temporário).
 - **Trocar senhas:** rode de novo o `db:provision` (passo 2), atualize as variáveis no Render e no
   GitHub.
 - **Versão nova:** `git push` na `main` publica sozinho na Vercel e no Render. Se houver migration

@@ -17,6 +17,15 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <section className="grid gap-6 rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-8">
         {children}
       </section>
+      <footer className="flex flex-wrap justify-center gap-4 text-xs text-muted">
+        <Link href="/termos" className="hover:text-ink hover:underline">
+          Termos de Uso
+        </Link>
+        <span aria-hidden>·</span>
+        <Link href="/privacidade" className="hover:text-ink hover:underline">
+          Privacidade e LGPD
+        </Link>
+      </footer>
     </main>
   );
 }

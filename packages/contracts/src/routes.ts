@@ -1,5 +1,6 @@
 import {
   acceptedResponseSchema,
+  deleteMeBodySchema,
   emailBodySchema,
   loginBodySchema,
   meResponseSchema,
@@ -188,6 +189,26 @@ export const routes = {
     responses: {
       204: { description: "Sessão encerrada" },
       404: { description: "Sessão não encontrada" },
+    },
+  },
+  exportMe: {
+    method: "GET",
+    path: "/v1/me/export.json",
+    summary: "Baixa todos os dados da conta em JSON (portabilidade / LGPD)",
+    tag: "Perfil",
+    auth: true,
+    responses: { 200: { description: "Arquivo JSON completo com os dados do aluno" } },
+  },
+  deleteMe: {
+    method: "DELETE",
+    path: "/v1/me",
+    summary: "Exclui definitivamente a conta, matérias, registros e histórico (LGPD)",
+    tag: "Perfil",
+    auth: true,
+    request: { body: deleteMeBodySchema },
+    responses: {
+      204: { description: "Conta excluída e sessão encerrada" },
+      401: { description: "Senha ou e-mail de confirmação incorretos (INVALID_CREDENTIALS)" },
     },
   },
 
