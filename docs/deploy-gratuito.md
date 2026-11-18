@@ -44,37 +44,37 @@ comandos abaixo rodam **no seu computador**, uma vez, para preparar o banco.
    o host **sem** `-pooler`. O app precisa de conexão direta (o `LISTEN/NOTIFY` e as transações com
    usuário por requisição não combinam com o pooler).
 
-Essa é a URL de **administração** (`ADMIN_DATABASE_URL`). Ela só é usada no passo 2.
+Essa é a URL de **administração** (`ADMIN_DATABASE_URL`). Ela só é usada no passo 2. Nunca cole essa
+string em chats, e-mails ou no repositório: se ela vazar, troque a senha do `neondb_owner` no Neon
+(_Roles → Reset password_) antes de continuar.
 
-## 2. Papéis do banco
+## 2. Papéis do banco, migrations e conferência (um comando)
 
-O Docker local cria os papéis do app sozinho; num banco gerenciado, quem faz isso é este comando:
-
-```bash
-ADMIN_DATABASE_URL='postgresql://dono:senha@ep-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require' \
-  pnpm --filter @presenca/db db:provision
-```
-
-Ele cria `app_owner`, `app_api`, `app_worker` e `app_auth` com senhas fortes geradas na hora e
-imprime três linhas (`DATABASE_URL_OWNER`, `DATABASE_URL`, `WORKER_DATABASE_URL`). **Copie e guarde
-agora**: as senhas não ficam em nenhum outro lugar. Rodar de novo troca as senhas (use isso se
-vazar alguma).
-
-## 3. Migrations
+O Docker local cria os papéis do app sozinho; num banco gerenciado, quem faz isso é este script. Ele
+pede a conexão de administração **com o texto escondido**, cria `app_owner`, `app_api`,
+`app_worker` e `app_auth` com senhas fortes geradas na hora, aplica as migrations, confere as
+permissões e grava as URLs novas em `~/presenca-producao.env` (permissão 600, **fora** do
+repositório). Nenhuma senha é impressa na tela:
 
 ```bash
-DATABASE_URL_OWNER='<a linha DATABASE_URL_OWNER do passo 2>' pnpm --filter @presenca/db db:migrate
+bash infra/prod/provision.sh
 ```
 
-Depois confira se os papéis têm só as permissões previstas:
+Tem de terminar com "Papéis do banco OK.". Abra o arquivo `~/presenca-producao.env` para copiar os
+valores nos próximos passos. Rodar de novo gera senhas novas (use isso se alguma vazar).
+
+Com a CLI da Neon logada (`neon login`), dá para o script usar a conexão sem digitar nada:
+`ADMIN_DATABASE_URL="$(neon connection-string production --role-name neondb_owner)" bash infra/prod/provision.sh`.
+
+## 3. Migrations futuras
+
+O passo 2 já aplicou as migrations atuais. Quando o projeto ganhar uma migration nova, rode no seu
+computador, antes (ou logo depois) de publicar a versão nova:
 
 ```bash
-DATABASE_URL='<DATABASE_URL>' WORKER_DATABASE_URL='<WORKER_DATABASE_URL>' \
-  pnpm --filter @presenca/db verify:roles
+DATABASE_URL_OWNER="$(grep ^DATABASE_URL_OWNER= ~/presenca-producao.env | cut -d= -f2-)" \
+  pnpm --filter @presenca/db db:migrate
 ```
-
-Tem de terminar com "Papéis do banco OK.". Sempre que o projeto ganhar uma migration nova, rode o
-`db:migrate` de novo antes (ou logo depois) de publicar a versão nova.
 
 ## 4. Upstash (Redis)
 

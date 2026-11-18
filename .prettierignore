@@ -6,3 +6,7 @@ coverage
 pnpm-lock.yaml
 planejamento.html
 packages/db/migrations/meta
+
+# Skills da Neon instaladas pela CLI (arquivos de terceiros, atualizados por `neon skills update`)
+.claude/skills
+skills-lock.json
