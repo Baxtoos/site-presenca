@@ -31,6 +31,9 @@ jobs:
       - name: Vulnerabilidades em dependências de produção
         run: pnpm audit --prod --audit-level high
       - run: pnpm format:check
+      # O lint usa tipos: os pacotes internos (dist/*.d.ts) precisam estar compilados antes.
+      - name: Compilar pacotes internos
+        run: pnpm turbo run build --filter="./packages/*"
       - run: pnpm lint
       - name: Barreira de arquitetura (web nunca importa o banco)
         run: pnpm lint:deps
