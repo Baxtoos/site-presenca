@@ -546,7 +546,7 @@ export function NewSubjectWizard({ semesterId }: { semesterId: string }) {
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="grid gap-6" noValidate>
+    <form method="post" onSubmit={(e) => void onSubmit(e)} className="grid gap-6" noValidate>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <section className="rounded-2xl border border-line bg-surface p-6">
         <SubjectFields draft={draft} set={set} errors={errors} />
@@ -610,7 +610,7 @@ export function EditSubjectForm({ subject }: { subject: Subject }) {
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="grid gap-4" noValidate>
+    <form method="post" onSubmit={(e) => void onSubmit(e)} className="grid gap-4" noValidate>
       {error ? <Alert tone="error">{error}</Alert> : null}
       {saved ? <Alert tone="success">Matéria atualizada.</Alert> : null}
       <SubjectFields draft={draft} set={set} errors={errors} />

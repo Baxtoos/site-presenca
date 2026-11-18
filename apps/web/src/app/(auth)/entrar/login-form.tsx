@@ -35,7 +35,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="grid gap-4" noValidate>
+    <form method="post" onSubmit={(e) => void onSubmit(e)} className="grid gap-4" noValidate>
       {error ? <Alert tone="error">{error}</Alert> : null}
       <Field
         id="email"

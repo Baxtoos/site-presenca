@@ -1,39 +1,7 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 
-/** Botão principal (cheio) ou secundário (contorno). Mostra estado de carregamento sem mudar de tamanho. */
-export function Button({
-  variant = "primary",
-  loading = false,
-  children,
-  className = "",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger";
-  loading?: boolean;
-}) {
-  const styles = {
-    primary: "bg-accent text-accent-ink hover:bg-accent/90",
-    secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
-    danger: "border border-line bg-surface text-fail hover:bg-fail-soft",
-  }[variant];
-  return (
-    <button
-      {...props}
-      disabled={props.disabled || loading}
-      aria-busy={loading || undefined}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${className}`}
-    >
-      {loading ? (
-        <span
-          className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
-          aria-hidden
-        />
-      ) : null}
-      {children}
-    </button>
-  );
-}
+export { Button } from "./button";
 
 /** Campo com rótulo, dica e erro ligados ao input por aria (leitores de tela anunciam o erro). */
 export function Field({

@@ -1,5 +1,6 @@
 import { type DynamicModule, Module } from "@nestjs/common";
 import { AcademicModule } from "./academic/academic.module";
+import { AttendanceModule } from "./attendance/attendance.module";
 import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "./config/config.module";
 import type { Env } from "./config/env";
@@ -22,6 +23,7 @@ export class AppModule {
         MailModule,
         AuthModule,
         AcademicModule,
+        AttendanceModule,
       ],
       controllers: [HealthController, OpenApiController],
     };

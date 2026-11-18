@@ -143,14 +143,34 @@ Tudo dentro da API, sem serviço externo de identidade.
   de aulas ou limite fixo) em tempos de chamada e calcula limite, saldo, semáforo e presença. Conta
   só com inteiros e arredonda o limite sempre para baixo, a favor do aluno. Testes por propriedades
   (fast-check) conferem, em milhares de casos aleatórios, que o limite é exatamente o piso da conta
-  exata. O calendário (`classOccurrences`, `planSkips`) já está pronto para o "posso faltar?".
+  exata. O calendário (`classOccurrences`, `planSkips`) alimenta o "Posso faltar?".
 - **A API é a fonte oficial dos números:** cada matéria volta com `summary`, calculado pelo motor a
   partir da view `subject_totals`. O web usa o mesmo motor só para a prévia enquanto o aluno digita.
 - **Concorrência:** recursos editáveis voltam com `ETag` (a versão). `PATCH`/`PUT`/`DELETE` de
-  semestre, matéria e horário exigem `If-Match`; sem ele, 428; com versão velha, 412 (outro
+  semestre, matéria, horário e registro de presença exigem `If-Match`; sem ele, 428; com versão velha, 412 (outro
   dispositivo salvou antes).
 - **Matéria nova** é criada com regras e grade numa transação só: um horário inválido não deixa a
   matéria pela metade.
+
+## Presenças (registro de chamada)
+
+- **Aulas do dia** (`GET /v1/today?date=`): as aulas da grade do dia (hoje no fuso do aluno, por
+  padrão) de todos os semestres ativos, com o registro já feito, o resumo de cada matéria e os
+  feriados que bloqueiam a aula. Dias futuros são recusados (422 `FUTURE_DATE`).
+- **Registrar** (`POST /v1/attendance`): presente, falta, falta parcial (`unitsMissed`) ou aula
+  cancelada. Sem `scheduleId`, vira aula extra (`unitsScheduled`). A resposta traz o registro e o
+  `summary` recalculado. Mesma aula duas vezes → 409 `ATTENDANCE_CONFLICT`.
+- **Idempotency-Key obrigatória no POST** (428 sem ela). Repetir a mesma chave com o mesmo corpo
+  devolve a resposta original (`Idempotent-Replayed: true`) sem gravar de novo; mesma chave com
+  corpo diferente → 422 `IDEMPOTENCY_KEY_REUSED`. Chaves valem 24 h, por usuário; erro não é
+  guardado. O web repete uma vez, com a mesma chave, se a rede cair.
+- **Corrigir/apagar** (`PATCH`/`DELETE /v1/attendance/:id`) exigem `If-Match`. O "Desfazer" do web
+  usa isso: apaga o registro novo ou restaura os campos do anterior.
+- **Histórico** (`GET /v1/subjects/:id/attendance`): paginação por cursor (`limit`, `cursor`,
+  `status`), do mais recente ao mais antigo.
+- **Posso faltar?** (`GET /v1/subjects/:id/simulate`): a próxima aula, o efeito de faltar nela e
+  quantas das próximas aulas ainda dá para faltar, já descontando feriados e o que foi registrado.
+- Cada mudança gera um evento de auditoria (`attendance_log_events`) com o `requestId`.
 
 ## API
 

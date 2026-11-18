@@ -10,7 +10,7 @@ export default async function AccountPage() {
     <>
       <header className="grid gap-0.5">
         <h1 className="text-2xl font-bold tracking-tight">Conta</h1>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted [overflow-wrap:anywhere]">
           {me?.fullName} · {me?.email}
         </p>
       </header>

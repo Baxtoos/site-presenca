@@ -75,3 +75,55 @@ export const SUBJECT_COLOR_NAME: Record<string, string> = {
 
 /** "tempo"/"tempos", "encontro"/"encontros". */
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "2026-11-18" → 3 (quarta), no padrão ISO (1 = segunda … 7 = domingo). Sem passar pelo fuso local. */
+export function isoWeekdayOf(iso: string): number {
+  const day = new Date(`${iso}T12:00:00Z`).getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
+/** "2026-11-18" → "qua, 18/11" */
+export function formatDayLabel(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${WEEKDAYS_SHORT[isoWeekdayOf(iso)]!.toLowerCase()}, ${d}/${m}`;
+}
+
+export type AttendanceStatusKey = "present" | "absent" | "partial" | "cancelled";
+
+export const STATUS_LABEL: Record<AttendanceStatusKey, string> = {
+  present: "Compareci",
+  absent: "Faltei",
+  partial: "Faltei (parcial)",
+  cancelled: "Aula cancelada",
+};
+
+/** Classes por status (literais, para o Tailwind gerar). */
+export const STATUS_STYLE: Record<AttendanceStatusKey, string> = {
+  present: "bg-ok-soft text-ok",
+  absent: "bg-fail-soft text-fail",
+  partial: "bg-warn-soft text-warn",
+  cancelled: "bg-surface-2 text-muted",
+};
+
+export const REASON_LABEL: Record<string, string> = {
+  health: "Saúde",
+  work: "Trabalho",
+  transport: "Transporte",
+  personal: "Pessoal",
+  other: "Outro",
+};
+
+/** Uma frase curta do simulador para o card: quantas das próximas aulas ainda dá para faltar. */
+export function simulateHint(sim: {
+  nextClass: { date: string } | null;
+  plan: { classes: number; untilDate: string | null };
+  upcomingClasses: number;
+}): string {
+  if (!sim.nextClass) return "Não há mais aulas na grade deste semestre.";
+  if (sim.plan.classes === 0)
+    return `Faltar a próxima aula (${formatDayLabel(sim.nextClass.date)}) passa do limite.`;
+  if (sim.plan.classes >= sim.upcomingClasses)
+    return "Dá para faltar todas as aulas que restam sem reprovar.";
+  const until = sim.plan.untilDate ? ` (até ${formatDayLabel(sim.plan.untilDate)})` : "";
+  return `Dá para faltar as próximas ${plural(sim.plan.classes, "aula", "aulas")}${until}.`;
+}

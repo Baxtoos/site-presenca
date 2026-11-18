@@ -1,0 +1,52 @@
+"use client";
+
+import { type ButtonHTMLAttributes, useSyncExternalStore } from "react";
+
+const noopSubscribe = () => () => {};
+
+/**
+ * false no HTML do servidor e durante a hidratação; true depois. Um clique antes da hidratação
+ * faria o navegador enviar o formulário sozinho (sem o nosso onSubmit), então o botão espera.
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}
+
+/** Botão principal (cheio) ou secundário (contorno). Mostra estado de carregamento sem mudar de tamanho. */
+export function Button({
+  variant = "primary",
+  loading = false,
+  children,
+  className = "",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "secondary" | "danger";
+  loading?: boolean;
+}) {
+  const hydrated = useHydrated();
+  const styles = {
+    primary: "bg-accent text-accent-ink hover:bg-accent/90",
+    secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
+    danger: "border border-line bg-surface text-fail hover:bg-fail-soft",
+  }[variant];
+  return (
+    <button
+      {...props}
+      disabled={props.disabled || loading || !hydrated}
+      aria-busy={loading || undefined}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${className}`}
+    >
+      {loading ? (
+        <span
+          className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+          aria-hidden
+        />
+      ) : null}
+      {children}
+    </button>
+  );
+}

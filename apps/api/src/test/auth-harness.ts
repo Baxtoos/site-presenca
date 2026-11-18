@@ -3,6 +3,7 @@ import { startTestDb, type TestDb } from "@presenca/db/testing";
 import { GenericContainer } from "testcontainers";
 import { GOOGLE_OAUTH, type GoogleOAuth, type GoogleProfile } from "../auth/google.provider";
 import { BackgroundTasks } from "../common/background-tasks";
+import { ClockService } from "../common/clock";
 import { CaptureMailer, MAILER } from "../mail/mailer";
 import { buildTestApp, TEST_ORIGIN } from "./build-test-app";
 
@@ -28,7 +29,17 @@ export class FakeGoogle implements GoogleOAuth {
   }
 }
 
+/** Relógio de teste: "agora" fixo, que cada teste pode mover. Padrão: 18/11/2026 12:00 em São Paulo (quarta). */
+export class FakeClock extends ClockService {
+  instant = new Date("2026-11-18T15:00:00Z");
+
+  override now(): Date {
+    return this.instant;
+  }
+}
+
 export interface AuthTestEnv {
+  clock: FakeClock;
   app: NestFastifyApplication;
   db: TestDb;
   mail: CaptureMailer;
@@ -46,6 +57,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
   ]);
   const mail = new CaptureMailer();
   const google = new FakeGoogle();
+  const clock = new FakeClock();
   const app = await buildTestApp({
     fullApp: true,
     env: {
@@ -57,12 +69,15 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
         .overrideProvider(MAILER)
         .useValue(mail)
         .overrideProvider(GOOGLE_OAUTH)
-        .useValue(google),
+        .useValue(google)
+        .overrideProvider(ClockService)
+        .useValue(clock),
   });
   const tasks = app.get(BackgroundTasks);
   return {
     app,
     db,
+    clock,
     mail,
     google,
     drain: () => tasks.drain(),

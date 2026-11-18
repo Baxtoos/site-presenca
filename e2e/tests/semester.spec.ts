@@ -60,7 +60,7 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   // O início mostra a matéria do semestre atual.
   await page.getByRole("link", { name: "Início" }).first().click();
   await expect(page.getByRole("heading", { name: "Suas matérias" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Cálculo II/ })).toContainText(
-    "Ainda pode faltar 18 tempos",
-  );
+  await expect(
+    page.getByRole("region", { name: "Suas matérias" }).getByRole("link", { name: /Cálculo II/ }),
+  ).toContainText("Ainda pode faltar 18 tempos");
 });

@@ -11,6 +11,7 @@ import {
   updateMeBodySchema,
 } from "./auth";
 import { academicRoutes } from "./academic-routes";
+import { attendanceRoutes } from "./attendance-routes";
 import { healthResponseSchema, readinessResponseSchema } from "./health";
 
 export type { HttpMethod, RouteDef, RouteResponse } from "./route-types";
@@ -190,6 +191,9 @@ export const routes = {
 
   // ---- Semestres, matérias, grade e feriados ----
   ...academicRoutes,
+
+  // ---- Presença, aulas de hoje e simulador ----
+  ...attendanceRoutes,
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteName = keyof typeof routes;

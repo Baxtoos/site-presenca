@@ -37,11 +37,20 @@ export async function api<T>(
     body?: unknown;
     /** Versão que está sendo editada (vai no If-Match). A API responde 412 se outro salvou antes. */
     ifMatch?: number;
+    /**
+     * Idempotency-Key desta ação. `true` gera uma nova. Para repetir a MESMA ação (rede que caiu),
+     * passe a chave de volta: o servidor devolve a resposta original em vez de gravar duas vezes.
+     */
+    idempotencyKey?: string | true;
   } = {},
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (init.body !== undefined) headers["content-type"] = "application/json";
   if (init.ifMatch !== undefined) headers["if-match"] = `"${init.ifMatch}"`;
+  if (init.idempotencyKey !== undefined) {
+    headers["idempotency-key"] =
+      init.idempotencyKey === true ? crypto.randomUUID() : init.idempotencyKey;
+  }
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {

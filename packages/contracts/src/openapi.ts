@@ -92,6 +92,23 @@ export function buildOpenApiDocument(routes: Record<string, RouteDef>, info: Ope
       };
     }
     if (route.auth) operation.security = [{ session: [] }];
+    if (route.idempotent) {
+      parameters.push({
+        name: "Idempotency-Key",
+        in: "header",
+        required: true,
+        description:
+          "Identificador único desta ação (de 8 a 128 caracteres). Repetir com o mesmo corpo devolve a resposta original; com corpo diferente, 422.",
+        schema: { type: "string", minLength: 8, maxLength: 128 },
+      });
+      operation.parameters = parameters;
+      responses["428"] ??= {
+        description: "Faltou o cabeçalho Idempotency-Key (IDEMPOTENCY_KEY_REQUIRED)",
+        content: {
+          "application/problem+json": { schema: { $ref: "#/components/schemas/Problem" } },
+        },
+      };
+    }
     if (route.ifMatch) {
       parameters.push({
         name: "If-Match",

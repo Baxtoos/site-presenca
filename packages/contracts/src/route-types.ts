@@ -21,6 +21,8 @@ export interface RouteDef {
   auth: boolean;
   /** Exige o cabeçalho If-Match com a versão atual (controle de concorrência). */
   ifMatch?: boolean;
+  /** Exige o cabeçalho Idempotency-Key: repetir a chamada devolve a mesma resposta, sem gravar de novo. */
+  idempotent?: boolean;
   request?: {
     params?: z.ZodType;
     query?: z.ZodType;

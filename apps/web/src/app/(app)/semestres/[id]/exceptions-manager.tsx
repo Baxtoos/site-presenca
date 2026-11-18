@@ -100,6 +100,7 @@ export function ExceptionsManager({
       ) : null}
 
       <form
+        method="post"
         onSubmit={(e) => void onSubmit(e)}
         className="grid gap-3 rounded-xl bg-surface-2 p-4"
         noValidate

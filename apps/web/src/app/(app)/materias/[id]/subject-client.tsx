@@ -91,6 +91,7 @@ export function ScheduleManager({
         </ul>
       )}
       <form
+        method="post"
         onSubmit={(e) => void add(e)}
         className="grid grid-cols-2 gap-3 rounded-xl bg-surface-2 p-3 sm:grid-cols-[1.2fr_1fr_1fr_0.8fr_1fr_auto] sm:items-end"
         noValidate

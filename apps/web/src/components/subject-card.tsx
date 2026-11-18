@@ -14,7 +14,7 @@ export function RiskBadge({ risk }: { risk: Subject["summary"]["risk"] }) {
 }
 
 /** Card da matéria: o semáforo, quanto já faltou e quanto ainda pode faltar. */
-export function SubjectCard({ subject }: { subject: Subject }) {
+export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string }) {
   const s = subject.summary;
   const width = Math.min(100, s.consumptionPct);
   const days = [...new Set(subject.schedules.map((x) => x.weekday))]
@@ -82,6 +82,7 @@ export function SubjectCard({ subject }: { subject: Subject }) {
           </>
         )}
       </p>
+      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
     </Link>
   );
 }

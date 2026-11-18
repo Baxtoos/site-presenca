@@ -32,7 +32,7 @@ export function VerifyEmailBanner({ email }: { email: string }) {
   const [state, setState] = useState<"idle" | "pending" | "sent" | "error">("idle");
   const [error, setError] = useState<string>();
   return (
-    <div className="grid gap-3 rounded-2xl border border-warn/40 bg-warn-soft p-4 text-sm sm:flex sm:items-center sm:justify-between">
+    <div className="grid min-w-0 gap-3 rounded-2xl border border-warn/40 bg-warn-soft p-4 text-sm [overflow-wrap:anywhere] sm:flex sm:items-center sm:justify-between">
       <p>
         <strong className="font-semibold">Confirme seu e-mail.</strong> Mandamos um link para{" "}
         {email}. Sem a confirmação, os alertas de faltas por e-mail ficam desligados.

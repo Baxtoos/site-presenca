@@ -1,10 +1,16 @@
-import { subjectSchema } from "@presenca/contracts";
+import {
+  attendanceListSchema,
+  type SimulateResponse,
+  simulateResponseSchema,
+  subjectSchema,
+} from "@presenca/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { RiskBadge } from "@/components/subject-card";
 import { EditSubjectForm } from "@/components/subject-form";
 import { apiGet } from "@/lib/api-server";
-import { plural } from "@/lib/format";
+import { formatDayLabel, plural, RISK_LABEL, simulateHint } from "@/lib/format";
 import { DeleteSubject, ScheduleManager } from "./subject-client";
 
 export const metadata: Metadata = { title: "Matéria · Monitor de Presenças" };
@@ -18,9 +24,56 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** "Posso faltar a próxima aula?": o simulador da API, que já desconta feriados e o que foi registrado. */
+function CanISkip({ sim }: { sim: SimulateResponse }) {
+  const next = sim.ifSkipNext;
+  return (
+    <section
+      className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
+      aria-labelledby="posso-faltar"
+    >
+      <h2 id="posso-faltar" className="font-semibold">
+        Posso faltar?
+      </h2>
+      {sim.nextClass && next ? (
+        <p
+          className={`rounded-lg px-4 py-3 text-sm ${next.allowed ? "bg-ok-soft" : "bg-fail-soft"}`}
+        >
+          {next.allowed ? (
+            <>
+              <strong className="text-ok">Sim.</strong> Faltando a próxima aula (
+              {formatDayLabel(sim.nextClass.date)}, {plural(sim.nextClass.units, "tempo", "tempos")}
+              ), você fica com {plural(next.remainingUnits, "tempo", "tempos")} de folga
+              {next.risk !== "safe" ? ` e entra em "${RISK_LABEL[next.risk]}"` : ""}.
+            </>
+          ) : (
+            <>
+              <strong className="text-fail">Não.</strong> Faltar a próxima aula (
+              {formatDayLabel(sim.nextClass.date)}) passa do limite de faltas.
+            </>
+          )}
+        </p>
+      ) : null}
+      <p className="text-sm text-muted">{simulateHint(sim)}</p>
+      {sim.plan.firstUnsafe ? (
+        <p className="text-sm text-muted">
+          A primeira falta que reprova seria em {formatDayLabel(sim.plan.firstUnsafe.date)}.
+        </p>
+      ) : null}
+      <p className="text-xs text-muted">
+        {plural(sim.upcomingClasses, "aula restante", "aulas restantes")} na grade, já sem feriados.
+      </p>
+    </section>
+  );
+}
+
 export default async function SubjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const subject = await apiGet(`/v1/subjects/${id}`, subjectSchema);
+  const [subject, sim, history] = await Promise.all([
+    apiGet(`/v1/subjects/${id}`, subjectSchema),
+    apiGet(`/v1/subjects/${id}/simulate`, simulateResponseSchema),
+    apiGet(`/v1/subjects/${id}/attendance?limit=30`, attendanceListSchema),
+  ]);
   const s = subject.summary;
 
   return (
@@ -63,6 +116,28 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
             }
           />
         </dl>
+      </section>
+
+      <CanISkip sim={sim} />
+
+      <section
+        className="grid gap-4 rounded-2xl border border-line bg-surface p-6"
+        aria-labelledby="historico"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="historico" className="font-semibold">
+            Histórico de chamadas
+          </h2>
+          <Link href="/hoje" className="text-sm font-medium text-accent hover:underline">
+            Marcar um dia da grade
+          </Link>
+        </div>
+        <AttendanceHistory subjectId={subject.id} initial={history} />
+        <ExtraClassForm
+          subjectId={subject.id}
+          defaultUnits={subject.unitsPerClass}
+          today={sim.asOf}
+        />
       </section>
 
       <section
