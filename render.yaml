@@ -1,0 +1,46 @@
+# Blueprint do Render para a API, no plano gratuito (sem cartão).
+# O Render lê este arquivo em: Dashboard → New → Blueprint → escolha o repositório.
+# As variáveis marcadas `sync: false` ficam VAZIAS aqui de propósito: você preenche no painel do
+# Render (nunca coloque segredos neste arquivo). O passo a passo está em docs/deploy-gratuito.md.
+services:
+  - type: web
+    name: presenca-api
+    runtime: docker
+    dockerfilePath: ./infra/docker/api.Dockerfile
+    dockerContext: .
+    plan: free
+    # Mesma região do banco no Neon (aws-us-east-1, N. Virginia) para as consultas ficarem rápidas.
+    region: virginia
+    # Liveness, sem tocar no banco: o Neon dorme quando ocioso e não deve derrubar o serviço.
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # O Render espera a porta 10000 em serviços web.
+      - key: API_PORT
+        value: "10000"
+      # Dois saltos de proxy: Vercel (reescrita de /api) e o balanceador do Render.
+      - key: TRUST_PROXY
+        value: "2"
+      - key: RATE_LIMIT_FACTOR
+        value: "1"
+      # Endereço do site na Vercel, com https:// e sem barra no fim.
+      - key: WEB_ORIGIN
+        sync: false
+      # Conexão do papel app_api (saída de `pnpm db:provision`), host DIRETO do Neon (não o -pooler).
+      - key: DATABASE_URL
+        sync: false
+      # URL do Redis do Upstash (rediss://...).
+      - key: REDIS_URL
+        sync: false
+      # E-mail: smtp (ex.: Brevo) ou resend. Veja o guia.
+      - key: MAIL_TRANSPORT
+        value: smtp
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # Chave PÚBLICA do push (a privada fica só no worker). Vazio = sem push.
+      - key: VAPID_PUBLIC_KEY
+        sync: false

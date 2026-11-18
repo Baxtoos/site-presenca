@@ -15,6 +15,12 @@ describe("loadEnv do worker", () => {
     expect(env.WEB_ORIGIN).toBe("http://localhost:3000");
   });
 
+  it("modo contínuo por padrão; aceita once; recusa outro valor", () => {
+    expect(loadEnv(base).WORKER_MODE).toBe("loop");
+    expect(loadEnv({ ...base, WORKER_MODE: "once" }).WORKER_MODE).toBe("once");
+    expect(() => loadEnv({ ...base, WORKER_MODE: "cron" })).toThrow(/WORKER_MODE/);
+  });
+
   it("recusa subir sem a URL do banco ou do app", () => {
     expect(() => loadEnv({})).toThrow(/WORKER_DATABASE_URL[\s\S]*WEB_ORIGIN/);
   });

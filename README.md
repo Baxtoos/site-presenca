@@ -62,25 +62,39 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
 
 ## Scripts
 
-| Comando                        | O que faz                                         |
-| ------------------------------ | ------------------------------------------------- |
-| `pnpm dev`                     | Roda todos os apps em modo desenvolvimento        |
-| `pnpm dev:all`                 | Sobe a infraestrutura e roda os apps              |
-| `pnpm build`                   | Compila tudo                                      |
-| `pnpm typecheck`               | Checa tipos em todos os pacotes                   |
-| `pnpm test`                    | Testes unitários                                  |
-| `pnpm test:int`                | Testes de integração (Postgres real em container) |
-| `pnpm test:e2e`                | Testes no navegador (precisa do app no ar)        |
-| `pnpm db:migrate`              | Aplica migrations pendentes (papel `app_owner`)   |
-| `pnpm db:seed`                 | Dados de exemplo (idempotente)                    |
-| `pnpm db:setup`                | Migrations + seed                                 |
-| `pnpm db:check`                | Falha se o schema mudou sem migration             |
-| `pnpm lint`                    | ESLint                                            |
-| `pnpm lint:deps`               | Barreira de arquitetura (dependency-cruiser)      |
-| `pnpm format`                  | Formata com Prettier                              |
-| `pnpm check`                   | Tudo o que o CI roda                              |
-| `pnpm infra:up` / `infra:down` | Sobe ou para Postgres, Redis e Mailpit            |
-| `pnpm infra:reset`             | Apaga os volumes (banco zerado, papéis recriados) |
+| Comando                                   | O que faz                                                 |
+| ----------------------------------------- | --------------------------------------------------------- |
+| `pnpm dev`                                | Roda todos os apps em modo desenvolvimento                |
+| `pnpm dev:all`                            | Sobe a infraestrutura e roda os apps                      |
+| `pnpm build`                              | Compila tudo                                              |
+| `pnpm typecheck`                          | Checa tipos em todos os pacotes                           |
+| `pnpm test`                               | Testes unitários                                          |
+| `pnpm test:int`                           | Testes de integração (Postgres real em container)         |
+| `pnpm test:e2e`                           | Testes no navegador (precisa do app no ar)                |
+| `pnpm db:migrate`                         | Aplica migrations pendentes (papel `app_owner`)           |
+| `pnpm db:seed`                            | Dados de exemplo (idempotente)                            |
+| `pnpm db:setup`                           | Migrations + seed                                         |
+| `pnpm --filter @presenca/db db:provision` | Cria os papéis e o schema num banco gerenciado (produção) |
+| `pnpm db:check`                           | Falha se o schema mudou sem migration                     |
+| `pnpm lint`                               | ESLint                                                    |
+| `pnpm lint:deps`                          | Barreira de arquitetura (dependency-cruiser)              |
+| `pnpm format`                             | Formata com Prettier                                      |
+| `pnpm check`                              | Tudo o que o CI roda                                      |
+| `pnpm infra:up` / `infra:down`            | Sobe ou para Postgres, Redis e Mailpit                    |
+| `pnpm infra:reset`                        | Apaga os volumes (banco zerado, papéis recriados)         |
+
+## Hospedagem gratuita (sem cartão)
+
+Guia passo a passo em [`docs/deploy-gratuito.md`](docs/deploy-gratuito.md): site na Vercel, API no
+Render (`render.yaml`), Postgres no Neon, Redis no Upstash e o worker em **modo pontual** disparado
+pelo GitHub Actions (`.github/workflows/worker.yml`).
+
+- `WORKER_MODE=once` roda um ciclo (lembretes, outbox, limpeza) e sai; sem ele (`loop`, o padrão) o
+  worker fica ligado, escuta o NOTIFY do outbox e varre a cada 30 s.
+- `pnpm --filter @presenca/db db:provision` faz num banco gerenciado o que o `infra/postgres/init`
+  faz no Docker: cria `app_owner`, `app_api`, `app_worker` e `app_auth` com senhas fortes. Funciona
+  com administrador sem superusuário e pode rodar de novo para trocar as senhas.
+- `bash infra/prod/check-deploy.sh <site> <api>` confere um deploy no ar, de fora.
 
 ## Papéis do banco
 

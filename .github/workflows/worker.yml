@@ -1,0 +1,67 @@
+# Worker em modo pontual: sem processo sempre ligado (hospedagem gratuita).
+# A cada disparo: gera os lembretes vencidos, entrega o que está no outbox (e-mail e push) e limpa
+# dados expirados. Os avisos chegam no próximo disparo, não na hora.
+#
+# Segredos (Settings → Secrets and variables → Actions → New repository secret):
+#   WORKER_DATABASE_URL   conexão do papel app_worker (host direto do Neon)
+#   WEB_ORIGIN            endereço do site, com https://
+#   MAIL_TRANSPORT        smtp ou resend
+#   SMTP_URL / RESEND_API_KEY / MAIL_FROM   conforme o transporte
+#   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT   (opcionais; juntos, para o push)
+#
+# Repositório PRIVADO: o GitHub dá 2000 min/mês grátis e cada disparo gasta ~1 min. Com "*/15" são
+# ~2900 min/mês; troque para "*/30" (~1450 min). Repositório público: sem limite.
+name: Worker (pontual)
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# Nunca dois ao mesmo tempo (o banco já evita envio duplicado; isto só poupa trabalho).
+concurrency:
+  group: worker-once
+  cancel-in-progress: false
+
+jobs:
+  ciclo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HAS_DB: ${{ secrets.WORKER_DATABASE_URL != '' }}
+    steps:
+      - name: Segredos configurados?
+        if: env.HAS_DB != 'true'
+        run: echo "WORKER_DATABASE_URL nao configurada, nada a fazer."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_DB == 'true'
+      - uses: pnpm/action-setup@v4
+        if: env.HAS_DB == 'true'
+      - uses: actions/setup-node@v4
+        if: env.HAS_DB == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Instala e compila só o worker
+        if: env.HAS_DB == 'true'
+        run: |
+          pnpm install --frozen-lockfile --filter "@presenca/worker..."
+          pnpm --filter "@presenca/worker..." run build
+
+      - name: Roda um ciclo
+        if: env.HAS_DB == 'true'
+        env:
+          NODE_ENV: production
+          WORKER_MODE: once
+          WORKER_DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
+          WEB_ORIGIN: ${{ secrets.WEB_ORIGIN }}
+          MAIL_TRANSPORT: ${{ secrets.MAIL_TRANSPORT }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          SMTP_URL: ${{ secrets.SMTP_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: node apps/worker/dist/main.js

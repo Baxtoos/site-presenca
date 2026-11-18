@@ -1,12 +1,10 @@
 import { resolve } from "node:path";
 import { createDb } from "@presenca/db";
 import { createMailer } from "@presenca/emails/transport";
-import { cleanupExpired } from "./cleanup";
-import { processOutbox } from "./delivery";
+import { type CycleDeps, didWork, runCycle } from "./cycle";
 import { loadEnv } from "./env";
 import { OutboxListener } from "./listener";
 import { WebPushSender } from "./push";
-import { enqueueReminders } from "./reminders";
 
 if (process.env.NODE_ENV !== "production") {
   try {
@@ -52,6 +50,31 @@ async function main(): Promise<void> {
     subject: env.VAPID_SUBJECT,
   });
 
+  const deps: CycleDeps = {
+    pool: handle.pool,
+    mailer,
+    push,
+    appUrl: env.WEB_ORIGIN,
+    log: (level, msg, extra) => log(level, msg, extra),
+  };
+
+  // Modo pontual: um ciclo e sai. Sem escuta do outbox, sem timers. Falhou → código de saída 1,
+  // para o agendador mostrar a execução como falha.
+  if (env.WORKER_MODE === "once") {
+    try {
+      const result = await runCycle(deps, { cleanup: true });
+      log("info", "ciclo único concluído", {
+        reminders: result.reminders,
+        ...result.delivery,
+        cleanup: result.cleanup,
+      });
+    } finally {
+      await handle.close();
+    }
+    // Conexões keep-alive abertas pelo envio (SMTP, push) não devem segurar o processo.
+    process.exit(0);
+  }
+
   let stopping = false;
   let running = false;
   let again = false;
@@ -68,21 +91,13 @@ async function main(): Promise<void> {
     running = true;
     clearTimeout(timer);
     try {
-      const reminders = await enqueueReminders(handle.pool, new Date());
-      const stats = await processOutbox({
-        pool: handle.pool,
-        mailer,
-        push,
-        appUrl: env.WEB_ORIGIN,
-        log: (level, msg, extra) => log(level, msg, extra),
-      });
-      if (reminders > 0 || stats.sent + stats.failed + stats.skipped + stats.postponed > 0) {
-        log("info", "ciclo do outbox", { reminders, ...stats });
+      const due = Date.now() - lastCleanup > CLEANUP_EVERY_MS;
+      if (due) lastCleanup = Date.now();
+      const result = await runCycle(deps, { cleanup: due });
+      if (didWork(result)) {
+        log("info", "ciclo do outbox", { reminders: result.reminders, ...result.delivery });
       }
-      if (Date.now() - lastCleanup > CLEANUP_EVERY_MS) {
-        lastCleanup = Date.now();
-        log("info", "limpeza de dados expirados", { ...(await cleanupExpired(handle.pool)) });
-      }
+      if (result.cleanup) log("info", "limpeza de dados expirados", { ...result.cleanup });
     } catch (error) {
       log("warn", "ciclo falhou; tentando de novo no próximo", { error: describeError(error) });
     } finally {
@@ -120,6 +135,7 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void shutdown("SIGINT"));
 
   log("info", "worker iniciado", {
+    mode: env.WORKER_MODE,
     pollIntervalMs: env.WORKER_POLL_INTERVAL_MS,
     mail: env.MAIL_TRANSPORT,
     push: push.configured ? "vapid" : "desligado",

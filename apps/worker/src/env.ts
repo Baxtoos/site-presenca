@@ -7,6 +7,12 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     WORKER_DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "precisa ser uma URL postgres://"),
+    /**
+     * loop: processo contínuo (escuta o outbox e varre a cada WORKER_POLL_INTERVAL_MS).
+     * once: roda um ciclo e sai, para ser disparado por um agendador (hospedagem gratuita, sem
+     * processo sempre ligado). Nesse modo os avisos chegam no próximo disparo, não na hora.
+     */
+    WORKER_MODE: z.enum(["loop", "once"]).default("loop"),
     /** Varredura de segurança do outbox (o NOTIFY acorda o worker antes disso). */
     WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(1_000).default(30_000),
     /** Endereço do app, para os links dos e-mails e dos pushes. */

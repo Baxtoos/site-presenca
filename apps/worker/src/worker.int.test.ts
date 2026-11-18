@@ -4,6 +4,7 @@ import { CaptureMailer } from "@presenca/emails/transport";
 import type { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { cleanupExpired } from "./cleanup";
+import { didWork, runCycle } from "./cycle";
 import { processOutbox } from "./delivery";
 import { OutboxListener } from "./listener";
 import type { PushMessage, PushOutcome, PushSender, PushTarget } from "./push";
@@ -487,5 +488,30 @@ describe("despertador e limpeza", () => {
       [s.userId],
     );
     expect(sessions.rows[0]).toEqual({ n: 1 });
+  });
+});
+
+describe("ciclo único (modo once)", () => {
+  it("um disparo entrega o que está na fila e limpa o que expirou; o seguinte não repete nada", async () => {
+    const s = await student();
+    const { email } = await thresholdAlert(s);
+    await db.admin.query(
+      `insert into app.idempotency_keys (user_id, key, request_hash, status_code, created_at)
+       values ($1, 'expirada-once-1', '\\x00', 201, now() - interval '30 hours')`,
+      [s.userId],
+    );
+
+    const first = await runCycle(deps(), { cleanup: true });
+    expect(didWork(first)).toBe(true);
+    expect(first.delivery.sent).toBeGreaterThanOrEqual(1);
+    expect(first.cleanup?.idempotencyKeys).toBeGreaterThanOrEqual(1);
+    expect(mail.lastTo(s.email)?.subject).toBe("Física I: 75% do limite de faltas");
+    expect(await row(email!)).toMatchObject({ status: "sent", attempts: 1 });
+
+    const sentBefore = mail.sent.length;
+    const second = await runCycle(deps(), { cleanup: false });
+    expect(second.cleanup).toBeNull();
+    expect(second.delivery.sent).toBe(0);
+    expect(mail.sent).toHaveLength(sentBefore);
   });
 });

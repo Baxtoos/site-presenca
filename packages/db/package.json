@@ -35,7 +35,8 @@
     "db:seed": "pnpm build && node dist/cli/seed.js",
     "db:studio": "drizzle-kit studio",
     "verify:roles": "node scripts/verify-roles.mjs",
-    "db:check": "node scripts/check-drift.mjs"
+    "db:check": "node scripts/check-drift.mjs",
+    "db:provision": "pnpm build && node dist/cli/provision.js"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
