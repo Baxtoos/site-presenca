@@ -83,5 +83,10 @@ export default tseslint.config(
       "no-restricted-imports": ["error", { paths: DATABASE_IMPORTS, patterns: DATABASE_PATTERNS }],
     },
   },
+  {
+    // Service worker: JS puro servido como está, roda no escopo do worker (self, caches, clients).
+    files: ["apps/web/public/sw.js"],
+    languageOptions: { sourceType: "script", globals: { ...globals.serviceworker } },
+  },
   prettier,
 );

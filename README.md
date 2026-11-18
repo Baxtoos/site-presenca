@@ -172,6 +172,36 @@ Tudo dentro da API, sem serviço externo de identidade.
   quantas das próximas aulas ainda dá para faltar, já descontando feriados e o que foi registrado.
 - Cada mudança gera um evento de auditoria (`attendance_log_events`) com o `requestId`.
 
+## App instalável e modo offline
+
+- **Instalável (PWA):** `app/manifest.ts` (ícones normais e "maskable", atalho para "Aulas de
+  hoje"), ícone da Apple e cor do tema. A home convida a instalar: botão no Android/Chrome/Edge e
+  instrução de "Adicionar à Tela de Início" no iPhone.
+- **Service worker** (`apps/web/public/sw.js`, escrito à mão, sem plugin de build):
+  - estáticos com hash (`/_next/static`, ícones): cache primeiro;
+  - páginas da área logada: rede primeiro (prazo de 4 s), e a última versão boa fica guardada para
+    abrir sem internet. Redirecionamento (sessão expirada) nunca é guardado;
+  - `/api` nunca passa pelo cache;
+  - sem rede e sem cópia: página estática `/offline`.
+  - Só é registrado no build de produção (ou com `NEXT_PUBLIC_SW=1`). Em `next dev`, um SW que
+    tenha sobrado é removido, para não servir arquivos velhos.
+- **Marcar aula sem internet:** se o `POST /v1/attendance` falha por rede (já depois de uma
+  repetição), a marcação vai para uma fila no **IndexedDB** com a **mesma `Idempotency-Key`** da
+  tentativa: se ela chegou ao servidor, o reenvio só devolve a resposta original. A aula aparece
+  como "não enviado", e trocar o status ainda offline troca o que vai ser enviado.
+  - A fila é enviada sozinha quando a conexão volta, quando o app volta para a frente e a cada
+    30 s enquanto houver pendência, uma aba por vez (Web Locks).
+  - Erro temporário (rede, 5xx, 429, sessão expirada) para o envio e mantém a fila; recusa
+    definitiva (ex.: 409, a aula já tinha registro em outro aparelho) sai da fila com aviso.
+  - Cada marcação tem dono: num aparelho compartilhado, só a própria conta envia (e vê) as suas.
+- **Privacidade no aparelho:** ao sair, o app apaga as páginas guardadas e a fila daquela conta
+  (avisando antes se há registros não enviados). Se outra conta entra no mesmo aparelho, as
+  páginas guardadas da anterior são apagadas.
+- Correções e exclusões de registros já enviados continuam exigindo internet (usam `If-Match`).
+- Testes: `apps/web/src/lib/offline-queue.test.ts` (fila e envio, com `fake-indexeddb`) e
+  `e2e/tests/offline.spec.ts`. O teste do service worker só roda contra o build de produção (como
+  no CI); em `next dev` ele é pulado.
+
 ## API
 
 - **Erros:** sempre `application/problem+json` (RFC 9457), com `code` estável e `requestId`.

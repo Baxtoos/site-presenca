@@ -1,0 +1,57 @@
+import { expect, type Page, type TestInfo } from "@playwright/test";
+
+export const WEEKDAYS = ["", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+/** Hoje no fuso do aluno (o padrão da conta é America/Sao_Paulo), como "AAAA-MM-DD". */
+export function todayInSaoPaulo(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
+export function shift(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function isoWeekday(iso: string): number {
+  const day = new Date(`${iso}T12:00:00Z`).getUTCDay();
+  return day === 0 ? 7 : day;
+}
+
+/**
+ * Conta nova + semestre em volta de hoje + uma matéria com aula de 2 tempos no dia da semana de
+ * hoje (limite de 18 tempos). Termina no semestre, com o card da matéria visível.
+ */
+export async function setupStudentWithClassToday(
+  page: Page,
+  testInfo: TestInfo,
+  opts: { name: string; slug: string; subject: string },
+): Promise<string> {
+  const today = todayInSaoPaulo();
+  await page.goto("/cadastro");
+  await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
+  await page.getByLabel("Nome").fill(opts.name);
+  await page
+    .getByLabel("E-mail")
+    .fill(
+      `e2e.${opts.slug}.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`,
+    );
+  await page.getByLabel("Senha", { exact: true }).fill(`senha-forte-${opts.slug}-e2e`);
+  await page.getByRole("button", { name: "Criar conta" }).click();
+
+  await page.getByRole("link", { name: "Criar meu semestre" }).click();
+  await expect(page.getByRole("heading", { name: "Semestres", exact: true })).toBeVisible();
+  await page.getByLabel("Nome").fill("Atual");
+  await page.getByLabel("Início das aulas").fill(shift(today, -60));
+  await page.getByLabel("Fim das aulas").fill(shift(today, 60));
+  await page.getByRole("button", { name: "Criar semestre" }).click();
+  await expect(page.getByRole("heading", { name: /^Atual/ })).toBeVisible();
+  await page.getByRole("link", { name: "Adicionar matéria" }).click();
+  await expect(page.getByRole("heading", { name: "Nova matéria" })).toBeVisible();
+  await page.getByLabel("Nome", { exact: true }).fill(opts.subject);
+  await page.getByRole("button", { name: "Adicionar horário" }).click();
+  await page.getByLabel("Dia").selectOption(String(isoWeekday(today)));
+  await page.getByRole("button", { name: "Salvar matéria" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(opts.subject) })).toBeVisible();
+  return today;
+}

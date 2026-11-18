@@ -4,19 +4,34 @@ import type { SessionsResponse } from "@presenca/contracts";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Button } from "@/components/ui";
+import { useOffline } from "@/components/offline-provider";
 import { api, ApiError } from "@/lib/api-client";
+import { clearOfflineData } from "@/lib/offline-cache";
+import { plural } from "@/lib/format";
 
 export function LogoutButton() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const offline = useOffline();
   return (
     <Button
       variant="secondary"
       loading={pending}
       onClick={() => {
+        const unsent = offline.pending.length;
+        if (
+          unsent > 0 &&
+          !window.confirm(
+            `${plural(unsent, "registro ainda não foi enviado", "registros ainda não foram enviados")}. Se sair agora, ${unsent === 1 ? "ele será descartado" : "eles serão descartados"}. Sair mesmo assim?`,
+          )
+        ) {
+          return;
+        }
         setPending(true);
         void api("/v1/auth/logout", { method: "POST" })
           .catch(() => undefined)
+          // Páginas guardadas e fila offline têm dados desta conta: não ficam no aparelho.
+          .then(() => clearOfflineData(offline.userId).catch(() => undefined))
           .then(() => {
             router.replace("/entrar");
             router.refresh();
@@ -162,6 +177,96 @@ export function SessionsPanel() {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+const INSTALL_DISMISSED = "presenca:install-dismissed";
+
+/**
+ * Convite para instalar o app. Android/Chrome/Edge: botão que abre o diálogo do navegador.
+ * iPhone (Safari não tem esse diálogo): explica o caminho pelo menu Compartilhar.
+ * Some se o app já está instalado ou se a pessoa dispensou.
+ */
+export function InstallPrompt() {
+  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
+  const [ios, setIos] = useState(false);
+  const [hidden, setHidden] = useState(true);
+
+  useEffect(() => {
+    let dismissed = false;
+    try {
+      dismissed = localStorage.getItem(INSTALL_DISMISSED) === "1";
+    } catch {
+      dismissed = false;
+    }
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    if (dismissed || standalone) return;
+
+    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // Leitura única de ambiente na montagem (não dá para saber isso no servidor).
+    setIos(isIos);
+    if (isIos) setHidden(false);
+
+    const onPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferred(event as BeforeInstallPromptEvent);
+      setHidden(false);
+    };
+    const onInstalled = () => setHidden(true);
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  if (hidden || (!ios && !deferred)) return null;
+
+  const dismiss = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem(INSTALL_DISMISSED, "1");
+    } catch {
+      // Sem armazenamento: o convite volta na próxima visita, sem problema.
+    }
+  };
+
+  return (
+    <section
+      className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft p-4 text-sm"
+      aria-label="Instalar o app"
+    >
+      <p className="min-w-0 flex-1">
+        <strong className="font-semibold">Instale o app</strong>
+        {ios
+          ? ": no Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”. Ele abre em tela cheia e funciona sem internet."
+          : " para marcar as aulas com um toque, direto da tela inicial, mesmo sem internet."}
+      </p>
+      <div className="flex gap-2">
+        {deferred ? (
+          <Button
+            type="button"
+            onClick={() => {
+              void deferred.prompt();
+              void deferred.userChoice.then(() => setDeferred(null));
+            }}
+          >
+            Instalar
+          </Button>
+        ) : null}
+        <Button type="button" variant="secondary" onClick={dismiss}>
+          Agora não
+        </Button>
+      </div>
     </section>
   );
 }

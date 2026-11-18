@@ -10,7 +10,7 @@ import { TodayPanel } from "@/components/attendance/today-panel";
 import { SubjectCard } from "@/components/subject-card";
 import { apiGet, getMe } from "@/lib/api-server";
 import { simulateHint } from "@/lib/format";
-import { VerifyEmailBanner } from "./home-client";
+import { InstallPrompt, VerifyEmailBanner } from "./home-client";
 
 export const metadata: Metadata = { title: "Monitor de Presenças" };
 
@@ -52,6 +52,7 @@ export default async function Home() {
       </header>
 
       {me && !me.emailVerified ? <VerifyEmailBanner email={me.email} /> : null}
+      <InstallPrompt />
 
       {!current ? (
         <section className="grid gap-3 rounded-2xl border border-dashed border-line bg-surface p-6">

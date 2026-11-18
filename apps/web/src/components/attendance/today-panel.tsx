@@ -10,11 +10,13 @@ import type {
 } from "@presenca/contracts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { useOffline } from "@/components/offline-provider";
 import { RiskBadge } from "@/components/subject-card";
 import { useToast } from "@/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 import {
+  formatDayLabel,
   plural,
   REASON_LABEL,
   STATUS_LABEL,
@@ -28,9 +30,11 @@ type Mark = { status: AttendanceStatusKey; unitsMissed?: number };
 
 const keyOf = (c: TodayClass) => c.scheduleId ?? `extra-${c.record?.id}`;
 
-/** POST idempotente: se a rede cair no meio, repete UMA vez com a mesma chave (o servidor não duplica). */
-async function createOnce(body: Record<string, unknown>): Promise<AttendanceResult> {
-  const key = crypto.randomUUID();
+/**
+ * POST idempotente: se a rede cair no meio, repete UMA vez com a mesma chave (o servidor não
+ * duplica). Se ainda assim falhar, a mesma chave vai para a fila offline.
+ */
+async function createOnce(body: Record<string, unknown>, key: string): Promise<AttendanceResult> {
   const send = () =>
     api<AttendanceResult>("/v1/attendance", { method: "POST", body, idempotencyKey: key });
   try {
@@ -40,6 +44,10 @@ async function createOnce(body: Record<string, unknown>): Promise<AttendanceResu
     throw e;
   }
 }
+
+const noopSubscribe = () => () => {};
+/** Data de hoje no relógio do aparelho (só para notar uma cópia offline de outro dia). */
+const deviceToday = () => new Intl.DateTimeFormat("en-CA").format(new Date());
 
 function vibrate() {
   try {
@@ -75,6 +83,15 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
   const [busy, setBusy] = useState<string>();
   const [picking, setPicking] = useState<string>();
   const [editing, setEditing] = useState<string>();
+  const offline = useOffline();
+  const today = useSyncExternalStore(noopSubscribe, deviceToday, () => data.date);
+
+  /** Marcação desta aula guardada no aparelho, esperando a internet. */
+  const pendingFor = (c: TodayClass) =>
+    offline.pending.find(
+      (p) =>
+        p.subjectId === c.subject.id && p.scheduleId === c.scheduleId && p.classDate === data.date,
+    );
 
   // Dados novos do servidor (router.refresh ou outro dia): recomeça a partir deles.
   if (source !== data) {
@@ -117,6 +134,31 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     const previous = c.record;
     setBusy(key);
     setPicking(undefined);
+
+    // Já está na fila (sem internet): só troca o que vai ser enviado.
+    const queued = previous ? undefined : pendingFor(c);
+    if (queued) {
+      try {
+        const newKey = await offline.replace(queued.key, next);
+        vibrate();
+        toast.push({
+          message: `${successMessage(next, c.subject.name)} Vai quando a internet voltar.`,
+          actionLabel: "Desfazer",
+          onAction: () =>
+            void offline.replace(newKey, {
+              status: queued.status,
+              unitsMissed: queued.unitsMissed,
+            }),
+        });
+      } catch (e) {
+        fail(e);
+      } finally {
+        setBusy(undefined);
+      }
+      return;
+    }
+
+    const idempotencyKey = crypto.randomUUID();
     try {
       const result = previous
         ? await api<AttendanceResult>(`/v1/attendance/${previous.id}`, {
@@ -124,12 +166,10 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
             body: next.status === "partial" ? next : { status: next.status },
             ifMatch: previous.version,
           })
-        : await createOnce({
-            subjectId: c.subject.id,
-            classDate: data.date,
-            scheduleId: c.scheduleId,
-            ...next,
-          });
+        : await createOnce(
+            { subjectId: c.subject.id, classDate: data.date, scheduleId: c.scheduleId, ...next },
+            idempotencyKey,
+          );
       apply(c.subject.id, key, result.record, result.summary);
       vibrate();
       toast.push({
@@ -140,9 +180,40 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
       });
       router.refresh();
     } catch (e) {
-      fail(e);
+      if (!previous && e instanceof ApiError && e.code === "NETWORK_ERROR") {
+        await queueOffline(c, next, idempotencyKey);
+      } else {
+        fail(e);
+      }
     } finally {
       setBusy(undefined);
+    }
+  }
+
+  /** Sem internet: guarda no aparelho com a MESMA chave da tentativa (se ela chegou, não duplica). */
+  async function queueOffline(c: TodayClass, next: Mark, idempotencyKey: string) {
+    try {
+      await offline.enqueue({
+        key: idempotencyKey,
+        subjectId: c.subject.id,
+        subjectName: c.subject.name,
+        classDate: data.date,
+        scheduleId: c.scheduleId,
+        status: next.status,
+        ...(next.status === "partial" ? { unitsMissed: next.unitsMissed } : {}),
+      });
+      vibrate();
+      toast.push({
+        message: `${successMessage(next, c.subject.name)} Sem conexão: fica guardado e vai quando a internet voltar.`,
+        actionLabel: "Desfazer",
+        onAction: () => void offline.discard(idempotencyKey),
+        duration: 8_000,
+      });
+    } catch (e) {
+      toast.push({
+        tone: "error",
+        message: e instanceof Error ? e.message : "Sem conexão e sem como guardar no aparelho.",
+      });
     }
   }
 
@@ -183,169 +254,190 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     }
   }
 
+  // Cópia offline de outro dia (o app abriu sem internet num dia seguinte).
+  const stale =
+    data.isToday && today !== data.date ? (
+      <p className="rounded-lg border border-warn/40 bg-warn-soft px-3 py-2 text-sm" role="status">
+        Estas são as aulas de <strong>{formatDayLabel(data.date)}</strong>, guardadas no aparelho.
+        Conecte-se para ver as de hoje.
+      </p>
+    ) : null;
+
   if (classes.length === 0) {
     return (
-      <div className="grid gap-2 rounded-2xl border border-dashed border-line bg-surface p-5 text-sm">
-        {data.exceptions.length > 0 ? (
-          <p>
-            <strong>{data.exceptions[0]!.label}</strong>: sem aula
-            {data.isToday ? " hoje" : " neste dia"}.
-          </p>
-        ) : (
-          <p className="text-muted">Nenhuma aula na grade {data.isToday ? "hoje" : "neste dia"}.</p>
-        )}
-      </div>
+      <>
+        {stale}
+        <div className="grid gap-2 rounded-2xl border border-dashed border-line bg-surface p-5 text-sm">
+          {data.exceptions.length > 0 ? (
+            <p>
+              <strong>{data.exceptions[0]!.label}</strong>: sem aula
+              {data.isToday ? " hoje" : " neste dia"}.
+            </p>
+          ) : (
+            <p className="text-muted">
+              Nenhuma aula na grade {data.isToday ? "hoje" : "neste dia"}.
+            </p>
+          )}
+        </div>
+      </>
     );
   }
 
   return (
-    <ul className="grid gap-3">
-      {classes.map((c) => {
-        const key = keyOf(c);
-        const r = c.record;
-        const isBusy = busy === key;
-        const canPartial = c.units > 1;
-        return (
-          <li
-            key={key}
-            className="relative grid gap-3 overflow-hidden rounded-2xl border border-line bg-surface p-4 pl-5"
-            aria-busy={isBusy || undefined}
-            data-testid="aula"
-          >
-            <span
-              className={`absolute inset-y-0 left-0 w-1.5 ${c.subject.color ? SUBJECT_COLOR_CLASS[c.subject.color] : "bg-line"}`}
-              aria-hidden
-            />
-            <div className="flex items-start justify-between gap-3">
-              <div className="grid min-w-0 gap-0.5">
-                <h3 className="truncate font-semibold">
-                  <Link href={`/materias/${c.subject.id}`} className="hover:text-accent">
-                    {c.subject.name}
-                  </Link>
-                </h3>
-                <p className="truncate text-xs text-muted">
-                  {[
-                    c.startsAt ? `${c.startsAt}–${c.endsAt}` : "Aula extra",
-                    plural(c.units, "tempo", "tempos"),
-                    c.room,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+    <>
+      {stale}
+      <ul className="grid gap-3">
+        {classes.map((c) => {
+          const key = keyOf(c);
+          const r = c.record;
+          const queued = r ? undefined : pendingFor(c);
+          const shown = r ?? queued;
+          const isBusy = busy === key;
+          const canPartial = c.units > 1;
+          return (
+            <li
+              key={key}
+              className="relative grid gap-3 overflow-hidden rounded-2xl border border-line bg-surface p-4 pl-5"
+              aria-busy={isBusy || undefined}
+              data-testid="aula"
+            >
+              <span
+                className={`absolute inset-y-0 left-0 w-1.5 ${c.subject.color ? SUBJECT_COLOR_CLASS[c.subject.color] : "bg-line"}`}
+                aria-hidden
+              />
+              <div className="flex items-start justify-between gap-3">
+                <div className="grid min-w-0 gap-0.5">
+                  <h3 className="truncate font-semibold">
+                    <Link href={`/materias/${c.subject.id}`} className="hover:text-accent">
+                      {c.subject.name}
+                    </Link>
+                  </h3>
+                  <p className="truncate text-xs text-muted">
+                    {[
+                      c.startsAt ? `${c.startsAt}–${c.endsAt}` : "Aula extra",
+                      plural(c.units, "tempo", "tempos"),
+                      c.room,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+                {shown ? (
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[shown.status]} ${queued ? "ring-1 ring-current ring-dashed" : ""}`}
+                  >
+                    {shown.status === "partial"
+                      ? `Faltei ${shown.unitsMissed} de ${c.units}`
+                      : STATUS_LABEL[shown.status]}
+                    {queued ? " · não enviado" : ""}
+                  </span>
+                ) : null}
               </div>
-              {r ? (
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[r.status]}`}
-                >
-                  {r.status === "partial"
-                    ? `Faltei ${r.unitsMissed} de ${r.unitsScheduled}`
-                    : STATUS_LABEL[r.status]}
-                </span>
-              ) : null}
-            </div>
 
-            {c.blocked && !r ? (
-              <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted">
-                {c.blocked.label}: aula não conta.
-              </p>
-            ) : (
-              <>
-                <div
-                  className="grid grid-cols-2 gap-2 sm:grid-cols-4"
-                  role="group"
-                  aria-label={`Registrar ${c.subject.name}`}
-                >
-                  {(["present", "absent", "partial", "cancelled"] as const)
-                    .filter((s) => s !== "partial" || canPartial)
-                    .map((s) => {
-                      const active = r?.status === s && (s !== "partial" || picking !== key);
-                      return (
+              {c.blocked && !r ? (
+                <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm text-muted">
+                  {c.blocked.label}: aula não conta.
+                </p>
+              ) : (
+                <>
+                  <div
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+                    role="group"
+                    aria-label={`Registrar ${c.subject.name}`}
+                  >
+                    {(["present", "absent", "partial", "cancelled"] as const)
+                      .filter((s) => s !== "partial" || canPartial)
+                      .map((s) => {
+                        const active = shown?.status === s && (s !== "partial" || picking !== key);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={isBusy}
+                            aria-pressed={active}
+                            onClick={() => {
+                              if (s !== "partial") return void mark(c, { status: s });
+                              // Com 2 tempos, parcial só pode ser 1; com mais, pergunta quantos.
+                              if (c.units === 2)
+                                return void mark(c, { status: "partial", unitsMissed: 1 });
+                              setPicking(picking === key ? undefined : key);
+                            }}
+                            className={`min-h-11 rounded-lg border px-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60 ${
+                              active
+                                ? `border-transparent ${STATUS_STYLE[s]}`
+                                : "border-line bg-surface hover:bg-surface-2"
+                            }`}
+                          >
+                            {s === "partial" ? "Faltei parcial" : STATUS_LABEL[s]}
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {picking === key ? (
+                    <div
+                      className="flex flex-wrap items-center gap-2 text-sm"
+                      role="group"
+                      aria-label="Quantos tempos perdeu?"
+                    >
+                      <span className="text-muted">Perdi</span>
+                      {Array.from({ length: c.units - 1 }, (_, i) => i + 1).map((n) => (
                         <button
-                          key={s}
+                          key={n}
                           type="button"
                           disabled={isBusy}
-                          aria-pressed={active}
-                          onClick={() => {
-                            if (s !== "partial") return void mark(c, { status: s });
-                            // Com 2 tempos, parcial só pode ser 1; com mais, pergunta quantos.
-                            if (c.units === 2)
-                              return void mark(c, { status: "partial", unitsMissed: 1 });
-                            setPicking(picking === key ? undefined : key);
-                          }}
-                          className={`min-h-11 rounded-lg border px-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-60 ${
-                            active
-                              ? `border-transparent ${STATUS_STYLE[s]}`
-                              : "border-line bg-surface hover:bg-surface-2"
-                          }`}
+                          onClick={() => void mark(c, { status: "partial", unitsMissed: n })}
+                          className="min-h-11 min-w-11 rounded-lg border border-line bg-surface px-3 font-semibold hover:bg-surface-2"
                         >
-                          {s === "partial" ? "Faltei parcial" : STATUS_LABEL[s]}
+                          {n}
                         </button>
-                      );
-                    })}
+                      ))}
+                      <span className="text-muted">de {c.units} tempos</span>
+                    </div>
+                  ) : null}
+                </>
+              )}
+
+              {r && editing === r.id ? (
+                <RecordEditor
+                  record={r}
+                  onCancel={() => setEditing(undefined)}
+                  onSaved={(result) => {
+                    setEditing(undefined);
+                    apply(c.subject.id, key, result.record, result.summary);
+                    toast.push({ tone: "success", message: "Detalhes salvos." });
+                    router.refresh();
+                  }}
+                />
+              ) : null}
+
+              {!compact || shown ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <RiskBadge risk={c.summary.risk} />
+                    {c.summary.exceededBy > 0
+                      ? `passou do limite em ${plural(c.summary.exceededBy, "tempo", "tempos")}`
+                      : `pode faltar mais ${plural(c.summary.remainingUnits, "tempo", "tempos")}`}
+                    {r?.isExcused ? " · abonada" : ""}
+                    {r?.reason ? ` · ${REASON_LABEL[r.reason]}` : ""}
+                    {queued ? " · conta quando for enviado" : ""}
+                  </span>
+                  {r && editing !== r.id ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(r.id)}
+                      className="min-h-9 rounded-lg px-2 font-medium text-accent hover:bg-accent-soft"
+                    >
+                      {r.status === "absent" || r.status === "partial"
+                        ? "Motivo e atestado"
+                        : "Observação"}
+                    </button>
+                  ) : null}
                 </div>
-                {picking === key ? (
-                  <div
-                    className="flex flex-wrap items-center gap-2 text-sm"
-                    role="group"
-                    aria-label="Quantos tempos perdeu?"
-                  >
-                    <span className="text-muted">Perdi</span>
-                    {Array.from({ length: c.units - 1 }, (_, i) => i + 1).map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() => void mark(c, { status: "partial", unitsMissed: n })}
-                        className="min-h-11 min-w-11 rounded-lg border border-line bg-surface px-3 font-semibold hover:bg-surface-2"
-                      >
-                        {n}
-                      </button>
-                    ))}
-                    <span className="text-muted">de {c.units} tempos</span>
-                  </div>
-                ) : null}
-              </>
-            )}
-
-            {r && editing === r.id ? (
-              <RecordEditor
-                record={r}
-                onCancel={() => setEditing(undefined)}
-                onSaved={(result) => {
-                  setEditing(undefined);
-                  apply(c.subject.id, key, result.record, result.summary);
-                  toast.push({ tone: "success", message: "Detalhes salvos." });
-                  router.refresh();
-                }}
-              />
-            ) : null}
-
-            {!compact || r ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-                <span className="flex flex-wrap items-center gap-2">
-                  <RiskBadge risk={c.summary.risk} />
-                  {c.summary.exceededBy > 0
-                    ? `passou do limite em ${plural(c.summary.exceededBy, "tempo", "tempos")}`
-                    : `pode faltar mais ${plural(c.summary.remainingUnits, "tempo", "tempos")}`}
-                  {r?.isExcused ? " · abonada" : ""}
-                  {r?.reason ? ` · ${REASON_LABEL[r.reason]}` : ""}
-                </span>
-                {r && editing !== r.id ? (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(r.id)}
-                    className="min-h-9 rounded-lg px-2 font-medium text-accent hover:bg-accent-soft"
-                  >
-                    {r.status === "absent" || r.status === "partial"
-                      ? "Motivo e atestado"
-                      : "Observação"}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </li>
-        );
-      })}
-    </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }

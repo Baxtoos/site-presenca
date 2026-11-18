@@ -1,51 +1,12 @@
 import { expect, test } from "@playwright/test";
-
-const WEEKDAYS = ["", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
-
-/** Hoje no fuso do aluno (o padrão da conta é America/Sao_Paulo), como "AAAA-MM-DD". */
-function todayInSaoPaulo(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
-}
-
-function shift(iso: string, days: number): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function isoWeekday(iso: string): number {
-  const day = new Date(`${iso}T12:00:00Z`).getUTCDay();
-  return day === 0 ? 7 : day;
-}
+import { isoWeekday, setupStudentWithClassToday, WEEKDAYS } from "./setup-helpers";
 
 test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page }, testInfo) => {
-  const today = todayInSaoPaulo();
-
-  await page.goto("/cadastro");
-  await page.getByLabel("Nome").fill("Davi Presença");
-  await page
-    .getByLabel("E-mail")
-    .fill(
-      `e2e.presenca.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`,
-    );
-  await page.getByLabel("Senha", { exact: true }).fill("senha-forte-da-presenca-e2e");
-  await page.getByRole("button", { name: "Criar conta" }).click();
-
-  // Semestre em volta de hoje, com uma aula de 2 tempos no dia da semana de hoje.
-  await page.getByRole("link", { name: "Criar meu semestre" }).click();
-  await expect(page.getByRole("heading", { name: "Semestres", exact: true })).toBeVisible();
-  await page.getByLabel("Nome").fill("Atual");
-  await page.getByLabel("Início das aulas").fill(shift(today, -60));
-  await page.getByLabel("Fim das aulas").fill(shift(today, 60));
-  await page.getByRole("button", { name: "Criar semestre" }).click();
-  await expect(page.getByRole("heading", { name: /^Atual/ })).toBeVisible();
-  await page.getByRole("link", { name: "Adicionar matéria" }).click();
-  await expect(page.getByRole("heading", { name: "Nova matéria" })).toBeVisible();
-  await page.getByLabel("Nome", { exact: true }).fill("Física I");
-  await page.getByRole("button", { name: "Adicionar horário" }).click();
-  await page.getByLabel("Dia").selectOption(String(isoWeekday(today)));
-  await page.getByRole("button", { name: "Salvar matéria" }).click();
-  await expect(page.getByRole("link", { name: /Física I/ })).toBeVisible();
+  const today = await setupStudentWithClassToday(page, testInfo, {
+    name: "Davi Presença",
+    slug: "presenca",
+    subject: "Física I",
+  });
 
   // Aulas de hoje.
   await page.getByRole("link", { name: "Hoje", exact: true }).click();
