@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [swc.vite({ module: { type: "es6" } })],
   test: {
     include: ["src/**/*.spec.ts"],
+    exclude: ["src/**/*.int.spec.ts"],
     environment: "node",
   },
 });

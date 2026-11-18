@@ -1,0 +1,100 @@
+import {
+  exceptionsResponseSchema,
+  semesterSchema,
+  subjectsResponseSchema,
+} from "@presenca/contracts";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { SubjectCard } from "@/components/subject-card";
+import { apiGet } from "@/lib/api-server";
+import { formatDate } from "@/lib/format";
+import { SemesterActions } from "../semester-forms";
+import { ExceptionsManager } from "./exceptions-manager";
+
+export const metadata: Metadata = { title: "Semestre · Monitor de Presenças" };
+
+export default async function SemesterPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const [semester, { subjects }, { exceptions }] = await Promise.all([
+    apiGet(`/v1/semesters/${id}`, semesterSchema),
+    apiGet(`/v1/semesters/${id}/subjects`, subjectsResponseSchema),
+    apiGet(`/v1/semesters/${id}/exceptions`, exceptionsResponseSchema),
+  ]);
+
+  return (
+    <>
+      <header className="grid gap-1">
+        <Link href="/semestres" className="text-sm text-muted hover:text-ink">
+          ← Semestres
+        </Link>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {semester.label}
+          {semester.isCurrent ? (
+            <span className="ml-2 align-middle rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">
+              atual
+            </span>
+          ) : null}
+          {semester.status === "archived" ? (
+            <span className="ml-2 align-middle rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-muted">
+              arquivado
+            </span>
+          ) : null}
+        </h1>
+        <p className="text-sm text-muted">
+          Aulas de {formatDate(semester.startsOn)} a {formatDate(semester.endsOn)}
+        </p>
+      </header>
+
+      <section className="grid gap-3" aria-labelledby="materias">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="materias" className="font-semibold">
+            Matérias
+          </h2>
+          <Link
+            href={`/semestres/${semester.id}/materias/nova`}
+            className="inline-flex min-h-10 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink"
+          >
+            Adicionar matéria
+          </Link>
+        </div>
+        {subjects.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-line bg-surface p-6 text-sm text-muted">
+            Nenhuma matéria ainda. Cada matéria tem sua própria regra de faltas.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {subjects.map((subject) => (
+              <SubjectCard key={subject.id} subject={subject} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section
+        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
+        aria-labelledby="feriados"
+      >
+        <div className="grid gap-1">
+          <h2 id="feriados" className="font-semibold">
+            Feriados e dias sem aula
+          </h2>
+          <p className="text-sm text-muted">
+            Dias sem aula não contam como falta e não entram no “posso faltar?”.
+          </p>
+        </div>
+        <ExceptionsManager
+          semester={semester}
+          exceptions={exceptions}
+          subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
+        />
+      </section>
+
+      <section className="grid gap-3" aria-labelledby="acoes">
+        <h2 id="acoes" className="text-sm font-semibold text-muted">
+          Ações do semestre
+        </h2>
+        <SemesterActions semester={semester} />
+      </section>
+    </>
+  );
+}

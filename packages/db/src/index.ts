@@ -3,6 +3,7 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
 import * as schema from "./schema";
 
+export { newId } from "./id";
 export { schema };
 export type Schema = typeof schema;
 export type Db = NodePgDatabase<Schema>;

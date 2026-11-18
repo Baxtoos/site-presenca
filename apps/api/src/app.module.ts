@@ -1,9 +1,13 @@
 import { type DynamicModule, Module } from "@nestjs/common";
+import { AcademicModule } from "./academic/academic.module";
+import { AuthModule } from "./auth/auth.module";
 import { ConfigModule } from "./config/config.module";
 import type { Env } from "./config/env";
 import { DatabaseModule } from "./database/database.module";
 import { HealthController } from "./health/health.controller";
+import { MailModule } from "./mail/mail.module";
 import { OpenApiController } from "./openapi/openapi.controller";
+import { RedisModule } from "./redis/redis.module";
 
 @Module({})
 export class AppModule {
@@ -11,7 +15,14 @@ export class AppModule {
   static forRoot(env: Env): DynamicModule {
     return {
       module: AppModule,
-      imports: [ConfigModule.forRoot(env), DatabaseModule],
+      imports: [
+        ConfigModule.forRoot(env),
+        DatabaseModule,
+        RedisModule,
+        MailModule,
+        AuthModule,
+        AcademicModule,
+      ],
       controllers: [HealthController, OpenApiController],
     };
   }

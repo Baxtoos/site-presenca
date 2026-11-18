@@ -25,10 +25,12 @@ packages/
   contracts/  schemas Zod compartilhados entre web e API
   db/         schema Drizzle, migrations e conexão (só api e worker importam)
   emails/     templates de e-mail
+e2e/          testes no navegador (Playwright) contra o app inteiro
 infra/
   docker-compose.yml   Postgres 17, Valkey (Redis) e Mailpit para desenvolvimento
-  postgres/init/       papéis do banco (app_owner, app_api, app_worker)
+  postgres/init/       papéis do banco (app_owner, app_api, app_worker, app_auth)
   docker/              Dockerfiles de produção
+  ci/                  ensaio de deploy da imagem da API
 ```
 
 ## Requisitos
@@ -41,17 +43,20 @@ infra/
 ```bash
 cp .env.example .env
 pnpm install
-pnpm dev:all
+pnpm infra:up
+pnpm db:setup      # migrations + dados de exemplo (demo@presenca.local)
+pnpm dev
 ```
 
-`pnpm dev:all` sobe a infraestrutura e roda web, API e worker juntos:
+Depois disso, `pnpm dev:all` sobe a infraestrutura, aplica migrations pendentes e roda web, API e
+worker juntos:
 
-| Serviço                    | Endereço                                      |
-| -------------------------- | --------------------------------------------- |
-| Web                        | http://localhost:3000                         |
-| API                        | http://localhost:4000 (`/healthz`, `/readyz`) |
-| Mailpit (e-mails de teste) | http://localhost:8025                         |
-| Postgres                   | `localhost:5432`, banco `presenca`            |
+| Serviço                    | Endereço                                                       |
+| -------------------------- | -------------------------------------------------------------- |
+| Web                        | http://localhost:3000                                          |
+| API                        | http://localhost:4000 (`/healthz`, `/readyz`, `/openapi.json`) |
+| Mailpit (e-mails de teste) | http://localhost:8025                                          |
+| Postgres                   | `localhost:5432`, banco `presenca`                             |
 
 Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde 503 até o banco existir.
 
@@ -63,7 +68,13 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
 | `pnpm dev:all`                 | Sobe a infraestrutura e roda os apps              |
 | `pnpm build`                   | Compila tudo                                      |
 | `pnpm typecheck`               | Checa tipos em todos os pacotes                   |
-| `pnpm test`                    | Roda os testes                                    |
+| `pnpm test`                    | Testes unitários                                  |
+| `pnpm test:int`                | Testes de integração (Postgres real em container) |
+| `pnpm test:e2e`                | Testes no navegador (precisa do app no ar)        |
+| `pnpm db:migrate`              | Aplica migrations pendentes (papel `app_owner`)   |
+| `pnpm db:seed`                 | Dados de exemplo (idempotente)                    |
+| `pnpm db:setup`                | Migrations + seed                                 |
+| `pnpm db:check`                | Falha se o schema mudou sem migration             |
 | `pnpm lint`                    | ESLint                                            |
 | `pnpm lint:deps`               | Barreira de arquitetura (dependency-cruiser)      |
 | `pnpm format`                  | Formata com Prettier                              |
@@ -78,6 +89,7 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
 | `app_owner`  | migrations | dono do schema `app`                             |
 | `app_api`    | API        | só DML, sujeito a RLS, sem DDL                   |
 | `app_worker` | worker     | permissões por tabela (definidas nas migrations) |
+| `app_auth`   | sem login  | dono das funções de autenticação (ver abaixo)    |
 
 Para conferir que os papéis têm só essas permissões (com a infraestrutura no ar):
 
@@ -86,3 +98,66 @@ pnpm --filter @presenca/db verify:roles
 ```
 
 As senhas em `.env.example` e `infra/postgres/init` servem só para desenvolvimento local.
+
+## Banco de dados
+
+- **Schema:** `packages/db/src/schema` (Drizzle), 17 tabelas no schema `app`.
+- **Migrations:** `packages/db/migrations`. A `0001_tables` é gerada pelo Drizzle; `0000_foundation`
+  (UUID v7, funções de trigger) e `0002_security` (FKs compostas, view `subject_totals`, triggers,
+  RLS forçado e permissões de cada papel) são escritas à mão.
+- **Mudar o schema:** edite `src/schema`, rode `pnpm --filter @presenca/db db:generate` e revise o
+  SQL gerado. Regras que o Drizzle não gera (RLS, triggers, permissões) vão numa migration manual:
+  `pnpm --filter @presenca/db db:generate:custom --name=<nome>`.
+- **Toda transação da API** passa por `withUser(db, { userId, requestId }, fn)`. Sem `app.user_id`,
+  o RLS não deixa ver nenhuma linha.
+- **Deploy:** a imagem da API leva as migrations. O passo de migration roda, com `DATABASE_URL_OWNER`,
+  `node node_modules/@presenca/db/dist/cli/migrate.js` antes de subir a nova versão.
+  `infra/ci/smoke-api.sh` ensaia isso de ponta a ponta (o CI roda a cada push).
+
+## Autenticação
+
+Tudo dentro da API, sem serviço externo de identidade.
+
+- **Senhas:** Argon2id (19 MiB, 2 iterações). Senhas que aparecem em vazamentos são recusadas
+  (Have I Been Pwned por k-anonimato: só os 5 primeiros caracteres do SHA-1 saem do servidor).
+  Login com e-mail inexistente roda o Argon2 contra um hash falso: mesmo tempo, mesma resposta.
+- **Sessões:** token aleatório de 256 bits no cookie `__Host-sid` (`HttpOnly`, `Secure`,
+  `SameSite=Lax`). O banco guarda só o SHA-256. Validade de 30 dias renovada com o uso, expira após
+  14 dias parada e no máximo 90 dias. Trocar a senha encerra todas as sessões.
+- **Links por e-mail** (verificação, redefinição de senha, magic link): uso único, só o hash no
+  banco, 15 min (24 h na verificação). Um link novo invalida o anterior.
+- **Google:** OAuth 2.0 com PKCE e `state` em cookie. Só vincula a uma conta existente se ela já
+  tiver o e-mail confirmado. Configure `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` e cadastre o retorno
+  `<WEB_ORIGIN>/api/v1/auth/google/callback`.
+- **Antes de saber quem é o usuário** (login, cookie, links), a API chama funções `SECURITY DEFINER`
+  do papel `app_auth` (`packages/db/migrations/0003_auth.sql`), que só enxerga as colunas necessárias.
+  Todo o resto passa pelo RLS normal.
+- **Limite de tentativas** (Redis): login 5/min por conta e IP, cadastro 10/h por IP (redes de universidade compartilham IP), links por e-mail
+  3 a cada 15 min por endereço. Com o Redis fora do ar, essas rotas respondem 503 em vez de ficarem
+  sem proteção.
+- **CSRF:** escritas com cookie de sessão precisam do cabeçalho `Origin` igual a `WEB_ORIGIN`.
+
+## Motor de cálculo e matérias
+
+- **Motor** (`packages/engine`): converte as regras de cada matéria (por carga horária, por número
+  de aulas ou limite fixo) em tempos de chamada e calcula limite, saldo, semáforo e presença. Conta
+  só com inteiros e arredonda o limite sempre para baixo, a favor do aluno. Testes por propriedades
+  (fast-check) conferem, em milhares de casos aleatórios, que o limite é exatamente o piso da conta
+  exata. O calendário (`classOccurrences`, `planSkips`) já está pronto para o "posso faltar?".
+- **A API é a fonte oficial dos números:** cada matéria volta com `summary`, calculado pelo motor a
+  partir da view `subject_totals`. O web usa o mesmo motor só para a prévia enquanto o aluno digita.
+- **Concorrência:** recursos editáveis voltam com `ETag` (a versão). `PATCH`/`PUT`/`DELETE` de
+  semestre, matéria e horário exigem `If-Match`; sem ele, 428; com versão velha, 412 (outro
+  dispositivo salvou antes).
+- **Matéria nova** é criada com regras e grade numa transação só: um horário inválido não deixa a
+  matéria pela metade.
+
+## API
+
+- **Erros:** sempre `application/problem+json` (RFC 9457), com `code` estável e `requestId`.
+- **Request id:** cada resposta traz `X-Request-Id`, que aparece em todas as linhas de log e na
+  auditoria do banco.
+- **Contrato:** as rotas são declaradas em `packages/contracts/src/routes.ts`, que gera o
+  `/openapi.json`. Um teste falha se a API tiver rota fora do contrato ou o contrato tiver rota que
+  a API não implementa.
+- **Escritas** (POST/PUT/PATCH/DELETE) vindas de outra origem que não `WEB_ORIGIN` são recusadas (403).

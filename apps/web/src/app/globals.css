@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
-/* Tokens do app (tinta azul de caneta, papel frio). O design completo chega com as telas. */
+/* Tokens do app: papel frio e tinta azul de caneta, como um diário de classe. */
 @theme {
   --color-paper: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef2f6;
   --color-ink: #15212c;
   --color-muted: #56657a;
   --color-line: #d9e0e8;
   --color-accent: #1d5c8c;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: #e2ecf5;
   --color-ok: #2c7a4b;
+  --color-ok-soft: #e1f2e7;
+  --color-warn: #946f00;
+  --color-warn-soft: #fbf1cf;
   --color-fail: #ae2a22;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-fail-soft: #f8dedb;
+  --color-crit: #b8521a;
+  --color-crit-soft: #fbe5d6;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --color-paper: #0e141a;
+    --color-surface: #151d25;
+    --color-surface-2: #1b2530;
     --color-ink: #e4eaf0;
     --color-muted: #9aa9b8;
     --color-line: #2a3642;
     --color-accent: #74aee0;
+    --color-accent-ink: #0e141a;
+    --color-accent-soft: #1a2b3b;
     --color-ok: #6cc891;
+    --color-ok-soft: #173025;
+    --color-warn: #e3c04f;
+    --color-warn-soft: #30290f;
     --color-fail: #f07a72;
+    --color-fail-soft: #3b1c1a;
+    --color-crit: #f0965c;
+    --color-crit-soft: #3a2416;
     color-scheme: dark;
   }
 }
@@ -28,4 +48,13 @@
 body {
   background: var(--color-paper);
   color: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

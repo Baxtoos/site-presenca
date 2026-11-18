@@ -1,0 +1,78 @@
+import { semestersResponseSchema, subjectsResponseSchema } from "@presenca/contracts";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { SubjectCard } from "@/components/subject-card";
+import { apiGet, getMe } from "@/lib/api-server";
+import { VerifyEmailBanner } from "./home-client";
+
+export const metadata: Metadata = { title: "Monitor de Presenças" };
+
+export default async function Home() {
+  const [me, { semesters }] = await Promise.all([
+    getMe(),
+    apiGet("/v1/semesters", semestersResponseSchema),
+  ]);
+  const current = semesters.find((s) => s.isCurrent);
+  const subjects = current
+    ? (await apiGet(`/v1/semesters/${current.id}/subjects`, subjectsResponseSchema)).subjects
+    : [];
+  const firstName = me?.fullName.split(" ")[0] ?? "";
+
+  return (
+    <>
+      <header className="grid gap-0.5">
+        <p className="text-sm text-muted">
+          {current ? `Semestre ${current.label}` : "Bem-vinda(o)"}
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Olá, {firstName}</h1>
+      </header>
+
+      {me && !me.emailVerified ? <VerifyEmailBanner email={me.email} /> : null}
+
+      {!current ? (
+        <section className="grid gap-3 rounded-2xl border border-dashed border-line bg-surface p-6">
+          <h2 className="font-semibold">Comece pelo seu semestre</h2>
+          <p className="text-sm text-muted">
+            Cadastre o semestre e as matérias com a regra de faltas de cada uma. O app passa a
+            mostrar quantas faltas você ainda pode ter.
+          </p>
+          <Link
+            href="/semestres"
+            className="inline-flex min-h-11 w-fit items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
+          >
+            Criar meu semestre
+          </Link>
+        </section>
+      ) : subjects.length === 0 ? (
+        <section className="grid gap-3 rounded-2xl border border-dashed border-line bg-surface p-6">
+          <h2 className="font-semibold">Nenhuma matéria em {current.label}</h2>
+          <Link
+            href={`/semestres/${current.id}/materias/nova`}
+            className="inline-flex min-h-11 w-fit items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
+          >
+            Adicionar a primeira matéria
+          </Link>
+        </section>
+      ) : (
+        <section className="grid gap-3" aria-labelledby="materias">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="materias" className="font-semibold">
+              Suas matérias
+            </h2>
+            <Link
+              href={`/semestres/${current.id}`}
+              className="text-sm font-medium text-accent hover:underline"
+            >
+              Gerenciar semestre
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {subjects.map((subject) => (
+              <SubjectCard key={subject.id} subject={subject} />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}

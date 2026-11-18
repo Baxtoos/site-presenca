@@ -1,14 +1,21 @@
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { healthResponseSchema, readinessResponseSchema } from "@presenca/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { DB } from "../database/database.module";
+import { DB } from "../database/tokens";
+import { REDIS } from "../redis/redis.module";
 import { buildTestApp } from "../test/build-test-app";
 import { HealthController } from "./health.controller";
 
-const build = (ping: () => Promise<number>) =>
+const build = (
+  ping: () => Promise<number>,
+  redisPing: () => Promise<string> = async () => "PONG",
+) =>
   buildTestApp({
     controllers: [HealthController],
-    providers: [{ provide: DB, useValue: { ping } }],
+    providers: [
+      { provide: DB, useValue: { ping } },
+      { provide: REDIS, useValue: { ping: redisPing } },
+    ],
     env: { APP_VERSION: "1.2.3" },
   });
 
@@ -43,7 +50,21 @@ describe("HealthController", () => {
     expect(res.statusCode).toBe(503);
     expect(res.json()).toMatchObject({
       status: "not_ready",
-      checks: { database: { status: "down" } },
+      checks: { database: { status: "down" }, redis: { status: "up" } },
+    });
+  });
+
+  it("GET /readyz responde 503 quando o Redis está fora (sem ele o login fica bloqueado)", async () => {
+    app = await build(
+      async () => 1,
+      async () => {
+        throw new Error("ECONNREFUSED");
+      },
+    );
+    const res = await app.inject({ method: "GET", url: "/readyz" });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({
+      checks: { database: { status: "up" }, redis: { status: "down" } },
     });
   });
 });

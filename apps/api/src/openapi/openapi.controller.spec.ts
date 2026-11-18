@@ -1,7 +1,8 @@
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { routes } from "@presenca/contracts";
 import { afterEach, describe, expect, it } from "vitest";
-import { DB } from "../database/database.module";
+import { DB } from "../database/tokens";
+import { REDIS } from "../redis/redis.module";
 import { HealthController } from "../health/health.controller";
 import { buildTestApp } from "../test/build-test-app";
 import { OpenApiController } from "./openapi.controller";
@@ -11,7 +12,10 @@ const INFRA_ROUTES = new Set(["GET /openapi.json"]);
 
 /** Os mesmos controllers que o AppModule registra. */
 const CONTROLLERS = [HealthController, OpenApiController];
-const PROVIDERS = [{ provide: DB, useValue: { ping: async () => 1 } }];
+const PROVIDERS = [
+  { provide: DB, useValue: { ping: async () => 1 } },
+  { provide: REDIS, useValue: { ping: async () => "PONG" } },
+];
 
 describe("OpenAPI", () => {
   let app: NestFastifyApplication | undefined;
@@ -26,7 +30,11 @@ describe("OpenAPI", () => {
     const doc = res.json<{ openapi: string; paths: Record<string, Record<string, unknown>> }>();
     expect(doc.openapi).toBe("3.1.0");
     for (const route of Object.values(routes)) {
-      expect(doc.paths[route.path]?.[route.method.toLowerCase()]).toBeDefined();
+      const path = route.path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+      expect(
+        doc.paths[path]?.[route.method.toLowerCase()],
+        `${route.method} ${path}`,
+      ).toBeDefined();
     }
   });
 
@@ -43,8 +51,7 @@ describe("OpenAPI", () => {
   it("toda rota registrada na API está no contrato, e vice-versa", async () => {
     const registered = new Set<string>();
     app = await buildTestApp({
-      controllers: CONTROLLERS,
-      providers: PROVIDERS,
+      fullApp: true,
       beforeInit: (fastify) => {
         fastify.addHook("onRoute", (route) => {
           const methods = Array.isArray(route.method) ? route.method : [route.method];

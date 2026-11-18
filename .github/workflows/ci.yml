@@ -14,9 +14,9 @@ permissions:
 
 jobs:
   quality:
-    name: Qualidade (formato, lint, arquitetura, tipos, testes, build)
+    name: Qualidade (formato, lint, arquitetura, tipos, testes, banco, build)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -36,9 +36,61 @@ jobs:
         run: pnpm lint:deps
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Migrations em dia com o schema (nenhuma mudança sem migration)
+        run: pnpm db:check
+        env:
+          # O drizzle-kit exige a URL, mas a checagem não conecta no banco.
+          DATABASE_URL_OWNER: postgres://ci:ci@127.0.0.1:5432/ci
+      - name: Testes de integração (Postgres real via Testcontainers)
+        run: pnpm test:int
       - run: pnpm build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  e2e:
+    name: E2E no navegador (builds de produção)
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - name: Postgres, Valkey e Mailpit
+        run: pnpm infra:up
+      - run: pnpm db:migrate
+      - run: pnpm build
+
+      - name: Sobe API e web
+        run: |
+          # NODE_ENV=test: sem consulta externa de senhas vazadas; resto igual ao .env de desenvolvimento.
+          NODE_ENV=test nohup node apps/api/dist/main.js > api.log 2>&1 &
+          nohup pnpm --filter @presenca/web start > web.log 2>&1 &
+          curl -sf --retry 30 --retry-delay 2 --retry-all-errors http://localhost:4000/readyz
+          curl -sf --retry 30 --retry-delay 2 --retry-all-errors -o /dev/null http://localhost:3000/entrar
+
+      - run: pnpm --filter @presenca/e2e exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+
+      - name: Relatório e logs (em caso de falha)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-relatorio
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            api.log
+            web.log
+          retention-days: 7
 
   docker:
     name: Imagem ${{ matrix.service }}
@@ -63,6 +115,11 @@ jobs:
           context: .
           file: infra/docker/${{ matrix.service }}.Dockerfile
           push: false
+          load: ${{ matrix.service == 'api' }}
           tags: presenca-${{ matrix.service }}:ci
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Ensaio de deploy (banco novo → migrations pela imagem → /readyz 200)
+        if: matrix.service == 'api'
+        run: bash infra/ci/smoke-api.sh presenca-api:ci

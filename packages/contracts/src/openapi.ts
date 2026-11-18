@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { problemSchema } from "./problem";
-import type { RouteDef } from "./routes";
+import type { RouteDef } from "./route-types";
 
 type JsonSchema = Record<string, unknown>;
 
@@ -92,6 +92,28 @@ export function buildOpenApiDocument(routes: Record<string, RouteDef>, info: Ope
       };
     }
     if (route.auth) operation.security = [{ session: [] }];
+    if (route.ifMatch) {
+      parameters.push({
+        name: "If-Match",
+        in: "header",
+        required: true,
+        description: 'Versão atual do recurso, como veio no ETag (ex.: "3").',
+        schema: { type: "string" },
+      });
+      operation.parameters = parameters;
+      responses["412"] ??= {
+        description: "Versão desatualizada: outro dispositivo alterou antes (VERSION_MISMATCH)",
+        content: {
+          "application/problem+json": { schema: { $ref: "#/components/schemas/Problem" } },
+        },
+      };
+      responses["428"] ??= {
+        description: "Faltou o cabeçalho If-Match (VERSION_REQUIRED)",
+        content: {
+          "application/problem+json": { schema: { $ref: "#/components/schemas/Problem" } },
+        },
+      };
+    }
 
     const path = toOpenApiPath(route.path);
     paths[path] ??= {};

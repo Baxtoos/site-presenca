@@ -13,6 +13,10 @@
     "./migrate": {
       "types": "./dist/migrate.d.ts",
       "default": "./dist/migrate.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/harness.d.ts",
+      "default": "./dist/testing/harness.js"
     }
   },
   "files": [
@@ -23,13 +27,15 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "test:int": "vitest run --config vitest.int.config.ts",
     "db:generate": "drizzle-kit generate",
     "db:generate:custom": "drizzle-kit generate --custom",
     "db:migrate": "pnpm build && node dist/cli/migrate.js",
     "db:seed": "pnpm build && node dist/cli/seed.js",
     "db:studio": "drizzle-kit studio",
-    "verify:roles": "node scripts/verify-roles.mjs"
+    "verify:roles": "node scripts/verify-roles.mjs",
+    "db:check": "node scripts/check-drift.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

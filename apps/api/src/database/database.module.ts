@@ -1,8 +1,10 @@
 import { Global, Inject, Module, type OnApplicationShutdown } from "@nestjs/common";
 import { createDb, type DbHandle } from "@presenca/db";
 import { ENV, type Env } from "../config/env";
+import { DbService } from "./db.service";
+import { DB } from "./tokens";
 
-export const DB = Symbol("DB");
+export { DB } from "./tokens";
 
 @Global()
 @Module({
@@ -13,8 +15,9 @@ export const DB = Symbol("DB");
       useFactory: (env: Env): DbHandle =>
         createDb({ connectionString: env.DATABASE_URL, applicationName: "presenca-api" }),
     },
+    DbService,
   ],
-  exports: [DB],
+  exports: [DB, DbService],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   constructor(@Inject(DB) private readonly handle: DbHandle) {}

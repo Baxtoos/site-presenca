@@ -17,6 +17,10 @@ const PASSWORDS: Record<Role, string> = {
 export interface TestDb {
   container: StartedPostgreSqlContainer;
   pools: Record<Role, pg.Pool>;
+  /** URLs de conexão de cada papel (para subir a API ou o worker contra este banco). */
+  urls: Record<Role, string>;
+  /** Superusuário, SÓ para preparar cenários de teste (ex.: envelhecer um token). */
+  admin: pg.Pool;
   stop(): Promise<void>;
 }
 
@@ -41,12 +45,18 @@ export async function startTestDb(): Promise<TestDb> {
     app_api: new pg.Pool({ connectionString: url("app_api"), max: 4 }),
     app_worker: new pg.Pool({ connectionString: url("app_worker"), max: 2 }),
   };
+  const admin = new pg.Pool({
+    connectionString: `postgres://postgres:postgres_test@${container.getHost()}:${container.getPort()}/presenca`,
+    max: 1,
+  });
 
   return {
     container,
     pools,
+    urls: { app_owner: url("app_owner"), app_api: url("app_api"), app_worker: url("app_worker") },
+    admin,
     async stop() {
-      await Promise.all(Object.values(pools).map((p) => p.end()));
+      await Promise.all([...Object.values(pools), admin].map((p) => p.end()));
       await container.stop();
     },
   };

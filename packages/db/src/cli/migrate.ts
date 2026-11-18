@@ -19,6 +19,9 @@ if (!url) {
 runMigrations(url)
   .then(() => console.log("Migrations aplicadas."))
   .catch((error: unknown) => {
-    console.error("Falha ao aplicar migrations:", error instanceof Error ? error.message : error);
+    // O Drizzle embrulha o erro do Postgres em `cause`; o motivo real está lá.
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : undefined;
+    console.error("Falha ao aplicar migrations (nada foi aplicado: tudo roda numa transação).");
+    console.error("Motivo:", cause?.message ?? (error instanceof Error ? error.message : error));
     process.exit(1);
   });

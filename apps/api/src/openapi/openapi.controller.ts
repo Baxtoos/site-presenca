@@ -1,7 +1,9 @@
 import { Controller, Get, Inject, NotFoundException } from "@nestjs/common";
 import { buildOpenApiDocument, routes } from "@presenca/contracts";
+import { Public } from "../auth/decorators";
 import { ENV, type Env } from "../config/env";
 
+@Public()
 @Controller()
 export class OpenApiController {
   private readonly document: ReturnType<typeof buildOpenApiDocument>;

@@ -7,7 +7,7 @@ import {
   startTestDb,
   type SeededUser,
   type TestDb,
-} from "./test/harness";
+} from "./testing/harness";
 
 let db: TestDb;
 let alice: SeededUser;

@@ -5,7 +5,9 @@
     "rootDir": "src",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "declaration": false
+    "declaration": false,
+    "module": "node20",
+    "moduleResolution": "node16"
   },
   "include": ["src"]
 }
