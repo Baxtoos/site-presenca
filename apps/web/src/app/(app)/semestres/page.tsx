@@ -17,6 +17,14 @@ export default async function SemestersPage() {
       <header className="grid gap-0.5">
         <h1 className="text-2xl font-bold tracking-tight">Semestres</h1>
         <p className="text-sm text-muted">O semestre atual é o que aparece no início.</p>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+          <Link href="/importar" className="font-medium text-accent hover:underline">
+            Importar grade de um colega
+          </Link>
+          <Link href="/compartilhar" className="font-medium text-accent hover:underline">
+            Seus códigos compartilhados
+          </Link>
+        </p>
       </header>
 
       {active.length > 0 ? (

@@ -61,12 +61,17 @@ export default async function Home() {
             Cadastre o semestre e as matérias com a regra de faltas de cada uma. O app passa a
             mostrar quantas faltas você ainda pode ter.
           </p>
-          <Link
-            href="/semestres"
-            className="inline-flex min-h-11 w-fit items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
-          >
-            Criar meu semestre
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/semestres"
+              className="inline-flex min-h-11 w-fit items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
+            >
+              Criar meu semestre
+            </Link>
+            <Link href="/importar" className="text-sm font-medium text-accent hover:underline">
+              ou importe a grade de um colega
+            </Link>
+          </div>
         </section>
       ) : subjects.length === 0 ? (
         <section className="grid gap-3 rounded-2xl border border-dashed border-line bg-surface p-6">

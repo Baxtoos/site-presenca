@@ -10,6 +10,7 @@ import { MailModule } from "./mail/mail.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { OpenApiController } from "./openapi/openapi.controller";
 import { RedisModule } from "./redis/redis.module";
+import { SharingModule } from "./sharing/sharing.module";
 
 @Module({})
 export class AppModule {
@@ -26,6 +27,7 @@ export class AppModule {
         AcademicModule,
         AttendanceModule,
         NotificationsModule,
+        SharingModule,
       ],
       controllers: [HealthController, OpenApiController],
     };

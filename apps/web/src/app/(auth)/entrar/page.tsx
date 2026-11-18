@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Alert, OrDivider, TextLink } from "@/components/ui";
 import { getMe } from "@/lib/api-server";
 import { redirectErrorMessage } from "@/lib/auth-messages";
+import { safeNext, withNext } from "@/lib/next-path";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Entrar · Monitor de Presenças" };
@@ -12,8 +13,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (await getMe()) redirect("/");
-  const error = redirectErrorMessage((await searchParams).erro);
+  const params = await searchParams;
+  const next = safeNext(params.next);
+  if (await getMe()) redirect(next ?? "/");
+  const error = redirectErrorMessage(params.erro);
 
   return (
     <>
@@ -26,7 +29,7 @@ export default async function LoginPage({
 
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      <LoginForm />
+      <LoginForm next={next} />
 
       <OrDivider />
 
@@ -48,7 +51,7 @@ export default async function LoginPage({
       </div>
 
       <p className="text-center text-sm text-muted">
-        Ainda não tem conta? <TextLink href="/cadastro">Criar conta</TextLink>
+        Ainda não tem conta? <TextLink href={withNext("/cadastro", next)}>Criar conta</TextLink>
       </p>
     </>
   );

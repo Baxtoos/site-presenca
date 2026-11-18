@@ -6,7 +6,8 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SubjectCard } from "@/components/subject-card";
-import { apiGet } from "@/lib/api-server";
+import { SharePanel } from "@/components/sharing/share-panel";
+import { apiGet, getMe } from "@/lib/api-server";
 import { formatDate } from "@/lib/format";
 import { SemesterActions } from "../semester-forms";
 import { ExceptionsManager } from "./exceptions-manager";
@@ -15,7 +16,8 @@ export const metadata: Metadata = { title: "Semestre · Monitor de Presenças" }
 
 export default async function SemesterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [semester, { subjects }, { exceptions }] = await Promise.all([
+  const [me, semester, { subjects }, { exceptions }] = await Promise.all([
+    getMe(),
     apiGet(`/v1/semesters/${id}`, semesterSchema),
     apiGet(`/v1/semesters/${id}/subjects`, subjectsResponseSchema),
     apiGet(`/v1/semesters/${id}/exceptions`, exceptionsResponseSchema),
@@ -86,6 +88,26 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
           semester={semester}
           exceptions={exceptions}
           subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
+        />
+      </section>
+
+      <section
+        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
+        aria-labelledby="compartilhar"
+      >
+        <div className="grid gap-1">
+          <h2 id="compartilhar" className="font-semibold">
+            Compartilhar com colegas
+          </h2>
+          <p className="text-sm text-muted">
+            Gere um código para a turma importar as mesmas matérias, horários e feriados. Suas
+            faltas não vão junto.
+          </p>
+        </div>
+        <SharePanel
+          source={{ kind: "semester", semesterId: semester.id }}
+          defaultTitle={semester.label}
+          emailVerified={me?.emailVerified ?? false}
         />
       </section>
 

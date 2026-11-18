@@ -9,7 +9,8 @@ import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { RiskBadge } from "@/components/subject-card";
 import { EditSubjectForm } from "@/components/subject-form";
-import { apiGet } from "@/lib/api-server";
+import { SharePanel } from "@/components/sharing/share-panel";
+import { apiGet, getMe } from "@/lib/api-server";
 import { formatDayLabel, plural, RISK_LABEL, simulateHint } from "@/lib/format";
 import { DeleteSubject, ScheduleManager } from "./subject-client";
 
@@ -69,7 +70,8 @@ function CanISkip({ sim }: { sim: SimulateResponse }) {
 
 export default async function SubjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [subject, sim, history] = await Promise.all([
+  const [me, subject, sim, history] = await Promise.all([
+    getMe(),
     apiGet(`/v1/subjects/${id}`, subjectSchema),
     apiGet(`/v1/subjects/${id}/simulate`, simulateResponseSchema),
     apiGet(`/v1/subjects/${id}/attendance?limit=30`, attendanceListSchema),
@@ -156,6 +158,25 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
 
       <section className="rounded-2xl border border-line bg-surface p-6">
         <EditSubjectForm key={subject.version} subject={subject} />
+      </section>
+
+      <section
+        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
+        aria-labelledby="compartilhar"
+      >
+        <div className="grid gap-1">
+          <h2 id="compartilhar" className="font-semibold">
+            Compartilhar esta matéria
+          </h2>
+          <p className="text-sm text-muted">
+            Útil para quem só faz esta matéria com você. Suas faltas não vão junto.
+          </p>
+        </div>
+        <SharePanel
+          source={{ kind: "subject", subjectId: subject.id }}
+          defaultTitle={subject.name}
+          emailVerified={me?.emailVerified ?? false}
+        />
       </section>
 
       <DeleteSubject subject={subject} />

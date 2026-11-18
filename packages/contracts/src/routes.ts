@@ -13,6 +13,7 @@ import {
 import { academicRoutes } from "./academic-routes";
 import { attendanceRoutes } from "./attendance-routes";
 import { notificationRoutes } from "./notification-routes";
+import { sharingRoutes } from "./sharing-routes";
 import { healthResponseSchema, readinessResponseSchema } from "./health";
 
 export type { HttpMethod, RouteDef, RouteResponse } from "./route-types";
@@ -198,6 +199,9 @@ export const routes = {
 
   // ---- Notificações, preferências e push ----
   ...notificationRoutes,
+
+  // ---- Compartilhamento de grades ----
+  ...sharingRoutes,
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteName = keyof typeof routes;

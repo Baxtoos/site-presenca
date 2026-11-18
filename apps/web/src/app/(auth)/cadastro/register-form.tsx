@@ -7,7 +7,7 @@ import { Alert, Button, Field, TextLink } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 
-export function RegisterForm() {
+export function RegisterForm({ next = null }: { next?: string | null }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ message: string; emailTaken: boolean }>();
@@ -28,7 +28,7 @@ export function RegisterForm() {
           password: formText(form, "senha"),
         },
       });
-      router.replace("/");
+      router.replace(next ?? "/");
       router.refresh();
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;

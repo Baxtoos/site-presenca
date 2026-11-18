@@ -83,6 +83,30 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
 | `pnpm infra:up` / `infra:down`            | Sobe ou para Postgres, Redis e Mailpit                    |
 | `pnpm infra:reset`                        | Apaga os volumes (banco zerado, papéis recriados)         |
 
+## Compartilhamento de grades
+
+- **Gerar código** (`POST /v1/templates`, exige e-mail confirmado): copia a estrutura de um semestre
+  (matérias, regras de falta, horários, feriados) ou de uma matéria para um modelo com código de
+  8 caracteres Crockford base32 (sem I, L, O, U). **Nunca leva faltas, registros, anotações, ids nem
+  dados do dono.** Validade de 1 a 90 dias (padrão 30), limite opcional de importações, no máximo 20
+  códigos ativos por aluno. A tela mostra o código, o link `/importar/CODIGO` e um QR Code.
+- **Prévia pública** (`GET /v1/templates/:code`, sem login, 30 consultas/min por IP). Código
+  inexistente, revogado, expirado ou esgotado dão a mesma resposta (404), para não virar oráculo.
+  O código digitado é normalizado (minúsculas, hífen, O→0, I/L→1). No site a prévia é buscada pelo
+  navegador, não pelo servidor do Next, para o limite ser de cada visitante.
+- **Importar** (`POST /v1/templates/:code/import`, com `Idempotency-Key`): cria o semestre, as
+  matérias, a grade e os feriados (inclusive as exceções de uma matéria só, religadas à matéria nova)
+  numa transação só. Nome repetido ganha sufixo "(2)". Modelo de matéria pede o semestre de destino.
+- **Como funciona com RLS:** só o dono enxerga o próprio modelo. A prévia e o consumo passam por
+  duas funções `SECURITY DEFINER` (`app.share_preview` e `app.share_consume`, migration
+  `0005_sharing`), do papel sem login `app_auth`, que devolvem só os campos do modelo. O consumo é um
+  `UPDATE ... WHERE uses_count < max_uses`: importações simultâneas nunca passam do limite, e se a
+  importação falhar o uso volta junto com a transação.
+- **Revogar** (`DELETE /v1/templates/:id`): o link para de funcionar; quem já importou continua com a
+  cópia (ela é dele).
+- **Login com retorno:** `/entrar?next=/importar/...` e `/cadastro?next=...` voltam para a página de
+  origem. Só caminhos internos (nada de `//outro-site` ou `https://...`).
+
 ## Hospedagem gratuita (sem cartão)
 
 Guia passo a passo em [`docs/deploy-gratuito.md`](docs/deploy-gratuito.md): site na Vercel, API no

@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { isoWeekday, setupStudentWithClassToday, WEEKDAYS } from "./setup-helpers";
 
 test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page }, testInfo) => {
+  // Fluxo longo (várias páginas); no `next dev`, cada página nova compila na primeira visita.
+  test.slow();
   const today = await setupStudentWithClassToday(page, testInfo, {
     name: "Davi Presença",
     slug: "presenca",
