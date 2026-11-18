@@ -41,6 +41,14 @@ const envSchema = z
     DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "precisa ser uma URL postgres://"),
     REDIS_URL: z.string().regex(/^rediss?:\/\//, "precisa ser uma URL redis://"),
     TRUST_PROXY: trustProxySchema,
+    /**
+     * Segredo compartilhado com o app web (mesmo valor nos dois). Com ele, a API aceita o IP do
+     * aluno que o proxy do app manda (ver common/client-ip.ts). Gerar: `openssl rand -base64 32`.
+     */
+    API_PROXY_SECRET: z.preprocess(
+      emptyToUndefined,
+      z.string().min(32, { message: "use pelo menos 32 caracteres" }).optional(),
+    ),
     LOG_LEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
       .default("info"),

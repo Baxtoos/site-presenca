@@ -121,6 +121,32 @@ describe("marcos de alerta", () => {
     });
   });
 
+  it("apagar matéria ou semestre que já gerou alerta funciona e mantém o aviso no histórico", async () => {
+    const c = await setup();
+    await miss(c, 5); // 50%
+    const del = await c.b.request("DELETE", `/v1/subjects/${c.subject.id}`, undefined, {
+      headers: { "if-match": `"${c.subject.version}"` },
+    });
+    expect(del.statusCode, del.body).toBe(204);
+    const kept = (await inbox(c)).items;
+    expect(kept).toHaveLength(1);
+    expect(kept[0]).toMatchObject({
+      kind: "threshold",
+      subjectId: null,
+      title: "Física I: 50% do limite de faltas",
+      url: "/",
+    });
+
+    // O mesmo pelo semestre (a matéria some em cascata).
+    const d = await setup();
+    await miss(d, 5);
+    const sem = await d.b.request("DELETE", `/v1/semesters/${d.subject.semesterId}`, undefined, {
+      headers: { "if-match": '"1"' },
+    });
+    expect(sem.statusCode, sem.body).toBe(204);
+    expect((await inbox(d)).items.map((i) => i.subjectId)).toEqual([null]);
+  });
+
   it("5 registros simultâneos cruzando o mesmo marco geram um único alerta", async () => {
     const c = await setup();
     await Promise.all(

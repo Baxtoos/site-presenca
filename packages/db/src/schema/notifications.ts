@@ -102,7 +102,9 @@ export const notificationLogs = app.table(
       .where(sql`${t.status} in ('pending', 'failed')`),
     check(
       "notification_logs_threshold_chk",
-      sql`${t.kind} <> 'threshold' or coalesce(${t.thresholdPct} in (50, 75, 90, 100) and ${t.cycle} >= 1 and ${t.subjectId} is not null, false)`,
+      // Sem exigir subject_id: ao apagar a matéria, a FK zera o campo (ON DELETE SET NULL) e o
+      // alerta continua no histórico com o nome salvo no payload.
+      sql`${t.kind} <> 'threshold' or coalesce(${t.thresholdPct} in (50, 75, 90, 100) and ${t.cycle} >= 1, false)`,
     ),
     check("notification_logs_attempts_chk", sql`${t.attempts} between 0 and 10`),
   ],

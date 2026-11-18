@@ -140,6 +140,11 @@ Gmail) tende a cair no spam; com um domínio seu a entrega melhora (aí vale o R
 Em _Settings → Environment Variables_ do projeto, crie **`API_INTERNAL_URL`** com a URL do Render
 (sem barra no fim), para _Production_, e faça um **novo deploy** (a variável é lida no build).
 
+Crie também **`API_PROXY_SECRET`** com o **mesmo valor** usado no Render (gere com
+`openssl rand -base64 32`). O site manda à API o IP real do aluno junto com esse segredo; sem ele,
+a API só enxerga um IP da Cloudflare do Render, igual para todos, e o limite de tentativas por IP
+passa a valer para todo mundo junto.
+
 Se o build do site falhar por falta dos pacotes internos, use como _Build Command_:
 `cd ../.. && pnpm turbo run build --filter=@presenca/web`, com _Root Directory_ `apps/web`.
 
@@ -186,9 +191,10 @@ Depois, à mão, no site:
 2. **IP real dos visitantes.** A API usa o IP para limitar tentativas. Logado, abra o console do
    navegador (F12) e rode
    `fetch('/api/v1/me/sessions').then(r => r.json()).then(d => console.log(d.sessions.find(s => s.current)?.ip))`:
-   o IP mostrado deve ser o **seu** IP público. Se for um IP da Vercel ou do Render (igual
-   para todo mundo), ajuste `TRUST_PROXY` no Render (`1` ou `3`) e teste de novo; senão todos os
-   usuários dividiriam o mesmo limite de tentativas.
+   o IP mostrado deve ser o **seu** IP público. Se for outro (por exemplo 104.x, da Cloudflare),
+   confira se `API_PROXY_SECRET` existe com o mesmo valor na Vercel e no Render, faça um novo
+   deploy dos dois, saia e entre de novo; senão todos os usuários dividiriam o mesmo limite de
+   tentativas.
 3. **Registrar uma falta**, ver o aviso no sino e (em até 15 min) o e-mail.
 4. **Push:** em Conta → _Ativar neste aparelho_ → _Enviar teste_, num Chrome/Edge normal (não
    anônimo) ou no celular com o app instalado.

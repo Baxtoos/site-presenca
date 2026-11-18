@@ -3,6 +3,7 @@ import helmet from "@fastify/helmet";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import type { Logger } from "pino";
 import type { Env } from "../config/env";
+import { resolveClientIp } from "./client-ip";
 import { buildProblem } from "./problem";
 import { ProblemFilter, sendProblem } from "./problem.filter";
 import { genRequestId, requestContext } from "./request-context";
@@ -48,8 +49,10 @@ export async function configureApp(
   // Cookies (sessão e OAuth). Sem assinatura: os valores são tokens aleatórios conferidos no banco.
   await app.register(cookie as never);
 
+  fastify.decorateRequest("clientIp", "");
   fastify.addHook("onRequest", (request, reply, done) => {
     void reply.header("x-request-id", request.id);
+    request.clientIp = resolveClientIp(request, env.API_PROXY_SECRET);
 
     // Escritas só vindas do próprio app web (CSRF). O navegador sempre envia Origin em
     // POST/PUT/PATCH/DELETE. Origem diferente é outro site agindo em nome do usuário; e uma

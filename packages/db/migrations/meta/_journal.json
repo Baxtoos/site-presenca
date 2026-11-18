@@ -50,6 +50,13 @@
       "when": 1795037139056,
       "tag": "0006_lgpd",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795044595253,
+      "tag": "0007_threshold_sem_materia",
+      "breakpoints": true
     }
   ]
 }

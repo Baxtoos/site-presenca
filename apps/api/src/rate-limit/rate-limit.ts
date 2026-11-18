@@ -70,11 +70,11 @@ function identifierFor(by: RateLimitKey, request: FastifyRequest): string | unde
     typeof body?.email === "string" ? body.email.trim().toLowerCase().slice(0, 254) : undefined;
   switch (by) {
     case "ip":
-      return request.ip;
+      return request.clientIp;
     case "email":
       return email;
     case "ip+email":
-      return email === undefined ? undefined : `${request.ip}|${email}`;
+      return email === undefined ? undefined : `${request.clientIp}|${email}`;
     case "user":
       return request.auth?.userId;
   }
@@ -129,7 +129,7 @@ export class RateLimitGuard implements CanActivate {
         throw new HttpException(
           {
             code: "RATE_LIMITED",
-            detail: `Muitas tentativas. Tente de novo em ${result.retryAfter} segundos.`,
+            detail: `Muitas tentativas. Tente de novo em ${formatWait(result.retryAfter)}.`,
           },
           HttpStatus.TOO_MANY_REQUESTS,
         );
@@ -137,4 +137,11 @@ export class RateLimitGuard implements CanActivate {
     }
     return true;
   }
+}
+
+/** "45 segundos", "1 minuto", "7 minutos" (arredonda para cima a partir de 1 minuto). */
+export function formatWait(seconds: number): string {
+  if (seconds < 60) return seconds === 1 ? "1 segundo" : `${seconds} segundos`;
+  const minutes = Math.ceil(seconds / 60);
+  return minutes === 1 ? "1 minuto" : `${minutes} minutos`;
 }

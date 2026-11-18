@@ -34,7 +34,7 @@ export class SessionService {
       userId,
       tokenHash: hashToken(token),
       expiresAt: new Date(now + SLIDING_MS),
-      ip: request.ip,
+      ip: request.clientIp,
       userAgent: request.headers["user-agent"]?.slice(0, 300) ?? null,
     });
     return token;

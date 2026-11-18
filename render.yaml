@@ -41,6 +41,10 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
+      # Segredo compartilhado com a Vercel (o MESMO valor lá): com ele a API recebe o IP real do
+      # aluno pelo site. Sem ele, todos aparecem com um IP da Cloudflare e dividem o rate limit.
+      - key: API_PROXY_SECRET
+        sync: false
       # Chave PÚBLICA do push (a privada fica só no worker). Vazio = sem push.
       - key: VAPID_PUBLIC_KEY
         sync: false
