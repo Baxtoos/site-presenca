@@ -252,6 +252,27 @@ Depois, à mão, no site:
 - **Limites:** no Neon, acompanhe as horas de computação; no GitHub, os minutos (repositório
   privado); no Upstash, os comandos. Os três mostram o uso no painel.
 
+## 13. Login com Google (opcional)
+
+O código já está pronto; o botão "Entrar com Google" aparece como indisponível até existirem as
+credenciais.
+
+1. Em <https://console.cloud.google.com>, crie um projeto (ex.: "Monitor de Presenças").
+2. _APIs e serviços → Tela de consentimento OAuth_ (ou _Google Auth Platform → Branding_): tipo
+   **Externo**, nome do app, e-mail de suporte e de contato do desenvolvedor. Em _Público-alvo_,
+   publique o app (**Em produção**); os escopos usados (`openid`, `email`, `profile`) não exigem
+   verificação do Google.
+3. _Credenciais → Criar credenciais → ID do cliente OAuth_, tipo **Aplicativo da Web**:
+   - _Origens JavaScript autorizadas_: `https://SEU-SITE.vercel.app`
+   - _URIs de redirecionamento autorizados_: `https://SEU-SITE.vercel.app/api/v1/auth/google/callback`
+     (exatamente o `WEB_ORIGIN` + `/api/v1/auth/google/callback`).
+4. Copie o **ID do cliente** e a **chave secreta do cliente** para o Render: `GOOGLE_CLIENT_ID` e
+   `GOOGLE_CLIENT_SECRET` (as duas juntas). A API reinicia sozinha.
+5. Teste em uma aba anônima: _Entrar com Google_ → escolher a conta → volta logado ao app.
+
+Erro `redirect_uri_mismatch` = a URI do passo 3 não bate com o `WEB_ORIGIN` (barra no fim,
+`http`, endereço de preview).
+
 ## Problemas comuns
 
 | Sintoma                                      | Causa provável                                                                                        |
