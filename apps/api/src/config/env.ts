@@ -135,8 +135,18 @@ export type Env = z.infer<typeof envSchema>;
 export const ENV = Symbol("ENV");
 
 /** Valida o ambiente na inicialização. A API não sobe com variável faltando ou inválida. */
+/**
+ * Versão publicada. APP_VERSION manda; sem ela, o Render informa o commit do deploy em
+ * RENDER_GIT_COMMIT (os 7 primeiros caracteres bastam); fora disso, "dev".
+ */
+function resolveVersion(source: NodeJS.ProcessEnv): string | undefined {
+  if (source.APP_VERSION) return source.APP_VERSION;
+  const commit = source.RENDER_GIT_COMMIT?.trim();
+  return commit ? commit.slice(0, 7) : undefined;
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = envSchema.safeParse(source);
+  const parsed = envSchema.safeParse({ ...source, APP_VERSION: resolveVersion(source) });
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
     throw new Error(`Variáveis de ambiente inválidas:\n${lines.join("\n")}`);

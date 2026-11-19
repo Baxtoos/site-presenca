@@ -24,6 +24,15 @@ describe("loadEnv da API", () => {
     expect(env.MAIL_TRANSPORT).toBe("log");
   });
 
+  it.each([
+    [{}, "dev"],
+    [{ RENDER_GIT_COMMIT: "5ca8eeaee74158386866bae152a54816a8c83500" }, "5ca8eea"],
+    [{ APP_VERSION: "1.2.3", RENDER_GIT_COMMIT: "5ca8eeaee741" }, "1.2.3"],
+    [{ APP_VERSION: "", RENDER_GIT_COMMIT: "abcdef1234567" }, "abcdef1"],
+  ])("versão publicada com %o → %s", (extra, expected) => {
+    expect(loadEnv({ ...base, ...extra }).APP_VERSION).toBe(expected);
+  });
+
   it("aceita a configuração mínima de produção", () => {
     expect(() => loadEnv(production)).not.toThrow();
   });

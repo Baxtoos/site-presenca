@@ -13,6 +13,7 @@ export async function register() {
   Sentry.init({
     dsn,
     environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+    release: process.env.NEXT_PUBLIC_APP_VERSION,
     sendDefaultPii: false,
     tracesSampleRate: 0,
     initialScope: { tags: { service: "web" } },

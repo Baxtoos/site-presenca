@@ -10,7 +10,7 @@
  * Ao sair da conta, o app apaga o cache de páginas (ver lib/offline-cache.ts).
  */
 
-const VERSION = "v2";
+const VERSION = "v3"; // v3: ícones novos (os de /icons têm sempre o mesmo nome)
 const STATIC_CACHE = `presenca-static-${VERSION}`;
 const PAGES_CACHE = "presenca-pages";
 const OFFLINE_URL = "/offline";

@@ -43,6 +43,8 @@ services:
       # aluno pelo site. Sem ele, todos aparecem com um IP da Cloudflare e dividem o rate limit.
       - key: API_PROXY_SECRET
         sync: false
+      # A versão (/healthz e Sentry) vem do commit do deploy: o Render preenche RENDER_GIT_COMMIT.
+      # Defina APP_VERSION só se quiser outro texto.
       # Rastreamento de erros (Sentry). Vazio = desligado. Veja docs/deploy-gratuito.md.
       - key: SENTRY_DSN
         sync: false

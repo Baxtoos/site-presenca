@@ -49,6 +49,8 @@ const config: NextConfig = {
   outputFileTracingRoot: repoRoot,
   turbopack: { root: repoRoot },
   poweredByHeader: false,
+  // Versão publicada (commit do deploy na Vercel): identifica o release nos relatórios do Sentry.
+  env: { NEXT_PUBLIC_APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev" },
   // Envio SMTP do repasse de e-mail (app/interno/email): o nodemailer roda como pacote do Node.
   serverExternalPackages: ["nodemailer"],
   reactStrictMode: true,
