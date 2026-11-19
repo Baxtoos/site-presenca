@@ -8,7 +8,17 @@ export function missingHolidays(
   exceptions: Pick<CalendarExceptionDto, "startsOn" | "subjectId">[],
 ): Holiday[] {
   const taken = new Set(exceptions.filter((e) => e.subjectId === null).map((e) => e.startsOn));
-  return brazilHolidaysBetween(range.startsOn, range.endsOn).filter((h) => !taken.has(h.startsOn));
+  return (
+    brazilHolidaysBetween(range.startsOn, range.endsOn)
+      // Feriado que cai só em parte no semestre (Carnaval na semana de início): só os dias de
+      // dentro, senão a API recusa por estar fora do semestre.
+      .map((h) => ({
+        ...h,
+        startsOn: h.startsOn < range.startsOn ? range.startsOn : h.startsOn,
+        endsOn: h.endsOn > range.endsOn ? range.endsOn : h.endsOn,
+      }))
+      .filter((h) => !taken.has(h.startsOn))
+  );
 }
 
 /** Cadastra os feriados como dias sem aula para todas as matérias do semestre. */

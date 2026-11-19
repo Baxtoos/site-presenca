@@ -10,6 +10,8 @@ export const LOGIN_REDIRECT_ERRORS: Record<string, string> = {
     "Já existe uma conta com este e-mail, mas ele ainda não foi confirmado. Entre com a senha e confirme o e-mail antes de usar o Google.",
   conta_desativada: "Esta conta está desativada.",
   google_falhou: "Não foi possível entrar com o Google agora. Tente de novo em instantes.",
+  segundo_fator_travado:
+    "Muitos códigos errados na verificação em duas etapas. Por segurança, tente de novo daqui a uma hora.",
 };
 
 /** Lê `?erro=` com segurança: só mostra mensagens conhecidas (nada vindo da URL é exibido cru). */

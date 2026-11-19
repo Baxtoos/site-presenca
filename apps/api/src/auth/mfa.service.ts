@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -25,6 +27,12 @@ export const MFA_COOKIE = "__Host-mfa";
 const CHALLENGE_SECONDS = 5 * 60;
 /** Tentativas de código por desafio; depois, login de novo. */
 const CHALLENGE_ATTEMPTS = 5;
+/**
+ * Códigos errados por CONTA (somando todos os desafios) antes de travar o segundo passo por uma
+ * hora. Sem isso, quem tem a senha abriria desafios novos sem parar, trocando de IP.
+ */
+const ACCOUNT_FAILURES = 10;
+const ACCOUNT_LOCK_SECONDS = 60 * 60;
 const RECOVERY_CODES = 10;
 /** Sem 0/O e 1/I/L: fácil de ler e digitar. */
 const RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -35,11 +43,36 @@ const invalidCode = () =>
     detail: "Código incorreto. Confira o app autenticador e tente de novo.",
   });
 
+const accountLocked = () =>
+  new HttpException(
+    {
+      code: AuthErrorCode.mfaLocked,
+      detail: "Muitos códigos errados. Por segurança, tente de novo daqui a uma hora.",
+    },
+    HttpStatus.TOO_MANY_REQUESTS,
+  );
+
 const challengeExpired = () =>
   new BadRequestException({
     code: AuthErrorCode.mfaChallengeExpired,
     detail: "A verificação expirou. Entre de novo.",
   });
+
+export interface ChallengeValue {
+  userId: string;
+  /** Nova senha (hash Argon2) pedida pelo link do e-mail, aplicada só depois do código. */
+  pendingPasswordHash?: string;
+}
+
+function parseChallenge(raw: string | null): ChallengeValue | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<ChallengeValue>;
+    return typeof value.userId === "string" ? (value as ChallengeValue) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Segundo fator opcional (TOTP). O segredo fica cifrado no banco; no login, quem tem o segundo
@@ -153,10 +186,22 @@ export class MfaService {
 
   // ---------------------------------------------------------------- login
 
-  /** Login com segundo fator: guarda o desafio no Redis e manda o cookie (em vez da sessão). */
-  async startChallenge(userId: string, reply: FastifyReply): Promise<void> {
+  /**
+   * Login com segundo fator: guarda o desafio no Redis e manda o cookie (em vez da sessão).
+   * `pendingPasswordHash`: nova senha pedida pelo link do e-mail, aplicada só depois do código.
+   */
+  async startChallenge(
+    userId: string,
+    reply: FastifyReply,
+    pendingPasswordHash?: string,
+  ): Promise<void> {
+    if (await this.isLocked(userId)) throw accountLocked();
     const token = generateToken();
-    await this.redis.set(this.challengeKey(token), userId, "EX", CHALLENGE_SECONDS);
+    const value: ChallengeValue = {
+      userId,
+      ...(pendingPasswordHash ? { pendingPasswordHash } : {}),
+    };
+    await this.redis.set(this.challengeKey(token), JSON.stringify(value), "EX", CHALLENGE_SECONDS);
     void reply.setCookie(MFA_COOKIE, token, {
       httpOnly: true,
       secure: true,
@@ -167,25 +212,40 @@ export class MfaService {
   }
 
   /**
-   * Confere o código do desafio. Devolve o usuário (a sessão é aberta por quem chamou).
-   * Cinco erros encerram o desafio; um acerto também (uso único).
+   * Confere o código do desafio. Devolve o usuário (a sessão é aberta por quem chamou) e a nova
+   * senha pendente, se houver. Cinco erros encerram o desafio; dez erros na conta, somando os
+   * desafios, travam o segundo passo por uma hora. Um acerto zera tudo (uso único).
    */
   async completeChallenge(
     request: FastifyRequest,
     reply: FastifyReply,
     code: string,
-  ): Promise<string> {
+  ): Promise<ChallengeValue> {
     const token = request.cookies[MFA_COOKIE];
     if (!token || !TOKEN_FORMAT.test(token)) throw challengeExpired();
     const key = this.challengeKey(token);
-    const userId = await this.redis.get(key);
-    if (!userId) {
+    const challenge = parseChallenge(await this.redis.get(key));
+    if (!challenge) {
       this.clearChallengeCookie(reply);
       throw challengeExpired();
+    }
+    const { userId } = challenge;
+    if (await this.isLocked(userId)) {
+      await this.redis.del(key, `${key}:tentativas`);
+      this.clearChallengeCookie(reply);
+      throw accountLocked();
     }
 
     const ok = await this.db.asUser(userId, (tx) => this.checkFactor(tx, userId, code));
     if (!ok) {
+      const failures = await this.redis.incr(this.failuresKey(userId));
+      if (failures === 1) await this.redis.expire(this.failuresKey(userId), ACCOUNT_LOCK_SECONDS);
+      if (failures >= ACCOUNT_FAILURES) {
+        this.logger.warn(`segundo passo travado por excesso de códigos errados ${userId}`);
+        await this.redis.del(key, `${key}:tentativas`);
+        this.clearChallengeCookie(reply);
+        throw accountLocked();
+      }
       const attempts = await this.redis.incr(`${key}:tentativas`);
       if (attempts === 1) await this.redis.expire(`${key}:tentativas`, CHALLENGE_SECONDS);
       if (attempts >= CHALLENGE_ATTEMPTS) {
@@ -195,9 +255,9 @@ export class MfaService {
       }
       throw invalidCode();
     }
-    await this.redis.del(key, `${key}:tentativas`);
+    await this.redis.del(key, `${key}:tentativas`, this.failuresKey(userId));
     this.clearChallengeCookie(reply);
-    return userId;
+    return challenge;
   }
 
   // ---------------------------------------------------------------- internos
@@ -270,6 +330,14 @@ export class MfaService {
       });
     }
     return this.key;
+  }
+
+  private async isLocked(userId: string): Promise<boolean> {
+    return Number(await this.redis.get(this.failuresKey(userId))) >= ACCOUNT_FAILURES;
+  }
+
+  private failuresKey(userId: string): string {
+    return `mfa:falhas:${userId}`;
   }
 
   private challengeKey(token: string): string {

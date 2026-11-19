@@ -188,6 +188,14 @@ export async function seedUser(api: pg.Pool, email: string): Promise<SeededUser>
        values ($1, 'google', $2, $3)`,
       [userId, `google-${userId}`, email],
     );
+    await c.query(
+      `insert into user_mfa (user_id, secret_ciphertext, enabled_at) values ($1, $2, now())`,
+      [userId, randomBytes(48)],
+    );
+    await c.query(`insert into mfa_recovery_codes (user_id, code_hash) values ($1, $2)`, [
+      userId,
+      randomBytes(32),
+    ]);
     const templateId = await one(
       `insert into shared_templates (owner_id, kind, code, title, payload)
        values ($1, 'semester', $2, 'Grade 2026.1', '{"subjects": []}') returning id`,
@@ -220,4 +228,6 @@ export const OWNED_TABLES: ReadonlyArray<readonly [table: string, ownerColumn: s
   ["push_subscriptions", "user_id"],
   ["notification_logs", "user_id"],
   ["idempotency_keys", "user_id"],
+  ["user_mfa", "user_id"],
+  ["mfa_recovery_codes", "user_id"],
 ];

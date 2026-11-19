@@ -204,11 +204,13 @@ export class AuthService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<MeResponse> {
-    const userId = await this.mfa.completeChallenge(request, reply, code);
+    const { userId, pendingPasswordHash } = await this.mfa.completeChallenge(request, reply, code);
     const user = await this.db.asUser(userId, (tx) =>
       tx.query.users.findFirst({ columns: { status: true } }),
     );
     if (user?.status !== "active") throw accountDisabled();
+    // Nova senha pedida pelo link do e-mail: só agora, com o segundo fator, ela vale.
+    if (pendingPasswordHash) await this.applyNewPassword(userId, pendingPasswordHash);
     await this.sessions.revokePresented(request);
     return this.openSession(userId, request, reply);
   }
@@ -313,6 +315,18 @@ export class AuthService {
     if (credentials.status !== "active") throw accountDisabled();
     const userId = consumed.userId;
 
+    // Com segundo fator, o link do e-mail não basta: a senha nova fica guardada no desafio e só
+    // é aplicada (encerrando as sessões) depois do código. Quem só tem o e-mail não troca nada.
+    if (await this.mfa.isEnabled(userId)) {
+      await this.mfa.startChallenge(userId, reply, passwordHash);
+      return { mfaRequired: true };
+    }
+    await this.applyNewPassword(userId, passwordHash);
+    return this.openSession(userId, request, reply);
+  }
+
+  /** Grava a senha nova, confirma o e-mail (o link provou a posse) e encerra todas as sessões. */
+  private async applyNewPassword(userId: string, passwordHash: string): Promise<void> {
     await this.db.asUser(userId, async (tx) => {
       await tx
         .update(schema.users)
@@ -325,8 +339,6 @@ export class AuthService {
       await this.sessions.revokeAllInTx(tx, userId);
     });
     this.logger.log(`senha redefinida ${userId}; todas as sessões anteriores encerradas`);
-    // Com segundo fator, o link do e-mail troca a senha mas não basta para entrar.
-    return this.completeLogin(userId, request, reply);
   }
 
   // ---------------------------------------------------------------- Google

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  HttpException,
   Inject,
   Logger,
   Post,
@@ -226,6 +227,10 @@ export class AuthController {
       const path = result === "mfa" ? "/entrar/verificacao" : "/";
       return reply.redirect(`${this.env.WEB_ORIGIN}${path}`, 302);
     } catch (error) {
+      // Segundo passo travado por excesso de códigos errados (MfaService).
+      if (error instanceof HttpException && error.getStatus() === 429) {
+        return this.redirectToApp(reply, "segundo_fator_travado");
+      }
       if (error instanceof GoogleLoginError) return this.redirectToApp(reply, error.code);
       this.logger.error(error instanceof Error ? error : String(error));
       return this.redirectToApp(reply, "google_falhou");

@@ -281,6 +281,22 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     expect(payload.auditEvents.length).toBeGreaterThanOrEqual(1);
     expect(payload.sharedTemplates).toHaveLength(1);
 
+    // Acesso e segurança: sessões (com IP e navegador) sim; segredos nunca.
+    const raw = JSON.stringify(exp.json());
+    const { security } = exp.json<{ security: { sessions: unknown[]; twoFactor: unknown } }>();
+    expect(security.sessions.length).toBeGreaterThanOrEqual(1);
+    expect(security.twoFactor).toBeNull();
+    for (const secret of [
+      "tokenHash",
+      "token_hash",
+      "passwordHash",
+      "p256dh",
+      "secretCiphertext",
+      "codeHash",
+    ]) {
+      expect(raw).not.toContain(secret);
+    }
+
     // 2. Tentativa de exclusão com senha errada falha com 401
     const badDel = await dono.b.request("DELETE", "/v1/me", {
       password: "senha-errada-12345",

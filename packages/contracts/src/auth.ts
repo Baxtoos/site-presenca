@@ -212,4 +212,5 @@ export const AuthErrorCode = {
   mfaChallengeExpired: "MFA_CHALLENGE_EXPIRED",
   mfaUnavailable: "MFA_UNAVAILABLE",
   mfaConfirmationRequired: "MFA_CONFIRMATION_REQUIRED",
+  mfaLocked: "MFA_LOCKED",
 } as const;

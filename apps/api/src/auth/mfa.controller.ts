@@ -77,6 +77,13 @@ export class MfaController {
       tx.query.users.findFirst({ columns: { email: true, passwordHash: true } }),
     );
     if (!user) throw new NotFoundException();
+    // Já ligado: responde antes de gastar o link do e-mail.
+    if (await this.mfa.isEnabled(auth.userId)) {
+      throw new ConflictException({
+        code: "MFA_ALREADY_ENABLED",
+        detail: "O segundo fator já está ligado.",
+      });
+    }
     if (user.passwordHash === null) {
       const ok =
         typeof body.token === "string" &&

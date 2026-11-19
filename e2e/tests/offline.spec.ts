@@ -135,13 +135,16 @@ test("botão Fui da notificação registra a presença sem abrir o app", async (
     (c) =>
       (
         self as unknown as {
-          markFromNotification: (c: unknown, s: string) => Promise<{ ok: boolean; done?: number }>;
+          markFromNotification: (
+            c: unknown,
+            s: string,
+          ) => Promise<{ ok: boolean; done?: number; already?: number }>;
         }
       ).markFromNotification(c, "present"),
     classes,
   );
-  expect(result).toEqual({ ok: true, done: 1 });
-  // Tocar de novo não duplica: a aula já registrada conta como feita.
+  expect(result).toEqual({ ok: true, done: 1, already: 0 });
+  // Tocar de novo não duplica: a mesma chave devolve a resposta original (um registro só).
   expect(
     await sw.evaluate(
       (c) =>
@@ -150,12 +153,12 @@ test("botão Fui da notificação registra a presença sem abrir o app", async (
             markFromNotification: (
               c: unknown,
               s: string,
-            ) => Promise<{ ok: boolean; done?: number }>;
+            ) => Promise<{ ok: boolean; done?: number; already?: number }>;
           }
         ).markFromNotification(c, "present"),
       classes,
     ),
-  ).toEqual({ ok: true, done: 1 });
+  ).toEqual({ ok: true, done: 1, already: 0 });
 
   await page.reload();
   const card = page.getByTestId("aula").filter({ hasText: "Sociologia" });

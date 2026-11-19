@@ -51,10 +51,6 @@ export async function pendingClasses(
   return rows;
 }
 
-export async function unmarkedClasses(pool: Pool, userId: string, days: string[]): Promise<number> {
-  return (await pendingClasses(pool, userId, days)).length;
-}
-
 /**
  * Gera os lembretes de chamada que venceram ("Já marcou as aulas de hoje?"). Um por aluno por dia
  * (dedupe_key), mesmo com vários workers ou ciclos seguidos. Sem aula pendente, grava um marcador

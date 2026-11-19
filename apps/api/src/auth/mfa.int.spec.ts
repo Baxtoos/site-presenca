@@ -208,20 +208,57 @@ describe("login com segundo fator", () => {
     ).toBe(200);
   });
 
-  it("nova senha pelo e-mail troca a senha e derruba as sessões, mas entrar pede o código", async () => {
+  it("nova senha pelo e-mail só vale depois do código (quem só tem o e-mail não troca nada)", async () => {
     const { b: oldDevice, email: address, secret } = await accountWithMfa();
     await browser().request("POST", "/v1/auth/password/forgot", { email: address });
     await env.drain();
     const b = browser();
+    const NEW = "outra-senha-forte-com-mfa";
     const res = await b.request("POST", "/v1/auth/password/reset", {
       token: tokenFromMail(env.mail, address),
-      password: "outra-senha-forte-com-mfa",
+      password: NEW,
     });
     expect(res.json()).toEqual({ mfaRequired: true });
-    expect((await oldDevice.request("GET", "/v1/me")).statusCode).toBe(401);
+    // Sem o código: a senha antiga continua e as sessões seguem abertas.
+    expect((await oldDevice.request("GET", "/v1/me")).statusCode).toBe(200);
+    expect((await loginWithPassword(address)).res.json()).toEqual({ mfaRequired: true });
+
     expect(
       (await b.request("POST", "/v1/auth/mfa/verify", { code: codeFor(secret) })).statusCode,
     ).toBe(200);
+    // Com o código: senha nova aplicada e as outras sessões encerradas.
+    expect((await oldDevice.request("GET", "/v1/me")).statusCode).toBe(401);
+    const old = await browser().request("POST", "/v1/auth/login", {
+      email: address,
+      password: PASSWORD,
+    });
+    expect(old.statusCode).toBe(401);
+    const fresh = await browser().request("POST", "/v1/auth/login", {
+      email: address,
+      password: NEW,
+    });
+    expect(fresh.json()).toEqual({ mfaRequired: true });
+  });
+
+  it("dez códigos errados na conta, somando várias tentativas de login, travam por uma hora", async () => {
+    const { email: address } = await accountWithMfa();
+    for (let round = 0; round < 2; round++) {
+      const { b } = await loginWithPassword(address);
+      for (let i = 0; i < 4; i++) {
+        await b.request("POST", "/v1/auth/mfa/verify", { code: "000000" });
+      }
+    }
+    // 8 erros até aqui; mais 2 num desafio novo travam a conta.
+    const { b } = await loginWithPassword(address);
+    await b.request("POST", "/v1/auth/mfa/verify", { code: "000000" });
+    const locked = await b.request("POST", "/v1/auth/mfa/verify", { code: "000000" });
+    expect(locked.statusCode).toBe(429);
+    expect(problem(locked).code).toBe("MFA_LOCKED");
+
+    // Nem com a senha e o código certos, durante o bloqueio.
+    const again = await loginWithPassword(address);
+    expect(again.res.statusCode).toBe(429);
+    expect(problem(again.res).code).toBe("MFA_LOCKED");
   });
 
   it("Google também pede o código (volta para a tela de verificação)", async () => {
@@ -314,9 +351,9 @@ describe("conta sem senha: ligar pede o link do e-mail", () => {
     expect(enable.statusCode).toBe(200);
     expect((await b.request("GET", "/v1/me/mfa")).json()).toMatchObject({ enabled: true });
 
-    // O link é de uso único.
+    // Já ligado: responde 409 antes de olhar (e gastar) o link.
     const again = await b.request("POST", "/v1/me/mfa/setup", { token });
-    expect(problem(again).code).toBe("MFA_CONFIRMATION_REQUIRED");
+    expect(problem(again).code).toBe("MFA_ALREADY_ENABLED");
   });
 
   it("o link de uma conta não libera outra", async () => {

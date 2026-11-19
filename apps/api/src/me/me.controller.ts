@@ -121,6 +121,39 @@ export class MeController {
         .where(eq(schema.notificationLogs.channel, "in_app"))
         .orderBy(asc(schema.notificationLogs.createdAt));
 
+      // Acesso e segurança: o que identifica a pessoa e os aparelhos, nunca os segredos
+      // (hash de token, chaves de push, segredo do segundo fator, códigos de recuperação).
+      const sessions = await tx
+        .select({
+          createdAt: schema.sessions.createdAt,
+          lastSeenAt: schema.sessions.lastSeenAt,
+          expiresAt: schema.sessions.expiresAt,
+          revokedAt: schema.sessions.revokedAt,
+          ip: schema.sessions.ip,
+          userAgent: schema.sessions.userAgent,
+        })
+        .from(schema.sessions)
+        .orderBy(asc(schema.sessions.createdAt));
+      const linkedAccounts = await tx
+        .select({
+          provider: schema.authAccounts.provider,
+          email: schema.authAccounts.email,
+          createdAt: schema.authAccounts.createdAt,
+        })
+        .from(schema.authAccounts);
+      const pushDevices = await tx
+        .select({
+          userAgent: schema.pushSubscriptions.userAgent,
+          createdAt: schema.pushSubscriptions.createdAt,
+          lastSuccessAt: schema.pushSubscriptions.lastSuccessAt,
+        })
+        .from(schema.pushSubscriptions);
+      const mfa = await tx.query.userMfa.findFirst({ columns: { enabledAt: true } });
+      const [recovery] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(schema.mfaRecoveryCodes)
+        .where(isNull(schema.mfaRecoveryCodes.usedAt));
+
       return {
         exportedAt: new Date().toISOString(),
         user: {
@@ -138,6 +171,14 @@ export class MeController {
         sharedTemplates,
         templateImports,
         notifications,
+        security: {
+          sessions,
+          linkedAccounts,
+          pushDevices,
+          twoFactor: mfa?.enabledAt
+            ? { enabledAt: mfa.enabledAt.toISOString(), recoveryCodesLeft: recovery?.n ?? 0 }
+            : null,
+        },
       };
     });
 

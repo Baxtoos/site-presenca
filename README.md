@@ -24,13 +24,19 @@ packages/
   engine/     motor de cálculo puro (sem I/O)
   contracts/  schemas Zod compartilhados entre web e API
   db/         schema Drizzle, migrations e conexão (só api e worker importam)
-  emails/     templates de e-mail
+  emails/     templates de e-mail e transportes (SMTP, Resend, repasse pela Vercel)
+  observability/  Sentry (API, worker e site), sem dados pessoais
 e2e/          testes no navegador (Playwright) contra o app inteiro
 infra/
   docker-compose.yml   Postgres 17, Valkey (Redis) e Mailpit para desenvolvimento
   postgres/init/       papéis do banco (app_owner, app_api, app_worker, app_auth)
   docker/              Dockerfiles de produção
   ci/                  ensaio de deploy da imagem da API
+  prod/                provisionamento, backup manual e restauração (restore-data.sh, restore-test.sh)
+  load/                teste de carga (k6)
+docs/
+  deploy-gratuito.md   passo a passo da hospedagem gratuita e da rotina (backups, restauração)
+  seguranca-asvs.md    revisão OWASP ASVS nível 2 e o que foi corrigido
 ```
 
 ## Requisitos
@@ -129,6 +135,12 @@ pelo GitHub Actions (`.github/workflows/worker.yml`).
   faz no Docker: cria `app_owner`, `app_api`, `app_worker` e `app_auth` com senhas fortes. Funciona
   com administrador sem superusuário e pode rodar de novo para trocar as senhas.
 - `bash infra/prod/check-deploy.sh <site> <api>` confere um deploy no ar, de fora.
+- **Backup diário** (`.github/workflows/backup.yml`): só os dados, lidos pelo papel `app_backup`,
+  criptografados (AES-256) e guardados por 30 dias. Antes de guardar, ensaia a restauração num
+  Postgres vazio com as migrations do código (`infra/prod/restore-test.sh`). Todo dia 1º, o
+  `restore-drill.yml` baixa o arquivo guardado, abre com a senha e restaura de novo.
+- **Quedas do banco:** o Neon encerra as conexões quando reinicia ou acorda. A transação que caiu
+  no meio é repetida uma vez (`withUser`), e o worker tenta de novo antes de falhar.
 
 ## Papéis do banco
 
@@ -149,10 +161,13 @@ As senhas em `.env.example` e `infra/postgres/init` servem só para desenvolvime
 
 ## Banco de dados
 
-- **Schema:** `packages/db/src/schema` (Drizzle), 17 tabelas no schema `app`.
+- **Schema:** `packages/db/src/schema` (Drizzle), 19 tabelas no schema `app`.
 - **Migrations:** `packages/db/migrations`. A `0001_tables` é gerada pelo Drizzle; `0000_foundation`
   (UUID v7, funções de trigger) e `0002_security` (FKs compostas, view `subject_totals`, triggers,
-  RLS forçado e permissões de cada papel) são escritas à mão.
+  RLS forçado e permissões de cada papel) são escritas à mão. Depois: `0003_auth` (funções de
+  autenticação), `0004_notifications`, `0005_sharing`, `0006_lgpd` (exclusão de conta),
+  `0007_threshold_sem_materia`, `0008_backup_role`, `0009_cadastro_e_exclusao` (cadastro
+  pendente e links novos) e `0010_segundo_fator`.
 - **Mudar o schema:** edite `src/schema`, rode `pnpm --filter @presenca/db db:generate` e revise o
   SQL gerado. Regras que o Drizzle não gera (RLS, triggers, permissões) vão numa migration manual:
   `pnpm --filter @presenca/db db:generate:custom --name=<nome>`.
@@ -172,8 +187,20 @@ Tudo dentro da API, sem serviço externo de identidade.
 - **Sessões:** token aleatório de 256 bits no cookie `__Host-sid` (`HttpOnly`, `Secure`,
   `SameSite=Lax`). O banco guarda só o SHA-256. Validade de 30 dias renovada com o uso, expira após
   14 dias parada e no máximo 90 dias. Trocar a senha encerra todas as sessões.
-- **Links por e-mail** (verificação, redefinição de senha, magic link): uso único, só o hash no
-  banco, 15 min (24 h na verificação). Um link novo invalida o anterior.
+- **Cadastro sem revelar quem tem conta:** `POST /v1/auth/register` responde sempre 202 ("confira
+  seu e-mail"), com o mesmo custo de Argon2 nos dois casos. E-mail novo recebe um link (24 h) que
+  guarda nome e hash da senha; a conta só nasce em `POST /v1/auth/register/confirm`, já com o e-mail
+  confirmado. E-mail que já tem conta recebe um aviso, sem link. Senha mínima de 12 caracteres.
+- **Links por e-mail** (verificação, redefinição de senha, magic link, cadastro, exclusão de conta,
+  ligar o segundo fator): uso único, só o hash no banco, 15 min (24 h na verificação e no
+  cadastro). Um link novo invalida o anterior.
+- **Segundo fator (opcional):** app autenticador (TOTP), ligado em Conta com senha e código (conta
+  sem senha confirma por link no e-mail). Segredo cifrado com AES-256-GCM (`MFA_ENCRYPTION_KEY`, só
+  na API), código não reaproveitável e 10 códigos de recuperação. Ligado, senha, link, Google e nova
+  senha só abrem a sessão depois do código (`POST /v1/auth/mfa/verify`, desafio de 5 min no cookie
+  `__Host-mfa`, 5 tentativas).
+- **Excluir a conta:** quem tem senha confirma com ela; quem entra sem senha recebe um link por
+  e-mail (`POST /v1/me/delete-request`) e confirma num clique.
 - **Google:** OAuth 2.0 com PKCE e `state` em cookie. Só vincula a uma conta existente se ela já
   tiver o e-mail confirmado. Configure `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` e cadastre o retorno
   `<WEB_ORIGIN>/api/v1/auth/google/callback`.
@@ -184,6 +211,8 @@ Tudo dentro da API, sem serviço externo de identidade.
   3 a cada 15 min por endereço. Com o Redis fora do ar, essas rotas respondem 503 em vez de ficarem
   sem proteção.
 - **CSRF:** escritas com cookie de sessão precisam do cabeçalho `Origin` igual a `WEB_ORIGIN`.
+- **CSP do site com nonce:** cada página sai com um nonce novo (`apps/web/src/proxy.ts`,
+  `lib/csp.ts`), sem `'unsafe-inline'` em scripts. Por isso as páginas são sempre dinâmicas.
 
 ## Motor de cálculo e matérias
 
@@ -192,6 +221,9 @@ Tudo dentro da API, sem serviço externo de identidade.
   só com inteiros e arredonda o limite sempre para baixo, a favor do aluno. Testes por propriedades
   (fast-check) conferem, em milhares de casos aleatórios, que o limite é exatamente o piso da conta
   exata. O calendário (`classOccurrences`, `planSkips`) alimenta o "Posso faltar?".
+- **Feriados nacionais** (`brazilHolidays`): calculados a partir da Páscoa (Carnaval, Sexta-feira
+  Santa, Corpus Christi) e da lei (Consciência Negra desde 2024). Entram sozinhos ao criar o
+  semestre; os pontos facultativos o aluno escolhe na página do semestre.
 - **A API é a fonte oficial dos números:** cada matéria volta com `summary`, calculado pelo motor a
   partir da view `subject_totals`. O web usa o mesmo motor só para a prévia enquanto o aluno digita.
 - **Concorrência:** recursos editáveis voltam com `ETag` (a versão). `PATCH`/`PUT`/`DELETE` de
@@ -274,7 +306,9 @@ Tudo dentro da API, sem serviço externo de identidade.
     dela sem gastar tentativa. A central recebe na hora.
   - **Lembrete de chamada:** diário (se ficou aula de hoje sem registro) ou semanal (últimos 7 dias),
     no horário escolhido, no fuso do aluno; feriados não contam. Vai por push, ou por e-mail se o
-    aluno não tem push. Um por dia (`dedupe_key`).
+    aluno não tem push. Um por dia (`dedupe_key`). Com até 6 aulas no dia, o push traz as aulas e
+    a notificação ganha **Fui** / **Faltei** (ou **Fui a todas**): o service worker registra direto
+    na API com a sessão, sem abrir o app.
   - **Limpeza de hora em hora:** chaves de idempotência com mais de 24 h, sessões vencidas há 7
     dias, links de uso único vencidos.
   - Permissões (migration `0004_notifications`): o `app_worker` lê só as colunas necessárias. Dos
@@ -301,3 +335,7 @@ Tudo dentro da API, sem serviço externo de identidade.
   `/openapi.json`. Um teste falha se a API tiver rota fora do contrato ou o contrato tiver rota que
   a API não implementa.
 - **Escritas** (POST/PUT/PATCH/DELETE) vindas de outra origem que não `WEB_ORIGIN` são recusadas (403).
+- **Conta e LGPD:** `GET /v1/me/export.json` traz todos os dados da pessoa, inclusive sessões, conta
+  Google vinculada, aparelhos com push e a situação do segundo fator (nunca hashes, chaves ou
+  códigos). `POST /v1/feedback` manda sugestões e problemas por e-mail para `FEEDBACK_TO`, com
+  "responder" para o aluno.

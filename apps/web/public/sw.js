@@ -177,6 +177,7 @@ self.addEventListener("push", (event) => {
  */
 async function markFromNotification(classes, status) {
   let done = 0;
+  let already = 0;
   for (const c of classes) {
     const response = await fetch("/api/v1/attendance", {
       method: "POST",
@@ -192,10 +193,12 @@ async function markFromNotification(classes, status) {
       }),
     });
     if (response.status === 401) return { ok: false, login: true };
-    if (!response.ok && response.status !== 409) return { ok: false };
-    done++;
+    // 409: a aula já tinha registro (talvez com outro status, feito no app). Não é trocado.
+    if (response.status === 409) already++;
+    else if (!response.ok) return { ok: false };
+    else done++;
   }
-  return { ok: true, done };
+  return { ok: true, done, already };
 }
 
 async function openApp(path) {
@@ -223,10 +226,23 @@ self.addEventListener("notificationclick", (event) => {
         }));
         if (!result.ok) return openApp(result.login ? "/entrar?next=%2Fhoje" : "/hoje");
         const what = event.action === "present" ? "Presença registrada" : "Falta registrada";
-        const where =
-          classes.length === 1 ? ` em ${classes[0].name}` : ` em ${classes.length} aulas`;
-        return self.registration.showNotification(`${what}${where}`, {
-          body: "Para mudar, abra o app em Hoje.",
+        let title;
+        if (result.done === 0) {
+          title =
+            classes.length === 1
+              ? `${classes[0].name}: a aula já tinha registro`
+              : "Essas aulas já tinham registro";
+        } else if (classes.length === 1) {
+          title = `${what} em ${classes[0].name}`;
+        } else {
+          title = `${what} em ${result.done} ${result.done === 1 ? "aula" : "aulas"}`;
+        }
+        const body =
+          result.already > 0
+            ? "O que já estava marcado não foi trocado. Para mudar, abra o app em Hoje."
+            : "Para mudar, abra o app em Hoje.";
+        return self.registration.showNotification(title, {
+          body,
           icon: "/icons/icon-192.png",
           badge: "/icons/icon-192.png",
           tag: "checkin_reminder",

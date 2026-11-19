@@ -111,20 +111,25 @@ export interface TxContext {
  */
 export async function withUser<T>(db: Db, ctx: TxContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!UUID_RE.test(ctx.userId)) throw new TypeError("withUser: userId precisa ser um UUID");
+  // Depois que `fn` termina, o próximo passo é o COMMIT: se a conexão cair aí, não dá para saber
+  // se ele foi gravado, então não repete (repetir poderia gravar duas vezes).
+  let committing = false;
   const run = () =>
     db.transaction(async (tx) => {
       await tx.execute(sql`select set_config('app.user_id', ${ctx.userId}, true)`);
       if (ctx.requestId) {
         await tx.execute(sql`select set_config('app.request_id', ${ctx.requestId}, true)`);
       }
-      return fn(tx);
+      const result = await fn(tx);
+      committing = true;
+      return result;
     });
   try {
     return await run();
   } catch (error) {
     // Conexão encerrada pelo servidor no meio: a transação foi desfeita, então repete uma vez
     // numa conexão nova (o aluno não vê o erro). Qualquer outro erro sobe como está.
-    if (!isConnectionLost(error)) throw error;
+    if (committing || !isConnectionLost(error)) throw error;
     return run();
   }
 }
