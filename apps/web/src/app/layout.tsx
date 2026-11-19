@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { URL_MASK_SCRIPT } from "@/lib/url-mask";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,6 +25,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
+      <head>
+        {/* Precisa rodar antes do Next hidratar (ver lib/url-mask.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: URL_MASK_SCRIPT }} />
+      </head>
       <body className="min-h-dvh antialiased">{children}</body>
     </html>
   );

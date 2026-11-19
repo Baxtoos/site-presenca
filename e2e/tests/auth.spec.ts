@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { waitForLink } from "./mailpit";
+import { expectPath, realPath } from "./setup-helpers";
 
 const uniqueEmail = (testInfo: { project: { name: string } }) =>
   `e2e.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
@@ -26,7 +27,7 @@ test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → 
 
   // Sem sessão, a página inicial manda para o login.
   await page.goto("/");
-  await expect(page).toHaveURL(/\/entrar$/);
+  await expectPath(page, /^\/entrar$/);
 
   // Cadastro: entra direto, com o aviso de e-mail não confirmado.
   await page.getByRole("link", { name: "Criar conta" }).click();
@@ -45,14 +46,14 @@ test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → 
   // Confirma o e-mail pelo link: o token some da barra de endereço.
   await openEmailLink(page, await waitForLink(email, "Confirme seu e-mail", startedAt));
   await expect(page.getByText("E-mail confirmado.")).toBeVisible();
-  await expect(page).not.toHaveURL(/token=/);
+  expect(await realPath(page)).not.toMatch(/token=/);
   await page.getByRole("link", { name: "Ir para o app" }).click();
   await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
 
   // Sair e entrar de novo; senha errada mostra a mensagem genérica.
   await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\/entrar$/);
+  await expectPath(page, /^\/entrar$/);
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill("senha-errada-123");
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
@@ -73,7 +74,7 @@ test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → 
 
   await openEmailLink(page, await waitForLink(email, "Redefinir sua senha", resetRequestedAt));
   await expect(page.getByRole("heading", { name: "Escolher nova senha" })).toBeVisible();
-  await expect(page).not.toHaveURL(/token=/);
+  expect(await realPath(page)).not.toMatch(/token=/);
   await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
   await page.getByLabel("Repita a nova senha").fill(newPassword);
   await page.getByRole("button", { name: "Salvar e entrar" }).click();
@@ -132,5 +133,5 @@ test("encerrar a sessão de outro dispositivo derruba aquele dispositivo", async
   await expect(laptop.getByRole("button", { name: "Encerrar" })).toHaveCount(0);
 
   await phone.reload();
-  await expect(phone).toHaveURL(/\/entrar$/);
+  await expectPath(phone, /^\/entrar(\?|$)/);
 });

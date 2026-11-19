@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { Alert, Button, Field, TextLink } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
@@ -8,14 +8,16 @@ import { formText } from "@/lib/form";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{ message: string; tokenInvalid: boolean }>();
   const [fieldError, setFieldError] = useState<string>();
 
-  // Tira o token da barra de endereço (o formulário já o tem em memória).
+  // Tira o token do histórico (o formulário já o tem em memória). Usa o caminho do roteador:
+  // a barra é mascarada (lib/url-mask.ts) e window.location mostraria só "/".
   useEffect(() => {
-    window.history.replaceState(null, "", window.location.pathname);
-  }, []);
+    window.history.replaceState(null, "", pathname);
+  }, [pathname]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

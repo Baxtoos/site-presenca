@@ -54,3 +54,18 @@ export async function setupStudentWithClassToday(
   await expect(page.getByRole("link", { name: new RegExp(opts.subject) })).toBeVisible();
   return today;
 }
+
+/**
+ * Caminho real da tela. A barra de endereço é mascarada (apps/web/src/lib/url-mask.ts) e mostra
+ * só "/", então page.url() não serve; a URL real fica no estado do histórico.
+ */
+export async function realPath(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const state = window.history.state as { __presencaUrl?: string } | null;
+    return state?.__presencaUrl ?? location.pathname + location.search;
+  });
+}
+
+export async function expectPath(page: Page, pattern: RegExp): Promise<void> {
+  await expect.poll(() => realPath(page)).toMatch(pattern);
+}

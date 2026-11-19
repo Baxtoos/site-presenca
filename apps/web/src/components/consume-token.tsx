@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
@@ -27,6 +27,7 @@ export function ConsumeToken({
   failureExtra?: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [state, setState] = useState<
     { status: "pending" | "done" } | { status: "failed"; message: string }
   >({
@@ -38,7 +39,8 @@ export function ConsumeToken({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    window.history.replaceState(null, "", window.location.pathname);
+    // Caminho do roteador: a barra é mascarada (lib/url-mask.ts) e window.location seria "/".
+    window.history.replaceState(null, "", pathname);
     api(endpoint, { method: "POST", body: { token } })
       .then(() => {
         if (redirectTo) {
@@ -54,7 +56,7 @@ export function ConsumeToken({
           message: e instanceof ApiError ? e.message : "Algo deu errado.",
         });
       });
-  }, [endpoint, redirectTo, router, token]);
+  }, [endpoint, pathname, redirectTo, router, token]);
 
   if (state.status === "failed") {
     return (

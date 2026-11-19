@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { isoWeekday, setupStudentWithClassToday, WEEKDAYS } from "./setup-helpers";
+import { isoWeekday, realPath, setupStudentWithClassToday, WEEKDAYS } from "./setup-helpers";
 
 test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page }, testInfo) => {
   // Fluxo longo (várias páginas); no `next dev`, cada página nova compila na primeira visita.
@@ -61,7 +61,7 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(page.getByText("Nenhum registro com esse filtro.")).toBeVisible();
 
   // Nenhuma tela da área logada rola para o lado (nem com e-mail comprido, nem no celular).
-  for (const url of [page.url(), "/", "/hoje", "/semestres", "/conta"]) {
+  for (const url of [await realPath(page), "/", "/hoje", "/semestres", "/conta"]) {
     await page.goto(url);
     await page.waitForLoadState("networkidle");
     const overflow = await page.evaluate(

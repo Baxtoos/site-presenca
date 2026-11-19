@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { waitForLink } from "./mailpit";
-import { setupStudentWithClassToday, uniqueEmail } from "./setup-helpers";
+import { expectPath, setupStudentWithClassToday, uniqueEmail } from "./setup-helpers";
 
 /**
  * Compartilhamento de ponta a ponta: a Ana gera um código; um colega SEM conta abre o link, vê a
@@ -60,7 +60,7 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
   await other.getByRole("button", { name: "Criar conta" }).click();
 
   // Voltou para a importação já logado.
-  await expect(other).toHaveURL(new RegExp(`/importar/${code}$`));
+  await expectPath(other, new RegExp(`^/importar/${code}$`));
   await other.getByRole("button", { name: "Importar este semestre" }).click();
   await expect(other.getByRole("heading", { name: /^Atual/ })).toBeVisible();
   const card = other.getByRole("link", { name: /Estatística/ });
