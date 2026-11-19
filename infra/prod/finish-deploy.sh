@@ -49,8 +49,9 @@ ask_if_missing() {
 ask_if_missing "WEB_ORIGIN" "Endereço do site na Vercel (ex.: https://site-presenca.vercel.app, sem barra no fim):" false
 ask_if_missing "API_INTERNAL_URL" "Endereço da API no Render (ex.: https://presenca-api.onrender.com, ou Enter se ainda não criou):" false
 ask_if_missing "REDIS_URL" "URL do Redis no Upstash (rediss://default:...@...upstash.io:6379 — texto oculto):" true
-ask_if_missing "SMTP_URL" "URL SMTP do Brevo (smtp://LOGIN:CHAVE@smtp-relay.brevo.com:587 — texto oculto):" true
-ask_if_missing "MAIL_FROM" "Remetente verificado no Brevo (ex.: Monitor de Presenças <seu-email@exemplo.com>):" false
+ask_if_missing "SMTP_URL" "URL SMTP do Gmail com senha de app (smtps://SEUEMAIL%40gmail.com:SENHA@smtp.gmail.com:465 — texto oculto):" true
+ask_if_missing "MAIL_FROM" "Remetente, o mesmo Gmail (ex.: Monitor de Presenças <seuemail@gmail.com>):" false
+# Para o worker (GitHub Actions envia SMTP direto). A API no Render usa relay (render.yaml).
 setvar "MAIL_TRANSPORT" "smtp"
 
 echo "▸ Sincronizando segredos do worker com o GitHub Actions..."

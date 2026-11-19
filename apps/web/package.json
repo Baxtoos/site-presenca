@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@presenca/contracts": "workspace:*",
+    "@presenca/emails": "workspace:*",
     "@presenca/engine": "workspace:*",
     "next": "catalog:",
     "qrcode": "catalog:",

@@ -21,7 +21,13 @@ export interface Mailer {
   send(message: MailMessage, options?: SendOptions): Promise<void>;
 }
 
-export type MailTransportName = "smtp" | "resend" | "log";
+export type MailTransportName = "smtp" | "resend" | "relay" | "log";
+
+/** Cabeçalho com o segredo compartilhado entre a API e a rota de repasse do app web. */
+export const MAIL_RELAY_SECRET_HEADER = "x-presenca-mail-secret";
+
+/** Caminho da rota de repasse no app web (apps/web/src/app/interno/email/route.ts). */
+export const MAIL_RELAY_PATH = "/interno/email";
 
 /** SMTP (Mailpit em desenvolvimento, ou qualquer provedor SMTP). */
 export class SmtpMailer implements Mailer {
@@ -67,6 +73,33 @@ export class ResendMailer implements Mailer {
   }
 }
 
+/**
+ * Repasse por HTTPS para o app web, que envia por SMTP.
+ *
+ * O Render gratuito bloqueia a saída nas portas de SMTP (25, 465 e 587); HTTPS passa. A API
+ * manda a mensagem para a rota interna do app (na Vercel, onde SMTP funciona) com o segredo
+ * compartilhado API_PROXY_SECRET, e a rota envia com SMTP_URL e MAIL_FROM.
+ */
+export class RelayMailer implements Mailer {
+  constructor(
+    private readonly url: string,
+    private readonly secret: string,
+  ) {}
+
+  async send(message: MailMessage, options: SendOptions = {}): Promise<void> {
+    const response = await fetch(this.url, {
+      method: "POST",
+      headers: { "content-type": "application/json", [MAIL_RELAY_SECRET_HEADER]: this.secret },
+      body: JSON.stringify({ ...message, idempotencyKey: options.idempotencyKey }),
+      // A função da Vercel pode estar fria; o envio SMTP leva alguns segundos.
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) {
+      throw new Error(`repasse de e-mail respondeu ${response.status}: ${await response.text()}`);
+    }
+  }
+}
+
 /** Só imprime no log (com o texto, que contém o link). Proibido em produção pela validação do ambiente. */
 export class LogMailer implements Mailer {
   constructor(private readonly log: (line: string) => void = (line) => console.log(line)) {}
@@ -95,6 +128,8 @@ export function createMailer(config: {
   from: string;
   smtpUrl?: string;
   resendApiKey?: string;
+  relayUrl?: string;
+  relaySecret?: string;
   log?: (line: string) => void;
 }): Mailer {
   switch (config.transport) {
@@ -105,6 +140,10 @@ export function createMailer(config: {
       if (!config.resendApiKey)
         throw new Error("RESEND_API_KEY é obrigatória com MAIL_TRANSPORT=resend");
       return new ResendMailer(config.resendApiKey, config.from);
+    case "relay":
+      if (!config.relayUrl || !config.relaySecret)
+        throw new Error("MAIL_TRANSPORT=relay precisa do endereço do app e de API_PROXY_SECRET");
+      return new RelayMailer(config.relayUrl, config.relaySecret);
     case "log":
       return new LogMailer(config.log);
   }

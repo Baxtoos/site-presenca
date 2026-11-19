@@ -1,5 +1,5 @@
 import { Global, Logger, Module } from "@nestjs/common";
-import { createMailer } from "@presenca/emails/transport";
+import { createMailer, MAIL_RELAY_PATH } from "@presenca/emails/transport";
 import { ENV, type Env } from "../config/env";
 import { MAILER, type Mailer } from "./mailer";
 
@@ -16,6 +16,9 @@ import { MAILER, type Mailer } from "./mailer";
           from: env.MAIL_FROM,
           smtpUrl: env.SMTP_URL,
           resendApiKey: env.RESEND_API_KEY,
+          // relay: o app web (Vercel) envia por SMTP, que o Render gratuito bloqueia.
+          relayUrl: new URL(MAIL_RELAY_PATH, env.WEB_ORIGIN).href,
+          relaySecret: env.API_PROXY_SECRET,
           log: (line) => logger.log(line),
         });
       },

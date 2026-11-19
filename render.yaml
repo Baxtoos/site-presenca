@@ -34,13 +34,11 @@ services:
       # URL do Redis do Upstash (rediss://...).
       - key: REDIS_URL
         sync: false
-      # E-mail: smtp (ex.: Brevo) ou resend. Veja o guia.
+      # E-mail: relay = a API entrega por HTTPS ao site (rota /interno/email), que envia por SMTP.
+      # O plano gratuito do Render bloqueia as portas de SMTP; SMTP_URL e MAIL_FROM ficam na Vercel.
+      # Com domínio próprio, resend (HTTPS) também funciona daqui. Veja docs/deploy-gratuito.md.
       - key: MAIL_TRANSPORT
-        value: smtp
-      - key: SMTP_URL
-        sync: false
-      - key: MAIL_FROM
-        sync: false
+        value: relay
       # Segredo compartilhado com a Vercel (o MESMO valor lá): com ele a API recebe o IP real do
       # aluno pelo site. Sem ele, todos aparecem com um IP da Cloudflare e dividem o rate limit.
       - key: API_PROXY_SECRET

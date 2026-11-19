@@ -9,14 +9,14 @@ Navegador ──► Vercel (site, Next.js) ──/api──► Render (API) ─�
 GitHub Actions (a cada 15 min) ──► worker pontual ─┴──────────► Neon + e-mail + push
 ```
 
-| Peça     | Serviço gratuito    | O que esperar                                                                                                                                                   |
-| :------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Site     | Vercel (já no ar)   | Uso pessoal/não comercial no plano gratuito.                                                                                                                    |
-| API      | Render, plano Free  | Dorme após 15 min sem acesso e leva ~1 min para acordar. Um monitor gratuito a mantém acordada (passo 10). 750 h/mês bastam para **uma** API ligada o mês todo. |
-| Postgres | Neon, plano Free    | 0,5 GB e horas de computação limitadas por mês; suspende sozinho após 5 min ocioso (acorda em ~1 s).                                                            |
-| Redis    | Upstash, plano Free | 500 mil comandos/mês e 256 MB. Só guarda os limites de tentativa de login.                                                                                      |
-| Worker   | GitHub Actions      | Roda **uma vez** a cada 15 min e sai.                                                                                                                           |
-| E-mail   | Brevo (SMTP)        | Veja o passo 6.                                                                                                                                                 |
+| Peça     | Serviço gratuito     | O que esperar                                                                                                                                                   |
+| :------- | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Site     | Vercel (já no ar)    | Uso pessoal/não comercial no plano gratuito.                                                                                                                    |
+| API      | Render, plano Free   | Dorme após 15 min sem acesso e leva ~1 min para acordar. Um monitor gratuito a mantém acordada (passo 10). 750 h/mês bastam para **uma** API ligada o mês todo. |
+| Postgres | Neon, plano Free     | 0,5 GB e horas de computação limitadas por mês; suspende sozinho após 5 min ocioso (acorda em ~1 s).                                                            |
+| Redis    | Upstash, plano Free  | 500 mil comandos/mês e 256 MB. Só guarda os limites de tentativa de login.                                                                                      |
+| Worker   | GitHub Actions       | Roda **uma vez** a cada 15 min e sai.                                                                                                                           |
+| E-mail   | Gmail (senha de app) | Veja o passo 6.                                                                                                                                                 |
 
 ## O que muda por não ter servidor sempre ligado
 
@@ -100,18 +100,24 @@ Guarde a chave **pública** (vai na API e no worker) e a **privada** (só no wor
 
 ## 6. E-mail
 
-A API manda os e-mails de confirmação de conta e de redefinição de senha, e o worker manda os
-alertas. O Resend só envia para outras pessoas depois de você verificar um domínio **seu** (o
-`vercel.app` não serve). Sem domínio, a opção gratuita é um SMTP com remetente verificado, como o
-**Brevo**:
+A API manda os e-mails de confirmação de conta, link de acesso e redefinição de senha; o worker
+manda os alertas. Sem domínio próprio, o caminho gratuito é enviar pelo **Gmail** com uma _senha de
+app_ (o e-mail sai dos servidores do Google e chega; remetente @gmail.com por outro provedor, como
+o Brevo, costuma ser bloqueado pelo Gmail).
 
-1. Crie a conta no Brevo, verifique o e-mail que será o remetente e gere uma _chave SMTP_.
-2. Monte a URL: `smtp://LOGIN:CHAVE@smtp-relay.brevo.com:587` (se a chave tiver caracteres
-   especiais, codifique-os como em uma URL).
-3. `MAIL_FROM` = `Monitor de Presenças <seu-email-verificado@exemplo.com>`.
+> **O Render gratuito bloqueia SMTP** (portas 25, 465 e 587, desde setembro de 2025). Por isso a
+> API usa `MAIL_TRANSPORT=relay`: ela entrega a mensagem por HTTPS à rota interna do site
+> (`/interno/email`, na Vercel, protegida pelo `API_PROXY_SECRET`), e o site envia por SMTP. O
+> worker roda no GitHub Actions, que não bloqueia SMTP, e envia direto (`MAIL_TRANSPORT=smtp`).
 
-Confira o limite diário do plano gratuito na página do Brevo. Remetente de e-mail pessoal (como
-Gmail) tende a cair no spam; com um domínio seu a entrega melhora (aí vale o Resend).
+1. Na conta Google do remetente, ligue a verificação em duas etapas e crie uma senha de app em
+   <https://myaccount.google.com/apppasswords> (16 letras; copie **sem** os espaços).
+2. Monte a URL, trocando o `@` do e-mail por `%40`:
+   `smtps://SEUEMAIL%40gmail.com:SENHADEAPP@smtp.gmail.com:465`.
+3. `MAIL_FROM` = `Monitor de Presenças <seuemail@gmail.com>` (o **mesmo** Gmail).
+
+O Gmail permite cerca de 500 envios por dia. Com um domínio seu, o Resend (`MAIL_TRANSPORT=resend`,
+por HTTPS) também funciona direto do Render e dá um remetente mais profissional.
 
 ## 7. Render (API)
 
@@ -125,8 +131,7 @@ Gmail) tende a cair no spam; com um domínio seu a entrega melhora (aí vale o R
    | `WEB_ORIGIN`       | O endereço do site na Vercel, com `https://` e **sem** barra no fim (ex.: `https://meu-site.vercel.app`). Tem de ser idêntico ao que o navegador mostra. |
    | `DATABASE_URL`     | A linha `DATABASE_URL` do passo 2 (papel `app_api`).                                                                                                     |
    | `REDIS_URL`        | A URL `rediss://` do passo 4.                                                                                                                            |
-   | `SMTP_URL`         | A URL do passo 6.                                                                                                                                        |
-   | `MAIL_FROM`        | O remetente do passo 6.                                                                                                                                  |
+   | `API_PROXY_SECRET` | Gere com `openssl rand -base64 32`; o **mesmo** valor vai na Vercel (passo 8). Também protege o repasse de e-mail.                                       |
    | `VAPID_PUBLIC_KEY` | A chave pública do passo 5 (ou deixe vazio).                                                                                                             |
 
 4. Crie. O primeiro build leva alguns minutos. Quando terminar, copie a URL do serviço (algo como
@@ -144,6 +149,9 @@ Crie também **`API_PROXY_SECRET`** com o **mesmo valor** usado no Render (gere 
 `openssl rand -base64 32`). O site manda à API o IP real do aluno junto com esse segredo; sem ele,
 a API só enxerga um IP da Cloudflare do Render, igual para todos, e o limite de tentativas por IP
 passa a valer para todo mundo junto.
+
+Crie ainda **`SMTP_URL`** e **`MAIL_FROM`** (os do passo 6): o site é quem envia os e-mails da API
+(`MAIL_TRANSPORT=relay` no Render). Faça um novo deploy depois de criar as variáveis.
 
 Se o build do site falhar por falta dos pacotes internos, use como _Build Command_:
 `cd ../.. && pnpm turbo run build --filter=@presenca/web`, com _Root Directory_ `apps/web`.

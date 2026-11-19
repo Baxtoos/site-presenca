@@ -57,8 +57,11 @@ const envSchema = z
     APP_VERSION: z.string().default("dev"),
 
     // ---- E-mail ----
-    /** smtp (Mailpit em desenvolvimento), resend (produção) ou log (só imprime; nunca em produção). */
-    MAIL_TRANSPORT: z.enum(["smtp", "resend", "log"]).default("log"),
+    /**
+     * smtp (Mailpit em desenvolvimento), resend, relay (repasse pelo app web, para o Render gratuito,
+     * que bloqueia SMTP) ou log (só imprime; nunca em produção).
+     */
+    MAIL_TRANSPORT: z.enum(["smtp", "resend", "relay", "log"]).default("log"),
     MAIL_FROM: z.string().min(3).default("Monitor de Presenças <nao-responda@presenca.local>"),
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
@@ -93,7 +96,7 @@ const envSchema = z
   })
   .refine((env) => !(env.NODE_ENV === "production" && env.MAIL_TRANSPORT === "log"), {
     path: ["MAIL_TRANSPORT"],
-    message: "em produção use resend ou smtp (log imprimiria links de acesso nos logs)",
+    message: "em produção use resend, smtp ou relay (log imprimiria links de acesso nos logs)",
   })
   .refine((env) => env.MAIL_TRANSPORT !== "smtp" || env.SMTP_URL !== undefined, {
     path: ["SMTP_URL"],
@@ -102,6 +105,10 @@ const envSchema = z
   .refine((env) => env.MAIL_TRANSPORT !== "resend" || env.RESEND_API_KEY !== undefined, {
     path: ["RESEND_API_KEY"],
     message: "obrigatória com MAIL_TRANSPORT=resend",
+  })
+  .refine((env) => env.MAIL_TRANSPORT !== "relay" || env.API_PROXY_SECRET !== undefined, {
+    path: ["API_PROXY_SECRET"],
+    message: "obrigatória com MAIL_TRANSPORT=relay (é o segredo da rota de e-mail do app web)",
   })
   .refine(
     (env) => (env.GOOGLE_CLIENT_ID === undefined) === (env.GOOGLE_CLIENT_SECRET === undefined),

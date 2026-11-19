@@ -23,6 +23,8 @@ const config: NextConfig = {
   outputFileTracingRoot: repoRoot,
   turbopack: { root: repoRoot },
   poweredByHeader: false,
+  // Envio SMTP do repasse de e-mail (app/interno/email): o nodemailer roda como pacote do Node.
+  serverExternalPackages: ["nodemailer"],
   reactStrictMode: true,
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiUrl}/:path*` }];
