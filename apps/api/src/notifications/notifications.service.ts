@@ -19,6 +19,7 @@ import { schema, type Tx } from "@presenca/db";
 import { and, count, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { ENV, type Env } from "../config/env";
 import { DbService } from "../database/db.service";
+import { inOrder } from "../common/in-order";
 
 const { notificationLogs, notificationPreferences, pushSubscriptions, users } = schema;
 
@@ -202,7 +203,7 @@ export class NotificationsService {
   }
 
   private async loadPreferences(tx: Tx): Promise<NotificationPreferences> {
-    const [[prefs], [user], [devices]] = await Promise.all([
+    const [[prefs], [user], [devices]] = await inOrder([
       tx.select().from(notificationPreferences),
       tx.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users),
       tx.select({ n: count() }).from(pushSubscriptions),

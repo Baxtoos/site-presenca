@@ -14,6 +14,7 @@ import { loadTotals } from "../academic/summary";
 import { rulesFromRow } from "../academic/mappers";
 import { ClockService } from "../common/clock";
 import { DbService } from "../database/db.service";
+import { inOrder } from "../common/in-order";
 
 const { subjects, semesters, subjectSchedules, calendarExceptions, attendanceLogs, users } = schema;
 
@@ -55,7 +56,7 @@ export class SimulateService {
 
       let upcoming: ReturnType<typeof classOccurrences> = [];
       if (from <= lastDay) {
-        const [schedules, exceptions, registered] = await Promise.all([
+        const [schedules, exceptions, registered] = await inOrder([
           tx.select().from(subjectSchedules).where(eq(subjectSchedules.subjectId, subject.id)),
           tx
             .select()

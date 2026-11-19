@@ -1,6 +1,7 @@
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
+import { LogController } from "fastify";
 import type { Logger } from "pino";
 import type { Env } from "../config/env";
 import { resolveClientIp } from "./client-ip";
@@ -23,7 +24,8 @@ export function createFastifyAdapter(env: Env, logger: Logger): FastifyAdapter {
   return new FastifyAdapter({
     loggerInstance: logger,
     genReqId: genRequestId,
-    requestIdLogLabel: "requestId",
+    // Rótulo do request id nos logs (a opção solta `requestIdLogLabel` está depreciada).
+    logController: new LogController({ requestIdLogLabel: "requestId" }),
     bodyLimit: 64 * 1024,
     trustProxy: toFastifyTrustProxy(env.TRUST_PROXY),
     return503OnClosing: true,

@@ -28,6 +28,7 @@ import { ClockService } from "../common/clock";
 import { type IdempotentResult, IdempotencyService } from "../common/idempotency";
 import { DbService } from "../database/db.service";
 import { subjectToTemplate, toPreview, toSharedTemplate } from "./sharing.mapper";
+import { inOrder } from "../common/in-order";
 
 const {
   sharedTemplates,
@@ -152,7 +153,7 @@ export class SharingService {
       });
     }
     const ids = subjectRows.map((s) => s.id);
-    const [schedules, exceptions] = await Promise.all([
+    const [schedules, exceptions] = await inOrder([
       tx.select().from(subjectSchedules).where(inArray(subjectSchedules.subjectId, ids)),
       tx.select().from(calendarExceptions).where(eq(calendarExceptions.semesterId, semesterId)),
     ]);

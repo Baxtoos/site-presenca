@@ -10,6 +10,7 @@ import {
 } from "@presenca/engine";
 import { eq, sql } from "drizzle-orm";
 import type { SubjectRow } from "../academic/summary";
+import { inOrder } from "../common/in-order";
 
 const { subjects, subjectThresholdState, notificationPreferences, notificationLogs, users } =
   schema;
@@ -31,7 +32,7 @@ export class ThresholdAlerts {
       .where(eq(subjects.id, subject.id))
       .for("update");
 
-    const [rows, [prefs]] = await Promise.all([
+    const [rows, [prefs]] = await inOrder([
       tx
         .select()
         .from(subjectThresholdState)

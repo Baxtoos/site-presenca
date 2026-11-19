@@ -14,6 +14,7 @@ import { DbService } from "../database/db.service";
 import { ThresholdAlerts } from "../notifications/threshold-alerts";
 import { NO_ATTENDANCE, scheduleColumns, subjectColumns, toSchedule, toSubject } from "./mappers";
 import { SemestersService } from "./semesters.service";
+import { inOrder } from "../common/in-order";
 
 const { subjects, subjectSchedules, subjectTotals } = schema;
 
@@ -169,7 +170,7 @@ export class SubjectsService {
   private async withDetails(tx: Tx, rows: (typeof subjects.$inferSelect)[]): Promise<Subject[]> {
     if (rows.length === 0) return [];
     const ids = rows.map((r) => r.id);
-    const [schedules, totals] = await Promise.all([
+    const [schedules, totals] = await inOrder([
       tx.select().from(subjectSchedules).where(inArray(subjectSchedules.subjectId, ids)),
       tx.select().from(subjectTotals).where(inArray(subjectTotals.subjectId, ids)),
     ]);

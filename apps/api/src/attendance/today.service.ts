@@ -7,6 +7,7 @@ import { NO_ATTENDANCE, rulesFromRow } from "../academic/mappers";
 import { ClockService } from "../common/clock";
 import { DbService } from "../database/db.service";
 import { toRecord } from "./attendance.mapper";
+import { inOrder } from "../common/in-order";
 
 const {
   semesters,
@@ -65,7 +66,7 @@ export class TodayService {
       if (subjectRows.length === 0) return { ...base, classes: [], exceptions: [] };
       const subjectIds = subjectRows.map((s) => s.id);
 
-      const [schedules, exceptions, logs, totals] = await Promise.all([
+      const [schedules, exceptions, logs, totals] = await inOrder([
         tx
           .select()
           .from(subjectSchedules)

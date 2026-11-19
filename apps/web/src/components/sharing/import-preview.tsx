@@ -13,6 +13,20 @@ import { api, ApiError } from "@/lib/api-client";
 import { formatDate, plural, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } from "@/lib/format";
 import { withNext } from "@/lib/next-path";
 
+/**
+ * Uma consulta por código por vez: o React (StrictMode) monta o efeito duas vezes, e cada busca
+ * gasta o limite de consultas do visitante. A segunda montagem reaproveita a promessa em curso.
+ */
+const inFlight = new Map<string, Promise<TemplatePreview>>();
+function fetchPreview(code: string): Promise<TemplatePreview> {
+  let promise = inFlight.get(code);
+  if (!promise) {
+    promise = api<TemplatePreview>(`/v1/templates/${code}`).finally(() => inFlight.delete(code));
+    inFlight.set(code, promise);
+  }
+  return promise;
+}
+
 type State =
   | { kind: "loading" }
   | { kind: "ok"; preview: TemplatePreview }
@@ -43,7 +57,7 @@ export function ImportPreview({
 
   useEffect(() => {
     let cancelled = false;
-    api<TemplatePreview>(`/v1/templates/${code}`)
+    fetchPreview(code)
       .then((preview) => !cancelled && setState({ kind: "ok", preview }))
       .catch((e: unknown) => {
         if (cancelled) return;
