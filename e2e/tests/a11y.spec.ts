@@ -118,3 +118,29 @@ test("tema escolhido no app vale mesmo com o aparelho no outro tema", async ({
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
   expect(await paper()).toBe("rgb(25, 25, 25)");
 });
+
+test("troca rápida de tema no rodapé da barra lateral", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "celular", "a barra lateral só aparece no computador");
+  await page.emulateMedia({ colorScheme: "light" });
+  await setupStudentWithClassToday(page, testInfo, {
+    name: "Rui Rápido",
+    slug: "tema-rapido",
+    subject: "Música",
+  });
+  const sidebar = page.getByRole("complementary").filter({ has: page.getByText("Presenças") });
+  await expect(sidebar.getByRole("radio", { name: "Tema automático" })).toBeChecked();
+
+  await sidebar.locator('label[title="Escuro"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(sidebar.getByRole("radio", { name: "Tema escuro" })).toBeChecked();
+  await expectAccessible(page, "barra lateral no tema escuro");
+
+  // A mesma escolha aparece na página Conta.
+  await page.goto("/conta");
+  await expect(
+    page.getByRole("region", { name: "Aparência" }).getByRole("radio", { name: "Escuro" }),
+  ).toBeChecked();
+
+  await page.getByRole("complementary").locator('label[title="Automático"]').click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+});

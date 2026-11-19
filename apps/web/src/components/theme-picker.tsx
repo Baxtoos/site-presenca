@@ -56,3 +56,45 @@ export function ThemePicker() {
     </section>
   );
 }
+
+/**
+ * Troca rápida de tema no rodapé da barra lateral: três ícones, o atual destacado. Mesma escolha
+ * da página Conta (guardada neste aparelho).
+ */
+export function ThemeSwitcher() {
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, (): Theme => "system");
+  return (
+    <fieldset className="flex items-center justify-between gap-2 px-2">
+      <legend className="sr-only">Tema</legend>
+      <span className="text-xs font-medium text-muted" aria-hidden>
+        Tema
+      </span>
+      <div className="flex gap-0.5 rounded-md bg-surface-2 p-0.5">
+        {OPTIONS.map((o) => {
+          const Icon = o.icon;
+          const checked = theme === o.value;
+          return (
+            <label
+              key={o.value}
+              title={o.label}
+              className={`grid size-7 cursor-pointer place-items-center rounded transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40 ${
+                checked ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              <input
+                type="radio"
+                name="tema-rapido"
+                value={o.value}
+                checked={checked}
+                onChange={() => applyTheme(o.value)}
+                className="sr-only"
+                aria-label={`Tema ${o.label.toLowerCase()}`}
+              />
+              <Icon size={15} />
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}

@@ -11,6 +11,7 @@ import {
   TodayIcon,
   UserIcon,
 } from "@/components/icons";
+import { ThemeSwitcher } from "@/components/theme-picker";
 import { SUBJECT_COLOR_CLASS } from "@/lib/format";
 import { LogoutButton } from "./home-client";
 
@@ -141,8 +142,11 @@ export function Sidebar({
         </section>
       ) : null}
 
-      <div className="mt-auto px-1 [&_button]:w-full [&_button]:justify-start">
-        <LogoutButton variant="ghost" />
+      <div className="mt-auto grid gap-2 border-t border-line pt-3">
+        <ThemeSwitcher />
+        <div className="px-1 [&_button]:w-full [&_button]:justify-start">
+          <LogoutButton variant="ghost" />
+        </div>
       </div>
     </aside>
   );
