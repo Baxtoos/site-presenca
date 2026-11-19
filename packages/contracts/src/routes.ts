@@ -8,6 +8,7 @@ import {
   mfaCodeBodySchema,
   mfaEnableBodySchema,
   mfaRecoveryCodesResponseSchema,
+  mfaSetupBodySchema,
   mfaSetupResponseSchema,
   mfaStatusResponseSchema,
   registerBodySchema,
@@ -233,10 +234,23 @@ export const routes = {
     summary: "Começa a ativação: gera o segredo do app autenticador (QR Code)",
     tag: "Perfil",
     auth: true,
+    request: { body: mfaSetupBodySchema },
     responses: {
       200: { description: "Segredo e endereço otpauth://", schema: mfaSetupResponseSchema },
+      403: { description: "Conta sem senha sem o link do e-mail (MFA_CONFIRMATION_REQUIRED)" },
       409: { description: "O segundo fator já está ligado" },
       503: { description: "Servidor sem chave de cifra (MFA_UNAVAILABLE)" },
+    },
+  },
+  mfaEnableRequest: {
+    method: "POST",
+    path: "/v1/me/mfa/enable-request",
+    summary: "Conta sem senha: envia por e-mail o link para ligar o segundo fator (vale 15 min)",
+    tag: "Perfil",
+    auth: true,
+    responses: {
+      202: { description: "Link enviado ao e-mail da conta", schema: acceptedResponseSchema },
+      409: { description: "A conta tem senha: confirme com a senha (HAS_PASSWORD)" },
     },
   },
   mfaEnable: {

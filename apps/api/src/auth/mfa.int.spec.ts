@@ -280,3 +280,60 @@ describe("desligar e trocar códigos", () => {
     expect(problem(disable).code).toBe("MFA_INVALID_CODE");
   });
 });
+
+describe("conta sem senha: ligar pede o link do e-mail", () => {
+  async function passwordless() {
+    const address = email();
+    await browser().request("POST", "/v1/auth/magic-link", { email: address });
+    await env.drain();
+    const b = browser();
+    const res = await b.request("POST", "/v1/auth/magic-link/consume", {
+      token: tokenFromMail(env.mail, address),
+    });
+    expect(res.statusCode).toBe(200);
+    return { b, email: address };
+  }
+
+  it("sem o link, não começa; com o link, liga com o código (sem senha)", async () => {
+    const { b, email: address } = await passwordless();
+    const blocked = await b.request("POST", "/v1/me/mfa/setup", {});
+    expect(blocked.statusCode).toBe(403);
+    expect(problem(blocked).code).toBe("MFA_CONFIRMATION_REQUIRED");
+
+    expect((await b.request("POST", "/v1/me/mfa/enable-request")).statusCode).toBe(202);
+    await env.drain();
+    const message = env.mail.lastTo(address);
+    expect(message?.subject).toBe("Ligar a verificação em duas etapas");
+    expect(message?.text).toContain("http://localhost:3000/conta/duas-etapas?token=");
+    const token = tokenFromMail(env.mail, address);
+
+    const setup = await b.request("POST", "/v1/me/mfa/setup", { token });
+    expect(setup.statusCode).toBe(200);
+    const { secret } = mfaSetupResponseSchema.parse(setup.json());
+    const enable = await b.request("POST", "/v1/me/mfa/enable", { code: codeFor(secret) });
+    expect(enable.statusCode).toBe(200);
+    expect((await b.request("GET", "/v1/me/mfa")).json()).toMatchObject({ enabled: true });
+
+    // O link é de uso único.
+    const again = await b.request("POST", "/v1/me/mfa/setup", { token });
+    expect(problem(again).code).toBe("MFA_CONFIRMATION_REQUIRED");
+  });
+
+  it("o link de uma conta não libera outra", async () => {
+    const owner = await passwordless();
+    const other = await passwordless();
+    await owner.b.request("POST", "/v1/me/mfa/enable-request");
+    await env.drain();
+    const token = tokenFromMail(env.mail, owner.email);
+    const res = await other.b.request("POST", "/v1/me/mfa/setup", { token });
+    expect(problem(res).code).toBe("MFA_CONFIRMATION_REQUIRED");
+  });
+
+  it("conta com senha usa a senha, não o link", async () => {
+    const b = browser();
+    await registerAndConfirm(env, b, { email: email(), password: PASSWORD, fullName: "Fabi" });
+    const res = await b.request("POST", "/v1/me/mfa/enable-request");
+    expect(res.statusCode).toBe(409);
+    expect(problem(res).code).toBe("HAS_PASSWORD");
+  });
+});

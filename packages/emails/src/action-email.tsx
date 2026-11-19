@@ -299,6 +299,22 @@ export function deleteAccountMessage(params: { name: string; url: string }): Ren
   });
 }
 
+/** Ligar o segundo fator numa conta sem senha (o link confirma que é o dono do e-mail). */
+export function mfaEnableMessage(params: { name: string; url: string }): RenderedEmail {
+  return render("Ligar a verificação em duas etapas", {
+    title: "Ligar a verificação em duas etapas",
+    paragraphs: [
+      `Olá, ${params.name}.`,
+      "Recebemos um pedido para ligar a verificação em duas etapas na sua conta. Depois de ligada, entrar vai pedir também um código do app autenticador do seu celular.",
+      "Para continuar, abra o link abaixo no aparelho em que você está conectado.",
+    ],
+    actionLabel: "Continuar",
+    actionUrl: params.url,
+    footnote:
+      "O link vale por 15 minutos e funciona uma vez. Se não foi você, ignore este e-mail e troque o acesso: alguém pode estar com a sua sessão aberta.",
+  });
+}
+
 export function resetPasswordMessage(params: { url: string }): RenderedEmail {
   return render("Redefinir sua senha", {
     title: "Redefinir sua senha",

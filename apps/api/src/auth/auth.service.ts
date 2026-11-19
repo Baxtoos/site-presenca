@@ -21,6 +21,7 @@ import {
   accountExistsMessage,
   confirmSignupMessage,
   deleteAccountMessage,
+  mfaEnableMessage,
   magicLinkMessage,
   resetPasswordMessage,
   verifyEmailMessage,
@@ -45,6 +46,7 @@ const TTL: Record<TokenPurpose, number> = {
   reset_password: 15 * MINUTE,
   magic_link: 15 * MINUTE,
   delete_account: 15 * MINUTE,
+  mfa_enable: 15 * MINUTE,
 };
 const REGISTRATION_TTL = 24 * 60 * MINUTE;
 
@@ -404,6 +406,37 @@ export class AuthService {
   /** Consome o link de exclusão. Só vale se for da conta que está logada. */
   async consumeDeletionToken(token: string, userId: string): Promise<boolean> {
     const consumed = await this.repo.consumeToken(hashToken(token), "delete_account");
+    return consumed?.userId === userId;
+  }
+
+  // ---------------------------------------------------------------- segundo fator sem senha
+
+  /**
+   * Conta sem senha não tem o que confirmar ao ligar o segundo fator: o link por e-mail faz esse
+   * papel (quem só roubou a sessão não consegue ligar e trancar o dono fora).
+   */
+  async requestMfaEnableLink(userId: string): Promise<AcceptedResponse> {
+    const user = await this.db.asUser(userId, (tx) =>
+      tx.query.users.findFirst({ columns: { email: true, fullName: true } }),
+    );
+    if (user) {
+      this.tasks.run("link para ligar o segundo fator", async () => {
+        const token = await this.issue(userId, user.email, "mfa_enable");
+        await this.mailer.send({
+          to: user.email,
+          ...mfaEnableMessage({
+            name: user.fullName.split(" ")[0] ?? user.fullName,
+            url: this.link("/conta/duas-etapas", token),
+          }),
+        });
+      });
+    }
+    return ACCEPTED;
+  }
+
+  /** Consome o link de ativação do segundo fator. Só vale para a conta logada. */
+  async consumeMfaEnableToken(token: string, userId: string): Promise<boolean> {
+    const consumed = await this.repo.consumeToken(hashToken(token), "mfa_enable");
     return consumed?.userId === userId;
   }
 

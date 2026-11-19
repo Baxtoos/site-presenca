@@ -91,7 +91,9 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
      `MFA_ENCRYPTION_KEY` só na API, id da conta como dado associado); o mesmo código não serve duas
      vezes; 10 códigos de recuperação de uso único (só o hash no banco). Com o segundo fator ligado,
      senha, link por e-mail, Google e nova senha só abrem a sessão depois do código; o desafio
-     dura 5 minutos e acaba em 5 erros. Desligar ou gerar códigos novos pede um código.
+     dura 5 minutos e acaba em 5 erros. Desligar ou gerar códigos novos pede um código. Conta sem
+     senha (link ou Google) só começa a ativação por um link enviado ao e-mail (15 min, uso único,
+     só da conta logada): quem roubasse a sessão não consegue ligar e trancar o dono fora.
    - **Segredo próprio do repasse de e-mail:** `MAIL_RELAY_SECRET`, separado do `API_PROXY_SECRET`
      (a API recusa os dois iguais). Vazar um não compromete o outro.
    - **Senha mínima de 12 caracteres (ASVS 4.0.3, V2.1.1)** no cadastro e na nova senha; o login
@@ -101,10 +103,6 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
 
 1. **Estilos com `'unsafe-inline'` na CSP:** necessário para os atributos `style` do React. Não
    executa código; o risco é só de injeção de CSS, que o React já evita ao escapar o conteúdo.
-2. **Segundo fator em conta sem senha:** quem entra só por link ou Google liga o segundo fator sem
-   confirmar senha (não há senha). Quem roubasse a sessão poderia ligá-lo e trancar o dono fora;
-   aí só o administrador destrava (apagando a linha da conta em `app.user_mfa`). Risco baixo;
-   pode virar confirmação por e-mail, como na exclusão de conta.
 
 ## Como repetir
 

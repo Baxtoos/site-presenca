@@ -1,6 +1,8 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   NotFoundException,
@@ -8,18 +10,22 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import {
+  type AcceptedResponse,
   AuthErrorCode,
   type MfaCodeBody,
   mfaCodeBodySchema,
   type MfaEnableBody,
   mfaEnableBodySchema,
   type MfaRecoveryCodesResponse,
+  type MfaSetupBody,
+  mfaSetupBodySchema,
   type MfaSetupResponse,
   type MfaStatusResponse,
 } from "@presenca/contracts";
 import { ZodPipe } from "../common/zod.pipe";
 import { DbService } from "../database/db.service";
 import { RateLimit } from "../rate-limit/rate-limit";
+import { AuthService } from "./auth.service";
 import { type AuthContext, CurrentAuth } from "./decorators";
 import { MfaService } from "./mfa.service";
 import { PasswordService } from "./password.service";
@@ -33,6 +39,7 @@ export class MfaController {
     private readonly mfa: MfaService,
     private readonly db: DbService,
     private readonly passwords: PasswordService,
+    private readonly auth: AuthService,
   ) {}
 
   @Get()
@@ -40,12 +47,47 @@ export class MfaController {
     return this.mfa.status(auth.userId);
   }
 
+  /** Conta sem senha: manda o link que libera a ativação (confirma que é o dono do e-mail). */
+  @Post("enable-request")
+  @HttpCode(202)
+  @RateLimit({ bucket: "mfa-link", by: "user", limit: 3, windowSeconds: 15 * 60 })
+  async enableRequest(@CurrentAuth() auth: AuthContext): Promise<AcceptedResponse> {
+    const user = await this.db.tx((tx) =>
+      tx.query.users.findFirst({ columns: { passwordHash: true } }),
+    );
+    if (!user) throw new NotFoundException();
+    if (user.passwordHash !== null) {
+      throw new ConflictException({
+        code: "HAS_PASSWORD",
+        detail: "Sua conta tem senha: a ativação pede a senha, não um link.",
+      });
+    }
+    return this.auth.requestMfaEnableLink(auth.userId);
+  }
+
+  /** Começa a ativação. Conta sem senha precisa do token do link enviado ao e-mail. */
   @Post("setup")
   @HttpCode(200)
   @RateLimit(MFA_CHANGE)
-  async setup(@CurrentAuth() auth: AuthContext): Promise<MfaSetupResponse> {
-    const user = await this.db.tx((tx) => tx.query.users.findFirst({ columns: { email: true } }));
+  async setup(
+    @Body(new ZodPipe(mfaSetupBodySchema)) body: MfaSetupBody,
+    @CurrentAuth() auth: AuthContext,
+  ): Promise<MfaSetupResponse> {
+    const user = await this.db.tx((tx) =>
+      tx.query.users.findFirst({ columns: { email: true, passwordHash: true } }),
+    );
     if (!user) throw new NotFoundException();
+    if (user.passwordHash === null) {
+      const ok =
+        typeof body.token === "string" &&
+        (await this.auth.consumeMfaEnableToken(body.token, auth.userId));
+      if (!ok) {
+        throw new ForbiddenException({
+          code: AuthErrorCode.mfaConfirmationRequired,
+          detail: "Abra o link enviado ao seu e-mail para ligar a verificação em duas etapas.",
+        });
+      }
+    }
     return this.mfa.setup(auth.userId, user.email);
   }
 

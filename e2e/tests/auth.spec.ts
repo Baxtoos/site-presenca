@@ -243,3 +243,38 @@ test("verificação em duas etapas: ligar, entrar com o código e com um código
   await mfa.getByRole("button", { name: "Desligar" }).click();
   await expect(mfa.getByRole("button", { name: "Ligar verificação em duas etapas" })).toBeVisible();
 });
+
+test("conta sem senha liga a verificação em duas etapas pelo link do e-mail", async ({
+  page,
+}, testInfo) => {
+  const email = uniqueEmail(testInfo);
+  const startedAt = new Date(Date.now() - 1_000);
+  await page.goto("/entrar/link");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByRole("button", { name: "Enviar link de acesso" }).click();
+  await openEmailLink(page, await waitForLink(email, "Crie sua conta", startedAt));
+  await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
+
+  await page.goto("/conta");
+  const mfa = page.getByRole("region", { name: "Verificação em duas etapas" });
+  await expect(mfa).toContainText(email);
+  const askedAt = new Date(Date.now() - 1_000);
+  await mfa.getByRole("button", { name: "Enviar link para ligar" }).click();
+  await expect(mfa.getByText("Enviamos um link para")).toBeVisible();
+
+  await openEmailLink(
+    page,
+    await waitForLink(email, "Ligar a verificação em duas etapas", askedAt),
+  );
+  expect(await realPath(page)).not.toMatch(/token=/);
+  const panel = page.getByRole("region", { name: "Verificação em duas etapas" });
+  await panel.getByRole("button", { name: "Continuar" }).click();
+  const secret = (await panel.getByTestId("mfa-chave").textContent())!.replace(/\s/g, "");
+  // Sem senha para confirmar: o link do e-mail já fez esse papel.
+  await expect(panel.getByLabel("Senha atual")).toHaveCount(0);
+  await panel.getByLabel("Código do app").fill(totp(secret));
+  await panel.getByRole("button", { name: "Ligar", exact: true }).click();
+  await expect(panel.getByTestId("mfa-codigos").locator("li")).toHaveCount(10);
+  await panel.getByRole("button", { name: "Já guardei" }).click();
+  await expect(panel).toContainText("Ligada");
+});

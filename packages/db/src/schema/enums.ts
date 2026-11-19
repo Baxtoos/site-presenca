@@ -9,6 +9,8 @@ export const tokenPurpose = app.enum("token_purpose", [
   "register",
   /** Exclusão de conta confirmada por e-mail, para quem não tem senha (migration 0009). */
   "delete_account",
+  /** Ligar o segundo fator em conta sem senha, confirmado por e-mail (migration 0010). */
+  "mfa_enable",
 ]);
 
 export const semesterStatus = app.enum("semester_status", ["active", "archived"]);

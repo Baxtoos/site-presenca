@@ -25,15 +25,21 @@ const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "Algo 
 export function MfaPanel({
   initial,
   hasPassword,
+  email,
+  confirmToken,
 }: {
   initial: MfaStatusResponse;
   hasPassword: boolean;
+  email: string;
+  /** Conta sem senha: token do link do e-mail (página /conta/duas-etapas). */
+  confirmToken?: string;
 }) {
   const toast = useToast();
   const [status, setStatus] = useState(initial);
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [linkSent, setLinkSent] = useState(false);
 
   async function refresh() {
     setStatus(await api<MfaStatusResponse>("/v1/me/mfa"));
@@ -43,8 +49,25 @@ export function MfaPanel({
     setPending(true);
     setError(undefined);
     try {
-      const setup = await api<MfaSetupResponse>("/v1/me/mfa/setup", { method: "POST" });
+      const setup = await api<MfaSetupResponse>("/v1/me/mfa/setup", {
+        method: "POST",
+        body: confirmToken ? { token: confirmToken } : {},
+      });
       setMode({ kind: "setup", setup });
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  /** Conta sem senha: o link do e-mail confirma que é o dono antes de ligar. */
+  async function requestLink() {
+    setPending(true);
+    setError(undefined);
+    try {
+      await api("/v1/me/mfa/enable-request", { method: "POST" });
+      setLinkSent(true);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -187,11 +210,28 @@ export function MfaPanel({
             </Button>
           </div>
         </div>
-      ) : (
+      ) : hasPassword || confirmToken ? (
         <div>
           <Button loading={pending} onClick={() => void startSetup()}>
-            Ligar verificação em duas etapas
+            {confirmToken ? "Continuar" : "Ligar verificação em duas etapas"}
           </Button>
+        </div>
+      ) : linkSent ? (
+        <Alert tone="success">
+          Enviamos um link para <span className="[overflow-wrap:anywhere]">{email}</span>. Abra-o
+          neste aparelho em até 15 minutos para continuar.
+        </Alert>
+      ) : (
+        <div className="grid gap-3">
+          <p className="text-muted">
+            Como você entra sem senha, a confirmação é por e-mail: vamos enviar um link para{" "}
+            <strong className="[overflow-wrap:anywhere]">{email}</strong>.
+          </p>
+          <div>
+            <Button loading={pending} onClick={() => void requestLink()}>
+              Enviar link para ligar
+            </Button>
+          </div>
         </div>
       )}
     </section>

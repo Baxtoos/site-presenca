@@ -2,7 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import { DbService } from "../database/db.service";
 
-export type TokenPurpose = "verify_email" | "reset_password" | "magic_link" | "delete_account";
+export type TokenPurpose =
+  "verify_email" | "reset_password" | "magic_link" | "delete_account" | "mfa_enable";
 
 export interface UserCredentials {
   userId: string;

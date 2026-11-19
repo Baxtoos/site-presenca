@@ -1,5 +1,5 @@
 {
-  "id": "3f47ad5b-4b6e-47d0-95ad-2026b36bfa09",
+  "id": "796b62dd-2648-4206-b716-ada1d774eb18",
   "prevId": "1985f7ec-2254-4ee9-a52b-0a3019199c18",
   "version": "7",
   "dialect": "postgresql",
@@ -2611,7 +2611,8 @@
         "reset_password",
         "magic_link",
         "register",
-        "delete_account"
+        "delete_account",
+        "mfa_enable"
       ]
     },
     "app.user_status": {

@@ -30,7 +30,7 @@ export default async function AccountPage() {
       />
       <NotificationSettings initial={prefs} />
       <ThemePicker />
-      {me ? <MfaPanel initial={mfa} hasPassword={me.hasPassword} /> : null}
+      {me ? <MfaPanel initial={mfa} hasPassword={me.hasPassword} email={me.email} /> : null}
       <SessionsPanel />
       {me ? <LgpdPanel email={me.email} hasPassword={me.hasPassword} /> : null}
       <section

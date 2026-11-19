@@ -4,6 +4,7 @@ export {
   confirmSignupMessage,
   deleteAccountMessage,
   magicLinkMessage,
+  mfaEnableMessage,
   noticeMessage,
   resetPasswordMessage,
   verifyEmailMessage,

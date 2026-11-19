@@ -156,6 +156,10 @@ export const mfaCodeSchema = z
 export const mfaCodeBodySchema = z.object({ code: mfaCodeSchema });
 export type MfaCodeBody = z.infer<typeof mfaCodeBodySchema>;
 
+/** Conta sem senha começa a ativação com o token do link enviado ao e-mail. */
+export const mfaSetupBodySchema = z.object({ token: tokenSchema.optional() }).default({});
+export type MfaSetupBody = z.infer<typeof mfaSetupBodySchema>;
+
 export const mfaEnableBodySchema = z.object({
   code: mfaCodeSchema,
   /** Conta com senha confirma a senha para ligar o segundo fator. */
@@ -192,4 +196,5 @@ export const AuthErrorCode = {
   mfaInvalidCode: "MFA_INVALID_CODE",
   mfaChallengeExpired: "MFA_CHALLENGE_EXPIRED",
   mfaUnavailable: "MFA_UNAVAILABLE",
+  mfaConfirmationRequired: "MFA_CONFIRMATION_REQUIRED",
 } as const;
