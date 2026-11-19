@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { createDb } from "@presenca/db";
 import { createMailer } from "@presenca/emails/transport";
+import { flushErrors, initErrorReporting, reportError } from "@presenca/observability";
 import { type CycleDeps, didWork, runCycle } from "./cycle";
 import { loadEnv } from "./env";
 import { OutboxListener } from "./listener";
@@ -32,6 +33,7 @@ const CLEANUP_EVERY_MS = 60 * 60 * 1000;
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  initErrorReporting({ dsn: env.SENTRY_DSN, service: "worker", environment: env.NODE_ENV });
   const handle = createDb({
     connectionString: env.WORKER_DATABASE_URL,
     applicationName: "presenca-worker",
@@ -61,8 +63,10 @@ async function main(): Promise<void> {
   // Modo pontual: um ciclo e sai. Sem escuta do outbox, sem timers. Falhou → código de saída 1,
   // para o agendador mostrar a execução como falha.
   if (env.WORKER_MODE === "once") {
+    let failed = 0;
     try {
       const result = await runCycle(deps, { cleanup: true });
+      failed = result.delivery.failed;
       log("info", "ciclo único concluído", {
         reminders: result.reminders,
         ...result.delivery,
@@ -70,6 +74,14 @@ async function main(): Promise<void> {
       });
     } finally {
       await handle.close();
+    }
+    if (failed > 0) {
+      // Envio que falhou (SMTP recusou, push expirado...) tenta de novo no próximo ciclo, mas a
+      // execução sai como FALHA para o GitHub avisar o dono por e-mail. O motivo está no log acima.
+      log("error", `${failed} envio(s) falharam neste ciclo; veja "envio falhou" acima`, {
+        failed,
+      });
+      process.exit(1);
     }
     // Conexões keep-alive abertas pelo envio (SMTP, push) não devem segurar o processo.
     process.exit(0);
@@ -144,7 +156,9 @@ async function main(): Promise<void> {
   await cycle();
 }
 
-main().catch((error: unknown) => {
+main().catch(async (error: unknown) => {
   log("error", describeError(error));
+  reportError(error, { phase: "worker" });
+  await flushErrors();
   process.exit(1);
 });

@@ -43,6 +43,9 @@ services:
       # aluno pelo site. Sem ele, todos aparecem com um IP da Cloudflare e dividem o rate limit.
       - key: API_PROXY_SECRET
         sync: false
+      # Rastreamento de erros (Sentry). Vazio = desligado. Veja docs/deploy-gratuito.md.
+      - key: SENTRY_DSN
+        sync: false
       # Chave PÚBLICA do push (a privada fica só no worker). Vazio = sem push.
       - key: VAPID_PUBLIC_KEY
         sync: false

@@ -14,6 +14,7 @@
     "@presenca/contracts": "workspace:*",
     "@presenca/emails": "workspace:*",
     "@presenca/engine": "workspace:*",
+    "@sentry/nextjs": "catalog:",
     "next": "catalog:",
     "qrcode": "catalog:",
     "react": "catalog:",

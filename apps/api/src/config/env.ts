@@ -55,6 +55,8 @@ const envSchema = z
     /** Publica /openapi.json. Padrão: ligado fora de produção. */
     OPENAPI_ENABLED: optionalBool,
     APP_VERSION: z.string().default("dev"),
+    /** Rastreamento de erros (Sentry). Vazio = desligado. */
+    SENTRY_DSN: optionalString,
 
     // ---- E-mail ----
     /**

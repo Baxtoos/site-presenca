@@ -209,6 +209,17 @@ Depois, à mão, no site:
 
 ## 12. Rotina
 
+- **Avisos de falha:**
+  - **Worker:** se um envio de aviso falhar, a execução do _Worker (pontual)_ sai como falha e o
+    GitHub manda um e-mail. Confira em <https://github.com/settings/notifications> → _Actions_ que
+    está marcado _Email_ e _Only notify for failed workflows_.
+  - **Sentry (erros da API e do site):** crie a conta gratuita em <https://sentry.io> (plano
+    _Developer_), um projeto **Node.js** (para a API e o worker) e um **Next.js** (para o site), e
+    copie a _DSN_ de cada um (_Settings → Client Keys (DSN)_). Depois: `SENTRY_DSN` no Render (DSN
+    do Node.js), o segredo `SENTRY_DSN` no GitHub (o mesmo, para o worker) e
+    `NEXT_PUBLIC_SENTRY_DSN` na Vercel (DSN do Next.js; precisa de novo deploy). Em _Alerts_, deixe
+    o alerta padrão de "novo problema" mandando e-mail. Sem DSN nada é enviado. Só erros vão para o
+    Sentry: sem corpo das requisições, cookies, IP ou usuário, e com os e-mails mascarados.
 - **Backup automático (diário):** o workflow _Backup do banco_ roda todo dia às 03:23 (Brasília),
   lê com o papel `app_backup` (só leitura), testa a restauração num PostgreSQL 17 temporário e
   guarda o arquivo **criptografado** (AES-256) por 30 dias na aba _Actions_. Se falhar, o GitHub

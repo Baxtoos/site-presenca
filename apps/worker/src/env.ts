@@ -24,6 +24,9 @@ const envSchema = z
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
 
+    /** Rastreamento de erros (Sentry). Vazio = desligado. */
+    SENTRY_DSN: optionalString,
+
     // ---- Web Push (opcional: sem as chaves, os pushes ficam como "pulados") ----
     VAPID_PUBLIC_KEY: optionalString,
     VAPID_PRIVATE_KEY: optionalString,

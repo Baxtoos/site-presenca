@@ -26,6 +26,7 @@
     "@presenca/db": "workspace:*",
     "@presenca/emails": "workspace:*",
     "@presenca/engine": "workspace:*",
+    "@presenca/observability": "workspace:*",
     "arctic": "catalog:",
     "drizzle-orm": "catalog:",
     "exceljs": "catalog:",

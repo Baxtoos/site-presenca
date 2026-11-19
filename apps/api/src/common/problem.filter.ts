@@ -1,5 +1,6 @@
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException } from "@nestjs/common";
 import type { Problem } from "@presenca/contracts";
+import { reportError } from "@presenca/observability";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Logger } from "pino";
 import { buildProblem, PROBLEM_CONTENT_TYPE } from "./problem";
@@ -61,6 +62,7 @@ export class ProblemFilter implements ExceptionFilter {
 
     if (problem.status >= 500) {
       this.logger.error({ err: error, requestId: request.id }, "erro não tratado");
+      reportError(error, { requestId: String(request.id), route: request.routeOptions.url ?? "?" });
     }
     sendProblem(reply, problem);
   }

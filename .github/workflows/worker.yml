@@ -8,6 +8,9 @@
 #   MAIL_TRANSPORT        smtp ou resend
 #   SMTP_URL / RESEND_API_KEY / MAIL_FROM   conforme o transporte
 #   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT   (opcionais; juntos, para o push)
+#   SENTRY_DSN            (opcional) rastreamento de erros
+#
+# Envio que falha faz a execução sair como FALHA: o GitHub manda e-mail ao dono do repositório.
 #
 # Repositório PRIVADO: o GitHub dá 2000 min/mês grátis e cada disparo gasta ~1 min. A cada 15 min são
 # ~2900 min/mês; deixe só dois minutos por hora (~1450 min). Repositório público: sem limite.
@@ -67,4 +70,5 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: node apps/worker/dist/main.js

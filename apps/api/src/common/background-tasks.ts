@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { reportError } from "@presenca/observability";
 
 /**
  * Tarefas que rodam depois da resposta (ex.: enviar e-mail em "esqueci a senha", para que a
@@ -12,6 +13,8 @@ export class BackgroundTasks {
   run(name: string, task: () => Promise<void>): void {
     const promise = task()
       .catch((error: unknown) => {
+        // Ex.: o envio do e-mail de recuperação falhou. A resposta já saiu; só o Sentry fica sabendo.
+        reportError(error, { task: name });
         this.logger.error(
           `tarefa "${name}" falhou: ${error instanceof Error ? error.message : String(error)}`,
         );
