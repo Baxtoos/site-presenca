@@ -20,10 +20,24 @@ export const thresholdPayloadSchema = z.object({
 });
 export type ThresholdPayload = z.infer<typeof thresholdPayloadSchema>;
 
+/** Uma aula sem registro, para marcar direto pela notificação (botões Fui / Faltei). */
+export const pendingClassSchema = z.object({
+  subjectId: z.uuid(),
+  scheduleId: z.uuid(),
+  classDate: z.iso.date(),
+  name: z.string(),
+});
+export type PendingClass = z.infer<typeof pendingClassSchema>;
+
+/** Até quantas aulas do dia o lembrete leva para marcar pela notificação. */
+export const CHECKIN_ACTION_LIMIT = 6;
+
 export const checkinPayloadSchema = z.object({
   /** Aulas da grade sem registro. */
   count: z.number().int().min(1),
   scope: z.enum(["today", "week"]),
+  /** Só no lembrete do dia, com poucas aulas: quais são (para os botões da notificação). */
+  classes: z.array(pendingClassSchema).max(CHECKIN_ACTION_LIMIT).optional(),
 });
 export type CheckinPayload = z.infer<typeof checkinPayloadSchema>;
 
@@ -79,10 +93,13 @@ export function notificationContent(
     const p = checkinPayloadSchema.safeParse(payload);
     if (p.success) {
       const { count, scope } = p.data;
+      const only = count === 1 ? p.data.classes?.[0] : undefined;
       return scope === "today"
         ? {
             title: "Já marcou as aulas de hoje?",
-            body: `${classes(count)} de hoje ${count === 1 ? "está" : "estão"} sem registro.`,
+            body: only
+              ? `${only.name}: a aula de hoje está sem registro.`
+              : `${classes(count)} de hoje ${count === 1 ? "está" : "estão"} sem registro.`,
             url: "/hoje",
           }
         : {

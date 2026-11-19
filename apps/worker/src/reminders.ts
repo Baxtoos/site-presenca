@@ -1,4 +1,4 @@
-import type { CheckinPayload } from "@presenca/contracts";
+import { CHECKIN_ACTION_LIMIT, type CheckinPayload, type PendingClass } from "@presenca/contracts";
 import type { Pool } from "pg";
 import { addDaysIso, localParts, toMinutes } from "./time";
 
@@ -19,9 +19,14 @@ interface Candidate {
  * Aulas da grade sem registro nos dias informados (feriados e matérias arquivadas não contam).
  * O worker só enxerga quais aulas têm registro, nunca o conteúdo deles.
  */
-export async function unmarkedClasses(pool: Pool, userId: string, days: string[]): Promise<number> {
-  const { rows } = await pool.query<{ n: string }>(
-    `select count(*) as n
+export async function pendingClasses(
+  pool: Pool,
+  userId: string,
+  days: string[],
+): Promise<PendingClass[]> {
+  const { rows } = await pool.query<PendingClass>(
+    `select s.id as "subjectId", sc.id as "scheduleId", to_char(d.day, 'YYYY-MM-DD') as "classDate",
+            s.name
        from app.subject_schedules sc
        join app.subjects s on s.id = sc.subject_id and s.archived_at is null
        join app.semesters se on se.id = s.semester_id and se.status = 'active'
@@ -39,10 +44,15 @@ export async function unmarkedClasses(pool: Pool, userId: string, days: string[]
         and not exists (
           select 1 from app.attendance_logs l
            where l.user_id = $1 and l.subject_id = s.id
-             and l.schedule_id = sc.id and l.class_date = d.day)`,
+             and l.schedule_id = sc.id and l.class_date = d.day)
+      order by d.day, s.name`,
     [userId, days],
   );
-  return Number(rows[0]?.n ?? 0);
+  return rows;
+}
+
+export async function unmarkedClasses(pool: Pool, userId: string, days: string[]): Promise<number> {
+  return (await pendingClasses(pool, userId, days)).length;
 }
 
 /**
@@ -79,7 +89,8 @@ export async function enqueueReminders(pool: Pool, now: Date): Promise<number> {
       c.mode === "daily"
         ? [local.date]
         : Array.from({ length: 7 }, (_, i) => addDaysIso(local.date, -i));
-    const count = await unmarkedClasses(pool, c.userId, days);
+    const pending = await pendingClasses(pool, c.userId, days);
+    const count = pending.length;
     const base = { userId: c.userId, dedupeKey };
 
     if (count === 0) {
@@ -92,7 +103,12 @@ export async function enqueueReminders(pool: Pool, now: Date): Promise<number> {
       });
       continue;
     }
-    const payload: CheckinPayload = { count, scope: c.mode === "daily" ? "today" : "week" };
+    const payload: CheckinPayload = {
+      count,
+      scope: c.mode === "daily" ? "today" : "week",
+      // Poucas aulas no dia: a notificação traz os botões para marcar sem abrir o app.
+      ...(c.mode === "daily" && count <= CHECKIN_ACTION_LIMIT ? { classes: pending } : {}),
+    };
     await insertLog(pool, { ...base, channel: "in_app", status: "sent", payload });
     // Lembrete vale pelo celular; sem push, vai por e-mail (se a pessoa recebe e-mails).
     if (c.pushEnabled) {

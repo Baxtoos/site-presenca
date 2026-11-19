@@ -70,6 +70,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
       REDIS_URL: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
       VAPID_PUBLIC_KEY: TEST_VAPID_PUBLIC_KEY,
       MFA_ENCRYPTION_KEY: DEV_MFA_KEY,
+      FEEDBACK_TO: "dono@exemplo.com",
     },
     override: (builder) =>
       builder

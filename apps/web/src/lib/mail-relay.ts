@@ -14,6 +14,7 @@ const bodySchema = z.object({
   subject: z.string().min(1).max(300),
   html: z.string().min(1).max(200_000),
   text: z.string().min(1).max(100_000),
+  replyTo: z.email().optional(),
   idempotencyKey: z.string().max(200).optional(),
 });
 

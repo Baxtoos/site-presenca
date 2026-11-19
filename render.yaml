@@ -51,6 +51,9 @@ services:
       # Vazia = a verificação em duas etapas fica indisponível. Trocar invalida os apps já ligados.
       - key: MFA_ENCRYPTION_KEY
         sync: false
+      # E-mail que recebe as sugestões e os problemas da página Conta. Vazio = desligado.
+      - key: FEEDBACK_TO
+        sync: false
       # A versão (/healthz e Sentry) vem do commit do deploy: o Render preenche RENDER_GIT_COMMIT.
       # Defina APP_VERSION só se quiser outro texto.
       # Rastreamento de erros (Sentry). Vazio = desligado. Veja docs/deploy-gratuito.md.

@@ -3,6 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { BackgroundTasks } from "../common/background-tasks";
 import { ClockService } from "../common/clock";
 import { ENV, type Env } from "../config/env";
+import { FeedbackController } from "../me/feedback.controller";
 import { MeController } from "../me/me.controller";
 import { RateLimitGuard, RateLimitService } from "../rate-limit/rate-limit";
 import { AuthController } from "./auth.controller";
@@ -16,7 +17,7 @@ import { SessionGuard } from "./session.guard";
 import { SessionService } from "./session.service";
 
 @Module({
-  controllers: [AuthController, MeController, MfaController],
+  controllers: [AuthController, MeController, MfaController, FeedbackController],
   providers: [
     AuthRepository,
     AuthService,

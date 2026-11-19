@@ -349,9 +349,17 @@ describe("lembrete de chamada", () => {
       prefs: { checkin_reminder: "daily", checkin_time: "21:00", push_enabled: true },
     });
     expect(await enqueueReminders(worker, WED_2110)).toBeGreaterThanOrEqual(1);
+    const classes = [
+      {
+        subjectId: s.subjectId,
+        scheduleId: s.scheduleId,
+        classDate: "2026-11-18",
+        name: "Física I",
+      },
+    ];
     expect(await reminderLogs(s.userId)).toEqual([
-      { channel: "in_app", status: "sent", payload: { count: 1, scope: "today" } },
-      { channel: "push", status: "pending", payload: { count: 1, scope: "today" } },
+      { channel: "in_app", status: "sent", payload: { count: 1, scope: "today", classes } },
+      { channel: "push", status: "pending", payload: { count: 1, scope: "today", classes } },
     ]);
     await enqueueReminders(worker, new Date(WED_2110.getTime() + 30 * 60_000));
     expect(await reminderLogs(s.userId)).toHaveLength(2);
@@ -417,7 +425,40 @@ describe("lembrete de chamada", () => {
     await enqueueReminders(worker, WED_2110);
     await processOutbox(deps(WED_2110));
     expect(mail.lastTo(s.email)?.subject).toBe("Já marcou as aulas de hoje?");
-    expect(mail.lastTo(s.email)?.text).toContain("1 aula de hoje está sem registro.");
+    expect(mail.lastTo(s.email)?.text).toContain("Física I: a aula de hoje está sem registro.");
+  });
+
+  it("push do lembrete leva as aulas para os botões Fui / Faltei", async () => {
+    const endpoint = `https://fcm.googleapis.com/fcm/send/lembrete-${randomUUID()}`;
+    const s = await student({
+      prefs: { checkin_reminder: "daily", checkin_time: "21:00", push_enabled: true },
+      pushEndpoints: [endpoint],
+    });
+    await enqueueReminders(worker, WED_2110);
+    await processOutbox(deps(WED_2110));
+    const sent = push.sent.find((p) => p.endpoint === endpoint);
+    expect(sent?.message).toMatchObject({
+      title: "Já marcou as aulas de hoje?",
+      url: "/hoje",
+      tag: "checkin_reminder",
+      classes: [
+        {
+          subjectId: s.subjectId,
+          scheduleId: s.scheduleId,
+          classDate: "2026-11-18",
+          name: "Física I",
+        },
+      ],
+    });
+  });
+
+  it("semanal não leva aulas para botões (são vários dias)", async () => {
+    const s = await student({
+      prefs: { checkin_reminder: "weekly", checkin_time: "21:00", checkin_weekday: 3 },
+    });
+    await enqueueReminders(worker, WED_2110);
+    const [inApp] = (await reminderLogs(s.userId)).filter((r) => r.channel === "in_app");
+    expect(inApp?.payload).toEqual({ count: 1, scope: "week" });
   });
 });
 

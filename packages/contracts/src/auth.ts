@@ -185,6 +185,21 @@ export type MfaSetupResponse = z.infer<typeof mfaSetupResponseSchema>;
 export const mfaRecoveryCodesResponseSchema = z.object({ recoveryCodes: z.array(z.string()) });
 export type MfaRecoveryCodesResponse = z.infer<typeof mfaRecoveryCodesResponseSchema>;
 
+// ---- Sugestões e problemas ----
+
+export const feedbackKindSchema = z.enum(["sugestao", "problema", "outro"]);
+export const feedbackBodySchema = z.object({
+  kind: feedbackKindSchema,
+  message: z
+    .string()
+    .trim()
+    .min(10, { error: "Conte um pouco mais (pelo menos 10 caracteres)." })
+    .max(2000, { error: "Use no máximo 2000 caracteres." }),
+  /** Tela em que a pessoa estava (ajuda a achar o problema). */
+  page: z.string().max(200).optional(),
+});
+export type FeedbackBody = z.infer<typeof feedbackBodySchema>;
+
 /** Códigos de erro estáveis das rotas de autenticação (campo `code` do problem+json). */
 export const AuthErrorCode = {
   invalidCredentials: "INVALID_CREDENTIALS",

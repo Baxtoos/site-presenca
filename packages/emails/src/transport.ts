@@ -6,6 +6,8 @@ export interface MailMessage {
   subject: string;
   html: string;
   text: string;
+  /** "Responder" vai para este endereço (ex.: sugestão de um aluno, respondida pelo dono). */
+  replyTo?: string;
 }
 
 export interface SendOptions {
@@ -64,7 +66,14 @@ export class ResendMailer implements Mailer {
         "content-type": "application/json",
         "idempotency-key": options.idempotencyKey ?? randomUUID(),
       },
-      body: JSON.stringify({ from: this.from, ...message }),
+      body: JSON.stringify({
+        from: this.from,
+        to: message.to,
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+        ...(message.replyTo ? { reply_to: message.replyTo } : {}),
+      }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) {

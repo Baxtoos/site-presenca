@@ -2,6 +2,7 @@ import {
   acceptedResponseSchema,
   deleteMeBodySchema,
   emailBodySchema,
+  feedbackBodySchema,
   loginBodySchema,
   loginResponseSchema,
   meResponseSchema,
@@ -294,6 +295,18 @@ export const routes = {
         schema: mfaRecoveryCodesResponseSchema,
       },
       400: { description: "Código errado (MFA_INVALID_CODE)" },
+    },
+  },
+  feedback: {
+    method: "POST",
+    path: "/v1/feedback",
+    summary: "Envia uma sugestão ou um problema ao responsável pelo app (por e-mail)",
+    tag: "Perfil",
+    auth: true,
+    request: { body: feedbackBodySchema },
+    responses: {
+      202: { description: "Recebido", schema: acceptedResponseSchema },
+      503: { description: "Envio de sugestões não configurado (FEEDBACK_TO)" },
     },
   },
   sessions: {

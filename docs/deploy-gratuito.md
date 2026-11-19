@@ -134,6 +134,7 @@ por HTTPS) também funciona direto do Render e dá um remetente mais profissiona
    | `API_PROXY_SECRET`   | Gere com `openssl rand -base64 32`; o **mesmo** valor vai na Vercel (passo 8).                                                                                                                      |
    | `MAIL_RELAY_SECRET`  | Outro valor, gerado do mesmo jeito (**diferente** do `API_PROXY_SECRET`); o **mesmo** vai na Vercel (passo 8). Protege o repasse de e-mail.                                                         |
    | `MFA_ENCRYPTION_KEY` | Mais um valor de `openssl rand -base64 32`, só no Render. Cifra as chaves da verificação em duas etapas; vazio = recurso indisponível. **Não troque depois**: quem já ligou teria de ligar de novo. |
+   | `FEEDBACK_TO`        | O seu e-mail: recebe as sugestões e os problemas enviados pela página Conta (responder vai direto para o aluno). Vazio = formulário indisponível.                                                   |
    | `VAPID_PUBLIC_KEY`   | A chave pública do passo 5 (ou deixe vazio).                                                                                                                                                        |
 
 4. Crie. O primeiro build leva alguns minutos. Quando terminar, copie a URL do serviço (algo como

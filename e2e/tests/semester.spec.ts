@@ -54,10 +54,14 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   await page.getByRole("button", { name: "Adicionar", exact: true }).click();
   await expect(page.getByText("Fica fora do semestre (03/08/2026 a 18/12/2026).")).toBeVisible();
 
-  await page.getByLabel("Nome", { exact: true }).fill("Finados");
-  await page.getByLabel("Data (ou início)").fill("2026-11-02");
-  await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+  // Os feriados nacionais do período entraram sozinhos ao criar o semestre.
+  await expect(page.getByText("Finados")).toBeVisible();
   await expect(page.getByText("Feriado · 02/11/2026")).toBeVisible();
+  await expect(page.getByText("Feriado · 07/09/2026")).toBeVisible();
+  await page.getByLabel("Nome", { exact: true }).fill("Aniversário da cidade");
+  await page.getByLabel("Data (ou início)").fill("2026-12-08");
+  await page.getByRole("button", { name: "Adicionar", exact: true }).click();
+  await expect(page.getByText("Feriado · 08/12/2026")).toBeVisible();
 
   // O início mostra a matéria do semestre atual.
   await page.getByRole("link", { name: "Início" }).first().click();

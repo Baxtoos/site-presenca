@@ -137,6 +137,7 @@ function ActionEmail(props: ActionEmailProps) {
                                     backgroundColor: C.calloutBg,
                                     borderRadius: 8,
                                     padding: "14px 16px",
+                                    whiteSpace: "pre-wrap",
                                   }}
                                 >
                                   {props.callout}
@@ -312,6 +313,42 @@ export function mfaEnableMessage(params: { name: string; url: string }): Rendere
     actionUrl: params.url,
     footnote:
       "O link vale por 15 minutos e funciona uma vez. Se não foi você, ignore este e-mail e troque o acesso: alguém pode estar com a sua sessão aberta.",
+  });
+}
+
+const FEEDBACK_KIND: Record<string, string> = {
+  sugestao: "Sugestão",
+  problema: "Problema",
+  outro: "Mensagem",
+};
+
+/** Sugestão ou problema enviado por um aluno (vai para o responsável pelo app). */
+export function feedbackMessage(params: {
+  kind: string;
+  message: string;
+  name: string;
+  email: string;
+  page?: string;
+  version: string;
+  userAgent?: string;
+  appUrl: string;
+}): RenderedEmail {
+  const kind = FEEDBACK_KIND[params.kind] ?? "Mensagem";
+  const firstLine = params.message.split("\n")[0]!.slice(0, 60);
+  return render(`[${kind}] ${firstLine}`, {
+    title: `${kind} de ${params.name}`,
+    paragraphs: [`De: ${params.name} <${params.email}>`],
+    callout: params.message,
+    actionLabel: "Abrir o app",
+    actionUrl: params.appUrl,
+    footnote: [
+      params.page ? `Tela: ${params.page}.` : null,
+      `Versão: ${params.version}.`,
+      params.userAgent ? `Navegador: ${params.userAgent}.` : null,
+      "Responda este e-mail para falar direto com a pessoa.",
+    ]
+      .filter(Boolean)
+      .join(" "),
   });
 }
 

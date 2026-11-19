@@ -38,3 +38,4 @@ export {
   type ThresholdPct,
   type ThresholdState,
 } from "./thresholds";
+export { brazilHolidays, brazilHolidaysBetween, easterSunday, type Holiday } from "./holidays";

@@ -1,5 +1,6 @@
 import { mfaStatusResponseSchema, notificationPreferencesSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
+import { FeedbackForm } from "@/components/feedback-form";
 import { MfaPanel } from "@/components/mfa-panel";
 import { NotificationSettings } from "@/components/notifications/settings";
 import { ThemePicker } from "@/components/theme-picker";
@@ -32,6 +33,7 @@ export default async function AccountPage() {
       <ThemePicker />
       {me ? <MfaPanel initial={mfa} hasPassword={me.hasPassword} email={me.email} /> : null}
       <SessionsPanel />
+      <FeedbackForm />
       {me ? <LgpdPanel email={me.email} hasPassword={me.hasPassword} /> : null}
       <section
         className="flex flex-wrap items-center justify-between gap-3 card p-5 sm:p-6 text-sm"

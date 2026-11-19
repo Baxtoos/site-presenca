@@ -7,6 +7,7 @@ import { Alert, Button, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 import { formatDate } from "@/lib/format";
+import { NationalHolidays } from "./national-holidays";
 
 const KIND_LABEL: Record<CalendarExceptionDto["kind"], string> = {
   holiday: "Feriado",
@@ -74,6 +75,7 @@ export function ExceptionsManager({
 
   return (
     <div className="grid gap-4">
+      <NationalHolidays semester={semester} exceptions={exceptions} />
       {exceptions.length > 0 ? (
         <ul className="grid divide-y divide-line">
           {exceptions.map((e) => (

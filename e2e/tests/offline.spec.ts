@@ -96,3 +96,68 @@ test("app instalado: abre sem internet as páginas já visitadas e mostra o avis
   );
   await expect(page.getByTestId("aviso-offline")).toHaveCount(0);
 });
+
+test("botão Fui da notificação registra a presença sem abrir o app", async ({
+  page,
+  context,
+}, testInfo) => {
+  await setupStudentWithClassToday(page, testInfo, {
+    name: "Nina Notificação",
+    slug: "push-acao",
+    subject: "Sociologia",
+  });
+  await page.goto("/hoje");
+  const registered = await page.evaluate(async () => {
+    if (!("serviceWorker" in navigator)) return false;
+    await navigator.serviceWorker.ready;
+    return Boolean(await navigator.serviceWorker.getRegistration());
+  });
+  test.skip(!registered && !process.env.CI, "service worker desligado em next dev");
+
+  // A aula de hoje, como o worker manda no lembrete.
+  const today = (await (await page.request.get("/api/v1/today")).json()) as {
+    date: string;
+    classes: { subject: { id: string; name: string }; scheduleId: string }[];
+  };
+  const aula = today.classes.find((c) => c.subject.name === "Sociologia")!;
+  const classes = [
+    {
+      subjectId: aula.subject.id,
+      scheduleId: aula.scheduleId,
+      classDate: today.date,
+      name: "Sociologia",
+    },
+  ];
+
+  // O mesmo código que o toque em "Fui" roda, dentro do service worker (com o cookie da sessão).
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
+  const result = await sw.evaluate(
+    (c) =>
+      (
+        self as unknown as {
+          markFromNotification: (c: unknown, s: string) => Promise<{ ok: boolean; done?: number }>;
+        }
+      ).markFromNotification(c, "present"),
+    classes,
+  );
+  expect(result).toEqual({ ok: true, done: 1 });
+  // Tocar de novo não duplica: a aula já registrada conta como feita.
+  expect(
+    await sw.evaluate(
+      (c) =>
+        (
+          self as unknown as {
+            markFromNotification: (
+              c: unknown,
+              s: string,
+            ) => Promise<{ ok: boolean; done?: number }>;
+          }
+        ).markFromNotification(c, "present"),
+      classes,
+    ),
+  ).toEqual({ ok: true, done: 1 });
+
+  await page.reload();
+  const card = page.getByTestId("aula").filter({ hasText: "Sociologia" });
+  await expect(card).toContainText("Compareci");
+});

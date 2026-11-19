@@ -6,6 +6,7 @@ import { type FormEvent, useState } from "react";
 import { Alert, Button, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
+import { addHolidays, missingHolidays } from "@/lib/holidays";
 
 /** Sugere o rótulo e as datas do semestre corrente (1º: fev–jul, 2º: ago–dez). */
 function suggestion() {
@@ -40,6 +41,13 @@ export function CreateSemesterForm({ makeCurrentByDefault }: { makeCurrentByDefa
           isCurrent: form.get("atual") === "on",
         },
       });
+      if (form.get("feriados") === "on") {
+        // Só os feriados de fato; pontos facultativos ficam para o aluno marcar na página.
+        await addHolidays(
+          created.id,
+          missingHolidays(created, []).filter((h) => !h.optional),
+        ).catch(() => undefined);
+      }
       router.push(`/semestres/${created.id}`);
       router.refresh();
     } catch (e) {
@@ -87,6 +95,21 @@ export function CreateSemesterForm({ makeCurrentByDefault }: { makeCurrentByDefa
           className="size-4 accent-accent"
         />
         Este é o semestre que estou cursando agora
+      </label>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="feriados"
+          defaultChecked
+          className="mt-0.5 size-4 accent-accent"
+        />
+        <span>
+          Já adicionar os feriados nacionais do período
+          <span className="block text-muted">
+            Carnaval e Corpus Christi (pontos facultativos) você escolhe depois, na página do
+            semestre.
+          </span>
+        </span>
       </label>
       <Button type="submit" loading={pending} className="sm:w-fit">
         Criar semestre

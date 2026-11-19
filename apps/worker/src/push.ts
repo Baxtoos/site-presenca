@@ -13,6 +13,8 @@ export interface PushMessage {
   url: string;
   /** Avisos com a mesma tag se substituem na tela (ex.: o lembrete do dia). */
   tag: string;
+  /** Lembrete do dia: aulas para marcar pelos botões da notificação (service worker). */
+  classes?: { subjectId: string; scheduleId: string; classDate: string; name: string }[];
 }
 
 export type PushOutcome =

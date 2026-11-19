@@ -3,6 +3,7 @@ export {
   accountExistsMessage,
   confirmSignupMessage,
   deleteAccountMessage,
+  feedbackMessage,
   magicLinkMessage,
   mfaEnableMessage,
   noticeMessage,

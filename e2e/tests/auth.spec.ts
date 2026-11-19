@@ -278,3 +278,26 @@ test("conta sem senha liga a verificação em duas etapas pelo link do e-mail", 
   await panel.getByRole("button", { name: "Já guardei" }).click();
   await expect(panel).toContainText("Ligada");
 });
+
+test("sugestão enviada pela página Conta chega por e-mail ao responsável", async ({
+  page,
+}, testInfo) => {
+  const email = uniqueEmail(testInfo);
+  await page.goto("/cadastro");
+  await signUp(page, { name: "Gil Sugestão", email, password: "senha-forte-da-sugestao" });
+  await expect(page.getByRole("heading", { name: "Olá, Gil" })).toBeVisible();
+
+  await page.goto("/conta");
+  const form = page.getByRole("region", { name: "Sugestões e problemas" });
+  const sentAt = new Date(Date.now() - 1_000);
+  const text = `Sugestão do teste ${testInfo.project.name} ${Date.now()}: mostrar a sala na tela Hoje.`;
+  await form.getByLabel("Problema").check();
+  await form.getByLabel("Mensagem").fill(text);
+  await form.getByRole("button", { name: "Enviar" }).click();
+  await expect(form.getByText("Recebido, obrigado!")).toBeVisible();
+  await expect(form.getByLabel("Mensagem")).toHaveValue("");
+
+  const mail = await waitForEmail("dono@presenca.local", "[Problema] Sugestão do teste", sentAt);
+  expect(mail.text).toContain(text);
+  expect(mail.text).toContain(email);
+});

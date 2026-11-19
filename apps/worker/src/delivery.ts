@@ -1,4 +1,4 @@
-import { notificationContent } from "@presenca/contracts";
+import { checkinPayloadSchema, notificationContent } from "@presenca/contracts";
 import { noticeMessage } from "@presenca/emails";
 import type { Mailer } from "@presenca/emails/transport";
 import type { Pool } from "pg";
@@ -157,7 +157,15 @@ async function sendPush(deps: DeliveryDeps, item: OutboxItem, to: Recipient): Pr
 
   const c = content(item);
   const urgent = item.kind === "threshold";
-  const message = { ...c, tag: item.kind === "threshold" ? item.dedupeKey : item.kind };
+  const classes =
+    item.kind === "checkin_reminder"
+      ? checkinPayloadSchema.safeParse(item.payload).data?.classes
+      : undefined;
+  const message = {
+    ...c,
+    tag: item.kind === "threshold" ? item.dedupeKey : item.kind,
+    ...(classes?.length ? { classes } : {}),
+  };
   let delivered = 0;
   let gone = 0;
   const errors: string[] = [];

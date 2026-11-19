@@ -77,6 +77,8 @@ const envSchema = z
      */
     MAIL_TRANSPORT: z.enum(["smtp", "resend", "relay", "log"]).default("log"),
     MAIL_FROM: z.string().min(3).default("Monitor de Presenças <nao-responda@presenca.local>"),
+    /** Para onde vão as sugestões e os problemas enviados pela página Conta. Vazio = desligado. */
+    FEEDBACK_TO: z.preprocess(emptyToUndefined, z.email().optional()),
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
 

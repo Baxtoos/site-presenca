@@ -137,7 +137,8 @@ self.addEventListener("fetch", (event) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Notificações (Web Push). O worker manda { title, body, url, tag } cifrado com VAPID.
+// Notificações (Web Push). O worker manda { title, body, url, tag } cifrado com VAPID; o lembrete
+// do dia pode trazer `classes` (aulas sem registro) para marcar pelos botões, sem abrir o app.
 
 self.addEventListener("push", (event) => {
   let data = { title: "Monitor de Presenças", body: "Você tem um aviso novo.", url: "/avisos" };
@@ -146,6 +147,16 @@ self.addEventListener("push", (event) => {
   } catch {
     // Conteúdo fora do formato: mostra o aviso genérico.
   }
+  const classes = Array.isArray(data.classes) ? data.classes : [];
+  const actions =
+    classes.length === 1
+      ? [
+          { action: "present", title: "Fui" },
+          { action: "absent", title: "Faltei" },
+        ]
+      : classes.length > 1
+        ? [{ action: "present", title: "Fui a todas" }]
+        : [];
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
@@ -153,25 +164,78 @@ self.addEventListener("push", (event) => {
       badge: "/icons/icon-192.png",
       tag: data.tag,
       lang: "pt-BR",
-      data: { url: data.url },
+      actions,
+      data: { url: data.url, classes },
     }),
   );
 });
 
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  const target = new URL(event.notification.data?.url ?? "/avisos", self.location.origin);
+/**
+ * Registra as aulas do lembrete com a sessão do navegador (o cookie vai junto, mesma origem).
+ * Aula que já tinha registro (409) conta como feita. A chave de idempotência é fixa por aula:
+ * tocar duas vezes não cria dois registros.
+ */
+async function markFromNotification(classes, status) {
+  let done = 0;
+  for (const c of classes) {
+    const response = await fetch("/api/v1/attendance", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": `push:${c.classDate}:${c.scheduleId}`,
+      },
+      body: JSON.stringify({
+        subjectId: c.subjectId,
+        scheduleId: c.scheduleId,
+        classDate: c.classDate,
+        status,
+      }),
+    });
+    if (response.status === 401) return { ok: false, login: true };
+    if (!response.ok && response.status !== 409) return { ok: false };
+    done++;
+  }
+  return { ok: true, done };
+}
+
+async function openApp(path) {
+  const target = new URL(path, self.location.origin);
   // Só abre páginas do próprio app.
   if (target.origin !== self.location.origin) return;
-  event.waitUntil(
-    (async () => {
-      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
-      if (open) {
-        await open.focus();
-        return open.navigate(target.href);
-      }
-      return self.clients.openWindow(target.href);
-    })(),
-  );
+  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+  if (open) {
+    await open.focus();
+    return open.navigate(target.href);
+  }
+  return self.clients.openWindow(target.href);
+}
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const data = event.notification.data ?? {};
+  const classes = Array.isArray(data.classes) ? data.classes : [];
+  if ((event.action === "present" || event.action === "absent") && classes.length > 0) {
+    event.waitUntil(
+      (async () => {
+        const result = await markFromNotification(classes, event.action).catch(() => ({
+          ok: false,
+        }));
+        if (!result.ok) return openApp(result.login ? "/entrar?next=%2Fhoje" : "/hoje");
+        const what = event.action === "present" ? "Presença registrada" : "Falta registrada";
+        const where =
+          classes.length === 1 ? ` em ${classes[0].name}` : ` em ${classes.length} aulas`;
+        return self.registration.showNotification(`${what}${where}`, {
+          body: "Para mudar, abra o app em Hoje.",
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          tag: "checkin_reminder",
+          lang: "pt-BR",
+          data: { url: "/hoje" },
+        });
+      })(),
+    );
+    return;
+  }
+  event.waitUntil(openApp(data.url ?? "/avisos"));
 });
