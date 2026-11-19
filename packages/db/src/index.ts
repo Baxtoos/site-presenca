@@ -19,6 +19,32 @@ export interface DbHandle {
   close(): Promise<void>;
 }
 
+/**
+ * Códigos do Postgres de conexão encerrada pelo servidor: 57P01 (o Neon reiniciou ou suspendeu
+ * o banco: "terminating connection due to administrator command"), 57P02, 57P03 e a família 08.
+ */
+const CONNECTION_LOST_CODES = new Set(["57P01", "57P02", "57P03", "08000", "08003", "08006"]);
+
+/**
+ * A conexão caiu no meio (servidor reiniciado, rede)? A transação em andamento foi desfeita pelo
+ * banco, então dá para repetir. O Drizzle embrulha o erro do pg em `cause`.
+ */
+export function isConnectionLost(error: unknown): boolean {
+  for (let e: unknown = error, depth = 0; e && depth < 4; depth++) {
+    const err = e as { code?: unknown; message?: unknown; cause?: unknown };
+    if (typeof err.code === "string" && CONNECTION_LOST_CODES.has(err.code)) return true;
+    if (err.code === "ECONNRESET" || err.code === "EPIPE") return true;
+    if (
+      typeof err.message === "string" &&
+      /Connection terminated|terminating connection|server closed the connection/i.test(err.message)
+    ) {
+      return true;
+    }
+    e = err.cause;
+  }
+  return false;
+}
+
 export interface CreateDbOptions {
   connectionString: string;
   /** Nome que aparece em pg_stat_activity (ex.: "presenca-api"). */
@@ -50,6 +76,14 @@ export function createDb(options: CreateDbOptions): DbHandle {
     connectionTimeoutMillis: 5_000,
   };
   const pool = new Pool(config);
+  // Conexão parada que o servidor encerra (o Neon dorme ou reinicia) emite "error" no pool. Sem
+  // este ouvinte, o Node derrubaria o processo; com ele, o pool descarta a conexão e abre outra.
+  pool.on("error", () => undefined);
+  // Conexão EM USO que cai também emite "error" (além de rejeitar a consulta, que é tratada por
+  // quem chamou). Sem ouvinte, isso também derrubaria o processo.
+  pool.on("connect", (client) => {
+    client.on("error", () => undefined);
+  });
   const db = drizzle(pool, { schema, casing: "snake_case" });
 
   return {
@@ -77,11 +111,20 @@ export interface TxContext {
  */
 export async function withUser<T>(db: Db, ctx: TxContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!UUID_RE.test(ctx.userId)) throw new TypeError("withUser: userId precisa ser um UUID");
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('app.user_id', ${ctx.userId}, true)`);
-    if (ctx.requestId) {
-      await tx.execute(sql`select set_config('app.request_id', ${ctx.requestId}, true)`);
-    }
-    return fn(tx);
-  });
+  const run = () =>
+    db.transaction(async (tx) => {
+      await tx.execute(sql`select set_config('app.user_id', ${ctx.userId}, true)`);
+      if (ctx.requestId) {
+        await tx.execute(sql`select set_config('app.request_id', ${ctx.requestId}, true)`);
+      }
+      return fn(tx);
+    });
+  try {
+    return await run();
+  } catch (error) {
+    // Conexão encerrada pelo servidor no meio: a transação foi desfeita, então repete uma vez
+    // numa conexão nova (o aluno não vê o erro). Qualquer outro erro sobe como está.
+    if (!isConnectionLost(error)) throw error;
+    return run();
+  }
 }

@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { createDb } from "@presenca/db";
+import { createDb, isConnectionLost } from "@presenca/db";
 import { createMailer } from "@presenca/emails/transport";
 import { flushErrors, initErrorReporting, reportError } from "@presenca/observability";
 import { type CycleDeps, didWork, runCycle } from "./cycle";
@@ -65,7 +65,14 @@ async function main(): Promise<void> {
   if (env.WORKER_MODE === "once") {
     let failed = 0;
     try {
-      const result = await runCycle(deps, { cleanup: true });
+      const result = await runCycle(deps, { cleanup: true }).catch(async (error: unknown) => {
+        // O Neon encerra as conexões quando reinicia ou acorda o banco: espera e tenta de novo
+        // uma vez, em vez de falhar a execução (e mandar e-mail de alarme) por alguns segundos.
+        if (!isConnectionLost(error)) throw error;
+        log("warn", "conexão com o banco encerrada pelo servidor; tentando de novo em 5 s");
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+        return runCycle(deps, { cleanup: true });
+      });
       failed = result.delivery.failed;
       log("info", "ciclo único concluído", {
         reminders: result.reminders,
