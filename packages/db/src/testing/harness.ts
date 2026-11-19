@@ -7,11 +7,12 @@ import { runMigrations } from "../migrate";
 /** O mesmo script de papéis do desenvolvimento local: o teste valida o provisionamento real. */
 const INIT_SQL = resolve(__dirname, "../../../../infra/postgres/init/01-roles.sql");
 
-export type Role = "app_owner" | "app_api" | "app_worker";
+export type Role = "app_owner" | "app_api" | "app_worker" | "app_backup";
 const PASSWORDS: Record<Role, string> = {
   app_owner: "app_owner_dev",
   app_api: "app_api_dev",
   app_worker: "app_worker_dev",
+  app_backup: "app_backup_dev",
 };
 
 export interface TestDb {
@@ -44,6 +45,7 @@ export async function startTestDb(): Promise<TestDb> {
     app_owner: new pg.Pool({ connectionString: url("app_owner"), max: 2 }),
     app_api: new pg.Pool({ connectionString: url("app_api"), max: 4 }),
     app_worker: new pg.Pool({ connectionString: url("app_worker"), max: 2 }),
+    app_backup: new pg.Pool({ connectionString: url("app_backup"), max: 1 }),
   };
   const admin = new pg.Pool({
     connectionString: `postgres://postgres:postgres_test@${container.getHost()}:${container.getPort()}/presenca`,
@@ -53,7 +55,12 @@ export async function startTestDb(): Promise<TestDb> {
   return {
     container,
     pools,
-    urls: { app_owner: url("app_owner"), app_api: url("app_api"), app_worker: url("app_worker") },
+    urls: {
+      app_owner: url("app_owner"),
+      app_api: url("app_api"),
+      app_worker: url("app_worker"),
+      app_backup: url("app_backup"),
+    },
     admin,
     async stop() {
       await Promise.all([...Object.values(pools), admin].map((p) => p.end()));

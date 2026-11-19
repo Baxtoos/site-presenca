@@ -36,7 +36,8 @@
     "db:studio": "drizzle-kit studio",
     "verify:roles": "node scripts/verify-roles.mjs",
     "db:check": "node scripts/check-drift.mjs",
-    "db:provision": "pnpm build && node dist/cli/provision.js"
+    "db:provision": "pnpm build && node dist/cli/provision.js",
+    "db:backup-role": "pnpm build && node dist/cli/backup-role.js"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

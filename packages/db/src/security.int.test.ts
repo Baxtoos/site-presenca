@@ -375,6 +375,58 @@ describe("papéis", () => {
   });
 });
 
+describe("papel de backup (app_backup)", () => {
+  const backup = () => db.pools.app_backup;
+  const appTables = async () =>
+    (
+      await db.admin.query<{ relname: string }>(
+        `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'app' and c.relkind in ('r', 'p') order by 1`,
+      )
+    ).rows.map((r) => r.relname);
+
+  it("toda tabela do schema app tem a política backup_read (senão o backup sai vazio)", async () => {
+    const { rows } = await db.admin.query<{ tablename: string }>(
+      `select tablename from pg_policies
+        where schemaname = 'app' and policyname = 'backup_read'
+          and cmd = 'SELECT' and 'app_backup' = any(roles)`,
+    );
+    expect(rows.map((r) => r.tablename).sort()).toEqual(await appTables());
+  });
+
+  it("lê as linhas de todos os usuários, sem contexto", async () => {
+    expect(await count(backup(), "select 1 from users")).toBeGreaterThanOrEqual(2);
+    for (const [table] of OWNED_TABLES) {
+      expect(await count(backup(), `select 1 from ${table}`)).toBeGreaterThan(0);
+    }
+  });
+
+  it("não escreve nem altera a estrutura", async () => {
+    await expect(backup().query("delete from semesters")).rejects.toThrow(/permission denied/);
+    await expect(backup().query("update users set full_name = 'x'")).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(
+      backup().query("insert into notification_logs (user_id) values (app.uuid_v7())"),
+    ).rejects.toThrow(/permission denied/);
+    await expect(backup().query("alter table semesters add column x int")).rejects.toThrow(
+      /must be owner/,
+    );
+  });
+
+  it("não tem superpoderes", async () => {
+    const { rows } = await backup().query(
+      "select rolsuper, rolbypassrls, rolcreatedb, rolcreaterole from pg_roles where rolname = current_user",
+    );
+    expect(rows[0]).toEqual({
+      rolsuper: false,
+      rolbypassrls: false,
+      rolcreatedb: false,
+      rolcreaterole: false,
+    });
+  });
+});
+
 describe("app.uuid_v7()", () => {
   it("gera UUID versão 7, ordenável por tempo", async () => {
     const { rows } = await api().query<{ a: string; b: string }>(

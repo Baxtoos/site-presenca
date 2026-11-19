@@ -48,6 +48,16 @@ pnpm db:setup      # migrations + dados de exemplo (demo@presenca.local)
 pnpm dev
 ```
 
+> **Banco local criado antes da migration 0008** (backup): o papel `app_backup` não existe no
+> volume antigo e o `db:migrate` falha. Crie-o uma vez, sem perder os dados locais:
+>
+> ```bash
+> docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -d presenca -c \
+>   "create role app_backup login password 'app_backup_dev' nobypassrls;
+>    grant connect on database presenca to app_backup;
+>    alter role app_backup in database presenca set search_path = app;"
+> ```
+
 Depois disso, `pnpm dev:all` sobe a infraestrutura, aplica migrations pendentes e roda web, API e
 worker juntos:
 

@@ -209,7 +209,29 @@ Depois, à mão, no site:
 
 ## 12. Rotina
 
-- **Backup (com teste de restauração):** `bash infra/prod/backup.sh --verify`
+- **Backup automático (diário):** o workflow _Backup do banco_ roda todo dia às 03:23 (Brasília),
+  lê com o papel `app_backup` (só leitura), testa a restauração num PostgreSQL 17 temporário e
+  guarda o arquivo **criptografado** (AES-256) por 30 dias na aba _Actions_. Se falhar, o GitHub
+  avisa por e-mail. Para ligar (uma vez): `bash infra/prod/backup-role.sh`. Ele pede a conexão de
+  administração do Neon, dá login ao `app_backup` **sem trocar as outras senhas**, aplica a
+  migration 0008, grava `BACKUP_DATABASE_URL` e `BACKUP_PASSPHRASE` em `~/presenca-producao.env`,
+  envia os dois ao GitHub e dispara o primeiro backup. Guarde a `BACKUP_PASSPHRASE` também no
+  gerenciador de senhas: sem ela nenhum backup abre. (Rode esse script **antes** de qualquer
+  `db:migrate` que inclua a 0008: ela precisa do papel `app_backup`.)
+- **Restaurar um backup:** em _Actions → Backup do banco_, abra a execução e baixe o artefato
+  (um `.zip`). Depois:
+
+  ```bash
+  unzip presenca-backup-*.zip
+  gpg -d presenca-*.sql.gz.gpg | gunzip > restaurar.sql   # pede a BACKUP_PASSPHRASE
+  ```
+
+  Restaure primeiro num **branch novo do Neon** (Branches → Create branch), confira e só então
+  troque as conexões. O arquivo recria o schema `app` (tabelas, funções, políticas e dados) e
+  espera que os papéis `app_owner`, `app_api`, `app_worker`, `app_auth` e `app_backup` existam
+  (rode `pnpm db:provision` no banco novo antes): `psql "$URL_DO_DONO" -v ON_ERROR_STOP=1 < restaurar.sql`.
+
+- **Backup manual (no seu computador):** `bash infra/prod/backup.sh --verify`
   (gera um dump compactado em `~/backups-presenca/` com permissão `600` e testa a restauração em
   um container PostgreSQL 17 temporário).
 - **Trocar senhas:** rode de novo o `db:provision` (passo 2), atualize as variáveis no Render e no

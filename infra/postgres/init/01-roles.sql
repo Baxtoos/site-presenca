@@ -7,17 +7,20 @@
 -- app_auth   : SEM LOGIN. Dono das funções SECURITY DEFINER de autenticação (Fase 2), que precisam
 --              achar usuário por e-mail e sessão por token antes de se saber quem é o usuário.
 --              Recebe só as colunas necessárias, nas migrations.
+-- app_backup : só LEITURA de todas as tabelas, para o backup automático (pg_dump). Sem DML, sem
+--              DDL, sem BYPASSRLS: lê pelas políticas backup_read (migration 0008).
 
 create role app_owner  login password 'app_owner_dev';
 create role app_api    login password 'app_api_dev'    nosuperuser nocreatedb nocreaterole nobypassrls;
 create role app_worker login password 'app_worker_dev' nosuperuser nocreatedb nocreaterole nobypassrls;
 create role app_auth   nologin                         nosuperuser nocreatedb nocreaterole nobypassrls;
+create role app_backup login password 'app_backup_dev' nosuperuser nocreatedb nocreaterole nobypassrls;
 -- Permite que as migrations (app_owner) passem a propriedade das funções de auth para app_auth.
 grant app_auth to app_owner;
 
 create database presenca owner app_owner;
 revoke connect, temporary on database presenca from public;
-grant connect on database presenca to app_api, app_worker;
+grant connect on database presenca to app_api, app_worker, app_backup;
 
 \connect presenca
 
@@ -30,6 +33,7 @@ grant usage on schema app to app_api, app_worker, app_auth;
 alter role app_owner  in database presenca set search_path = app;
 alter role app_api    in database presenca set search_path = app;
 alter role app_worker in database presenca set search_path = app;
+alter role app_backup in database presenca set search_path = app;
 
 -- Tabelas criadas pelo app_owner nas migrations já nascem com DML liberado para a API.
 -- O RLS (forçado em cada tabela) decide quais linhas a API enxerga.

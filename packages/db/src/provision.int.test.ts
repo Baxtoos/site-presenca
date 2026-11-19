@@ -2,7 +2,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "./migrate";
-import { provisionRoles, urlForRole } from "./provision";
+import { provisionBackupRole, provisionRoles, urlForRole } from "./provision";
 
 /**
  * Simula um Postgres gerenciado (Neon etc.): o banco já existe, o administrador NÃO é superusuário
@@ -126,5 +126,29 @@ describe("provisionRoles", () => {
     expect(parsed.searchParams.get("sslmode")).toBe("require");
     expect(decodeURIComponent(parsed.password)).toBe("p@ss/w:rd#1");
     expect(parsed.username).toBe("app_api");
+  });
+});
+
+describe("provisionBackupRole", () => {
+  it("dá login ao app_backup só de leitura, sem trocar as senhas dos outros papéis", async () => {
+    const roles = await provisionRoles({ adminUrl });
+    await runMigrations(roles.urls.app_owner);
+
+    const url = await provisionBackupRole({ adminUrl });
+    expect(url).toContain("app_backup:");
+    await as(url, async (c) => {
+      const { rows } = await c.query("select current_setting('search_path') as sp");
+      expect(rows[0]).toEqual({ sp: "app" });
+      await c.query("select count(*) from users");
+      await expect(c.query("delete from users")).rejects.toThrow(/permission denied/);
+    });
+    // A API continua entrando com a mesma senha.
+    await as(roles.urls.app_api, (c) => c.query("select 1"));
+
+    // Rodar de novo troca só a senha do backup.
+    const again = await provisionBackupRole({ adminUrl });
+    expect(again).not.toBe(url);
+    await as(again, (c) => c.query("select 1"));
+    await expect(as(url, (c) => c.query("select 1"))).rejects.toThrow(/password authentication/);
   });
 });

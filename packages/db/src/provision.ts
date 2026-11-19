@@ -40,6 +40,8 @@ export function urlForRole(adminUrl: string, role: string, password: string): st
  * - app_owner: dono do schema `app`; só as migrations usam.
  * - app_api / app_worker: os papéis que a API e o worker usam; sem DDL e sem BYPASSRLS.
  * - app_auth: SEM login; dono das funções SECURITY DEFINER de autenticação (migration 0003).
+ * - app_backup: criado SEM login aqui (as migrations precisam dele); o login e a senha vêm de
+ *   `infra/prod/backup-role.sh`, que não mexe nas senhas dos outros papéis.
  * As permissões por tabela vêm das migrations.
  */
 export async function provisionRoles(options: ProvisionOptions): Promise<ProvisionResult> {
@@ -104,6 +106,12 @@ export async function provisionRoles(options: ProvisionOptions): Promise<Provisi
       }
       // As migrations (app_owner) passam a propriedade das funções de auth para app_auth.
       await q("grant app_auth to app_owner");
+      const { rowCount: backupExists } = await client.query(
+        "select 1 from pg_roles where rolname = 'app_backup'",
+      );
+      if (!backupExists) {
+        await q("create role app_backup nologin nosuperuser nocreatedb nocreaterole nobypassrls");
+      }
 
       // 2. Quem não é superusuário precisa poder "virar" app_owner para criar o schema em nome
       //    dele (PostgreSQL 16+ não dá isso de graça a quem cria o papel).
@@ -157,6 +165,57 @@ export async function provisionRoles(options: ProvisionOptions): Promise<Provisi
         app_worker: urlForRole(options.adminUrl, "app_worker", passwords.app_worker),
       },
     };
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Dá login e senha ao papel de backup (só leitura, migration 0008) sem tocar nos outros papéis.
+ * Pode rodar de novo para trocar a senha. Retorna a URL de conexão do app_backup.
+ */
+export async function provisionBackupRole(options: {
+  adminUrl: string;
+  password?: string;
+}): Promise<string> {
+  if (options.password !== undefined && options.password.length < 16) {
+    throw new Error("Senha de app_backup muito curta: use pelo menos 16 caracteres.");
+  }
+  const password = options.password ?? randomBytes(24).toString("hex");
+  const client = new pg.Client({
+    connectionString: options.adminUrl,
+    application_name: "presenca-provision-backup",
+  });
+  await client.connect();
+  try {
+    const lit = (value: string) => client.escapeLiteral(value);
+    const id = (name: string) => client.escapeIdentifier(name);
+    const {
+      rows: [info],
+    } = await client.query<{ db: string }>("select current_database() as db");
+    const db = info!.db;
+
+    await client.query("begin");
+    try {
+      const { rows } = await client.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+        "select rolsuper, rolbypassrls from pg_roles where rolname = 'app_backup'",
+      );
+      if (rows[0]?.rolsuper || rows[0]?.rolbypassrls) {
+        throw new Error("O papel app_backup existe com superpoderes. Remova-o e rode de novo.");
+      }
+      await client.query(
+        rows[0]
+          ? `alter role app_backup login password ${lit(password)}`
+          : `create role app_backup login nosuperuser nocreatedb nocreaterole nobypassrls password ${lit(password)}`,
+      );
+      await client.query(`grant connect on database ${id(db)} to app_backup`);
+      await client.query(`alter role app_backup in database ${id(db)} set search_path = app`);
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    }
+    return urlForRole(options.adminUrl, "app_backup", password);
   } finally {
     await client.end();
   }
