@@ -37,28 +37,6 @@ function useActive() {
     exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Marca do app: o "P" em degradê, como o ícone de um espaço de trabalho. */
-export function AppMark({ size = 28 }: { size?: number }) {
-  return (
-    <span
-      className="grid shrink-0 place-items-center rounded-md bg-gradient-to-br from-[#2f7fd8] to-[#0b5aa8] font-bold text-white shadow-sm"
-      style={{ width: size, height: size }}
-      aria-hidden
-    >
-      {/* "P" desenhado (não é texto: não entra no nome acessível dos links). */}
-      <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} fill="none">
-        <path
-          d="M8.5 19V5h4.75a4.25 4.25 0 0 1 0 8.5H8.5"
-          stroke="currentColor"
-          strokeWidth={2.75}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
-  );
-}
-
 export type SidebarSubject = { id: string; name: string; color: string | null };
 
 /** Barra lateral do computador: espaço de trabalho, navegação e as matérias como "páginas". */
@@ -100,7 +78,6 @@ export function Sidebar({
         href="/"
         className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-hover"
       >
-        <AppMark />
         <span className="grid min-w-0 leading-tight">
           <span className="truncate text-sm font-semibold">Presenças</span>
           <span className="truncate text-xs text-muted">de {firstName}</span>

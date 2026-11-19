@@ -12,14 +12,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <main className="mx-auto grid w-full max-w-[26rem] content-start gap-8 px-5 pb-16 pt-[max(2.5rem,env(safe-area-inset-top))] lg:content-center lg:pt-10">
         <Link
           href="/"
-          className="-ml-1.5 flex w-fit items-center gap-2.5 rounded-md px-1.5 py-1 text-sm font-semibold text-ink transition-colors hover:bg-surface-2"
+          className="-ml-1.5 flex w-fit items-center rounded-md px-1.5 py-1 text-base font-semibold tracking-tight text-ink transition-colors hover:bg-surface-2"
         >
-          <span
-            className="grid size-8 place-items-center rounded-md bg-gradient-to-br from-[#2f7fd8] to-[#0b5aa8] text-base font-bold text-white shadow-sm"
-            aria-hidden
-          >
-            P
-          </span>
           Monitor de Presenças
         </Link>
         <section className="grid gap-6">{children}</section>

@@ -10,7 +10,7 @@ import { NotificationBell } from "@/components/notifications/bell";
 import { OfflineProvider } from "@/components/offline-provider";
 import { ToastProvider } from "@/components/toast";
 import { apiGet, getMe } from "@/lib/api-server";
-import { AppMark, MobileTabBar, Sidebar } from "./shell";
+import { MobileTabBar, Sidebar } from "./shell";
 
 /**
  * Área logada no estilo de um espaço de trabalho: barra lateral com a navegação e as matérias do
@@ -43,9 +43,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
               <div className="flex h-12 items-center gap-2 px-3 pt-[env(safe-area-inset-top)] sm:px-5 lg:justify-end">
                 <Link
                   href="/"
-                  className="flex items-center gap-2 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 lg:hidden"
+                  className="rounded-md px-1.5 py-1 text-base font-semibold tracking-tight hover:bg-surface-2 lg:hidden"
                 >
-                  <AppMark size={26} />
                   Presenças
                 </Link>
                 <span className="flex-1 lg:hidden" />
