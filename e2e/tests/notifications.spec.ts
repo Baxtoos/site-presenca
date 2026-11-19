@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { waitForEmail, waitForLink } from "./mailpit";
+import { waitForEmail } from "./mailpit";
 import { setupStudentWithClassToday, uniqueEmail } from "./setup-helpers";
 
 /**
@@ -18,11 +18,7 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
     email,
   });
 
-  // E-mail confirmado: só assim os alertas vão por e-mail.
-  const link = new URL(await waitForLink(email, "Confirme seu e-mail", startedAt));
-  await page.goto(`${link.pathname}${link.search}`);
-  await expect(page.getByText("E-mail confirmado.")).toBeVisible();
-
+  // O cadastro confirmou o e-mail: os alertas vão por e-mail.
   // Limite fixo de 4 tempos: uma falta (2 tempos) = 50%.
   await page.goto("/");
   await page
@@ -77,8 +73,8 @@ test("preferências de aviso: salvar e continuar salvas ao voltar", async ({ pag
   await page.getByRole("link", { name: "Conta" }).click();
   const form = page.getByRole("form", { name: "Avisos" });
   await expect(form).toBeVisible();
-  // Sem e-mail confirmado, avisa por que o e-mail não chega.
-  await expect(form).toContainText("Confirme seu e-mail para receber os alertas por e-mail");
+  // O cadastro já confirmou o e-mail: nada de aviso de e-mail pendente.
+  await expect(form).not.toContainText("Confirme seu e-mail");
 
   await form.getByRole("checkbox", { name: "50%" }).uncheck();
   await form.getByRole("radio", { name: /Todo dia com aula/ }).check();

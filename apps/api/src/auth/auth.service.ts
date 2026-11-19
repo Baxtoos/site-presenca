@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -17,7 +16,14 @@ import {
   type ResetPasswordBody,
 } from "@presenca/contracts";
 import { newId, schema, type Tx } from "@presenca/db";
-import { magicLinkMessage, resetPasswordMessage, verifyEmailMessage } from "@presenca/emails";
+import {
+  accountExistsMessage,
+  confirmSignupMessage,
+  deleteAccountMessage,
+  magicLinkMessage,
+  resetPasswordMessage,
+  verifyEmailMessage,
+} from "@presenca/emails";
 import { eq, sql } from "drizzle-orm";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { BackgroundTasks } from "../common/background-tasks";
@@ -36,7 +42,9 @@ const TTL: Record<TokenPurpose, number> = {
   verify_email: 24 * 60 * MINUTE,
   reset_password: 15 * MINUTE,
   magic_link: 15 * MINUTE,
+  delete_account: 15 * MINUTE,
 };
+const REGISTRATION_TTL = 24 * 60 * MINUTE;
 
 const ACCEPTED: AcceptedResponse = { status: "accepted" };
 
@@ -75,43 +83,95 @@ export class AuthService {
 
   // ---------------------------------------------------------------- cadastro e login
 
-  async register(
-    body: RegisterBody,
+  /**
+   * Pede o cadastro. Responde sempre igual, exista ou não a conta (não revela quem tem conta):
+   * - e-mail novo: guarda nome e hash da senha num link de confirmação; a conta nasce no clique;
+   * - e-mail com conta: manda ao dono um aviso de que a conta já existe.
+   * A senha é validada e o Argon2 roda nos dois casos; o resto vai para depois da resposta.
+   */
+  async register(body: RegisterBody): Promise<AcceptedResponse> {
+    await this.rejectBreachedPassword(body.password);
+    const passwordHash = await this.passwords.hash(body.password);
+    this.tasks.run("cadastro", async () => {
+      const existing = await this.repo.findUserByEmail(body.email);
+      if (existing) {
+        if (existing.status !== "active") return;
+        await this.mailer.send({
+          to: body.email,
+          ...accountExistsMessage({
+            loginUrl: this.page("/entrar", body.next),
+            resetUrl: this.page("/esqueci-senha"),
+          }),
+        });
+        return;
+      }
+      const token = generateToken();
+      await this.repo.issueRegistration({
+        email: body.email,
+        fullName: body.fullName,
+        passwordHash,
+        tokenHash: hashToken(token),
+        ttlSeconds: REGISTRATION_TTL,
+      });
+      await this.mailer.send({
+        to: body.email,
+        ...confirmSignupMessage({
+          name: body.fullName.split(" ")[0] ?? body.fullName,
+          url: this.link("/cadastro/confirmar", token, body.next),
+        }),
+      });
+    });
+    return ACCEPTED;
+  }
+
+  /**
+   * Confirma o cadastro pelo link: cria a conta com o e-mail já confirmado e abre a sessão.
+   * Se a conta passou a existir entre o pedido e o clique, o clique prova a posse do e-mail
+   * (como no link de acesso): entra nela sem trocar a senha.
+   */
+  async confirmRegistration(
+    token: string,
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<MeResponse> {
-    await this.rejectBreachedPassword(body.password);
-    const passwordHash = await this.passwords.hash(body.password);
-    const userId = newId();
+    const pending = await this.repo.consumeRegistration(hashToken(token));
+    if (!pending) throw invalidToken();
     await this.sessions.revokePresented(request);
 
-    let result: { token: string; user: typeof schema.users.$inferSelect };
+    const enterExisting = async () => {
+      const existing = await this.repo.findUserByEmail(pending.email);
+      if (!existing) throw invalidToken();
+      if (existing.status !== "active") throw accountDisabled();
+      await this.db.asUser(existing.userId, (tx) => this.markEmailVerified(tx, existing.userId));
+      return this.openSession(existing.userId, request, reply);
+    };
+    if (await this.repo.findUserByEmail(pending.email)) return enterExisting();
+
+    const userId = newId();
     try {
-      result = await this.db.asUser(userId, async (tx) => {
+      const { token: session, user } = await this.db.asUser(userId, async (tx) => {
         const [user] = await tx
           .insert(schema.users)
-          .values({ id: userId, email: body.email, fullName: body.fullName, passwordHash })
+          .values({
+            id: userId,
+            email: pending.email,
+            fullName: pending.fullName,
+            passwordHash: pending.passwordHash,
+            emailVerifiedAt: new Date(),
+          })
           .returning();
         await tx.insert(schema.notificationPreferences).values({ userId });
-        const token = await this.sessions.createInTx(tx, userId, request);
-        return { token, user: user! };
+        const session = await this.sessions.createInTx(tx, userId, request);
+        return { token: session, user: user! };
       });
+      this.sessions.setCookie(reply, session);
+      this.logger.log(`conta criada ${userId}`);
+      return toMe(user);
     } catch (error) {
-      if (isUniqueViolation(error, "users_email_key")) {
-        throw new ConflictException({
-          code: AuthErrorCode.emailTaken,
-          detail: "Já existe uma conta com este e-mail. Entre ou recupere a senha.",
-        });
-      }
+      // Dois cliques no mesmo instante: o primeiro cria, o segundo entra na conta criada.
+      if (isUniqueViolation(error, "users_email_key")) return enterExisting();
       throw error;
     }
-
-    this.sessions.setCookie(reply, result.token);
-    this.tasks.run("verificação de e-mail", () =>
-      this.sendVerification(userId, body.email, body.fullName),
-    );
-    this.logger.log(`conta criada ${userId}`);
-    return toMe(result.user);
   }
 
   async login(body: LoginBody, request: FastifyRequest, reply: FastifyReply): Promise<MeResponse> {
@@ -299,6 +359,34 @@ export class AuthService {
     await this.openSession(confirmedUserId, request, reply);
   }
 
+  // ---------------------------------------------------------------- exclusão de conta sem senha
+
+  /** Conta sem senha: manda um link para confirmar a exclusão (vale 15 min, só o último). */
+  async requestAccountDeletion(userId: string): Promise<AcceptedResponse> {
+    const user = await this.db.asUser(userId, (tx) =>
+      tx.query.users.findFirst({ columns: { email: true, fullName: true } }),
+    );
+    if (user) {
+      this.tasks.run("link de exclusão de conta", async () => {
+        const token = await this.issue(userId, user.email, "delete_account");
+        await this.mailer.send({
+          to: user.email,
+          ...deleteAccountMessage({
+            name: user.fullName.split(" ")[0] ?? user.fullName,
+            url: this.link("/conta/excluir", token),
+          }),
+        });
+      });
+    }
+    return ACCEPTED;
+  }
+
+  /** Consome o link de exclusão. Só vale se for da conta que está logada. */
+  async consumeDeletionToken(token: string, userId: string): Promise<boolean> {
+    const consumed = await this.repo.consumeToken(hashToken(token), "delete_account");
+    return consumed?.userId === userId;
+  }
+
   // ---------------------------------------------------------------- internos
 
   private async openSession(
@@ -380,9 +468,18 @@ export class AuthService {
     return token;
   }
 
-  private link(path: string, token: string): string {
+  private link(path: string, token: string, next?: string): string {
     const url = new URL(path, this.env.WEB_ORIGIN);
+    // O token vai por último na URL (padrão de todos os links de e-mail do app).
+    if (next) url.searchParams.set("next", next);
     url.searchParams.set("token", token);
+    return url.toString();
+  }
+
+  /** Página do app (sem token), com o caminho de volta se houver. */
+  private page(path: string, next?: string): string {
+    const url = new URL(path, this.env.WEB_ORIGIN);
+    if (next) url.searchParams.set("next", next);
     return url.toString();
   }
 

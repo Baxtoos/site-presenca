@@ -5,6 +5,10 @@ export const tokenPurpose = app.enum("token_purpose", [
   "verify_email",
   "reset_password",
   "magic_link",
+  /** Cadastro pendente: a conta só é criada quando a pessoa confirma o e-mail (migration 0009). */
+  "register",
+  /** Exclusão de conta confirmada por e-mail, para quem não tem senha (migration 0009). */
+  "delete_account",
 ]);
 
 export const semesterStatus = app.enum("semester_status", ["active", "archived"]);

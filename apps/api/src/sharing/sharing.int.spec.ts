@@ -10,7 +10,12 @@ import {
   templatePreviewSchema,
 } from "@presenca/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AuthTestEnv, Browser, startAuthTestEnv } from "../test/auth-harness";
+import {
+  type AuthTestEnv,
+  Browser,
+  registerAndConfirm,
+  startAuthTestEnv,
+} from "../test/auth-harness";
 
 let env: AuthTestEnv;
 beforeAll(async () => {
@@ -27,15 +32,17 @@ const problem = (res: { json: () => unknown }) => problemSchema.parse(res.json()
 async function student(opts: { verified?: boolean; name?: string } = {}) {
   const b = new Browser(env.app);
   const email = `share.${Date.now()}.${++seq}@exemplo.com`;
-  const reg = await b.request("POST", "/v1/auth/register", {
+  const reg = await registerAndConfirm(env, b, {
     email,
     password: "senha-forte-do-compartilhar-1",
     fullName: opts.name ?? "Aluna Compartilha",
   });
-  expect(reg.statusCode).toBe(201);
+  expect(reg.statusCode).toBe(200);
   const userId = meResponseSchema.parse(reg.json()).id;
-  if (opts.verified ?? true) {
-    await env.db.admin.query("update app.users set email_verified_at = now() where id = $1", [
+  // A confirmação do cadastro já verifica o e-mail; "não verificado" só existe em contas
+  // antigas (criadas antes da confirmação obrigatória), simuladas aqui.
+  if (opts.verified === false) {
+    await env.db.admin.query("update app.users set email_verified_at = null where id = $1", [
       userId,
     ]);
   }

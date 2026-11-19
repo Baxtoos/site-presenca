@@ -112,6 +112,57 @@ export function verifyEmailMessage(params: { name: string; url: string }): Rende
   });
 }
 
+/** Cadastro: a conta só é criada quando a pessoa usa este link. */
+export function confirmSignupMessage(params: { name: string; url: string }): RenderedEmail {
+  return render("Confirme seu e-mail para criar a conta", {
+    title: "Confirme seu e-mail",
+    paragraphs: [
+      `Olá, ${params.name}.`,
+      "Falta só confirmar este endereço. Ao clicar no botão, sua conta é criada e você já entra no app.",
+    ],
+    actionLabel: "Confirmar e criar conta",
+    actionUrl: params.url,
+    footnote:
+      "O link vale por 24 horas e funciona uma vez. Se você não pediu esta conta, ignore este e-mail: nada é criado.",
+  });
+}
+
+/**
+ * Alguém tentou criar conta com um e-mail que já tem conta. O cadastro responde igual nos dois
+ * casos (não revela quem tem conta); só o dono do e-mail fica sabendo, por aqui.
+ */
+export function accountExistsMessage(params: {
+  loginUrl: string;
+  resetUrl: string;
+}): RenderedEmail {
+  return render("Você já tem uma conta no Monitor de Presenças", {
+    title: "Você já tem uma conta",
+    paragraphs: [
+      "Alguém (provavelmente você) tentou criar uma conta com este e-mail, mas ela já existe.",
+      `Para entrar, use o botão abaixo. Se esqueceu a senha, escolha uma nova em ${params.resetUrl}.`,
+    ],
+    actionLabel: "Entrar",
+    actionUrl: params.loginUrl,
+    footnote: "Se não foi você, ignore este e-mail: nada mudou na sua conta.",
+  });
+}
+
+/** Exclusão de conta (quem entra sem senha confirma por aqui). */
+export function deleteAccountMessage(params: { name: string; url: string }): RenderedEmail {
+  return render("Confirme a exclusão da sua conta", {
+    title: "Confirme a exclusão da conta",
+    paragraphs: [
+      `Olá, ${params.name}.`,
+      "Recebemos um pedido para excluir sua conta do Monitor de Presenças, com todos os semestres, matérias e registros de presença.",
+      "Para continuar, abra o link abaixo no aparelho em que você está conectado e confirme. Isso não pode ser desfeito.",
+    ],
+    actionLabel: "Revisar e excluir",
+    actionUrl: params.url,
+    footnote:
+      "O link vale por 15 minutos e funciona uma vez. Se não foi você, ignore este e-mail: nada é apagado.",
+  });
+}
+
 export function resetPasswordMessage(params: { url: string }): RenderedEmail {
   return render("Redefinir sua senha", {
     title: "Redefinir sua senha",

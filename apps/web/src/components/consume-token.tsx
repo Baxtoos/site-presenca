@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 
 /**
- * Consome um token de link assim que a página abre (verificar e-mail, magic link).
+ * Consome um token de link assim que a página abre (verificar e-mail, magic link, cadastro).
  * Tira o token da barra de endereço na hora, para não ficar no histórico.
  */
 export function ConsumeToken({
@@ -18,7 +18,7 @@ export function ConsumeToken({
   failureExtra,
 }: {
   token: string;
-  endpoint: "/v1/auth/magic-link/consume" | "/v1/auth/verify-email";
+  endpoint: "/v1/auth/magic-link/consume" | "/v1/auth/verify-email" | "/v1/auth/register/confirm";
   /** Para onde ir depois do sucesso. Sem valor, mostra successContent. */
   redirectTo?: string;
   pendingText: string;

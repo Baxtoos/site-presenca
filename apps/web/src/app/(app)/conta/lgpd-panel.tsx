@@ -6,8 +6,10 @@ import { useState } from "react";
 import { useOffline } from "@/components/offline-provider";
 import { Alert, Button, Field } from "@/components/ui";
 import { ApiError, api } from "@/lib/api-client";
-import { clearOfflineData } from "@/lib/offline-cache";
-import { disablePushOnThisDevice } from "@/lib/push-client";
+import { deleteAccount } from "./delete-account";
+
+const IRREVERSIBLE =
+  "Esta ação não tem volta: todos os seus semestres, matérias, registros de presença, trilha de auditoria e códigos compartilhados serão apagados.";
 
 export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: boolean }) {
   const router = useRouter();
@@ -16,6 +18,7 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
   const [value, setValue] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  const [linkSent, setLinkSent] = useState(false);
 
   return (
     <section className="grid gap-4 card p-5 sm:p-6 text-sm" aria-labelledby="lgpd-heading">
@@ -56,28 +59,21 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
               onClick={() => {
                 setError(undefined);
                 setValue("");
+                setLinkSent(false);
                 setConfirmOpen(true);
               }}
             >
               Excluir minha conta
             </Button>
           </div>
-        ) : (
+        ) : hasPassword ? (
           <form
             className="grid gap-3 rounded-xl border border-fail/30 bg-fail-soft/40 p-4"
             onSubmit={(e) => {
               e.preventDefault();
               setPending(true);
               setError(undefined);
-              void disablePushOnThisDevice()
-                .catch(() => undefined)
-                .then(() =>
-                  api("/v1/me", {
-                    method: "DELETE",
-                    body: hasPassword ? { password: value } : { email: value.trim().toLowerCase() },
-                  }),
-                )
-                .then(() => clearOfflineData(offline.userId).catch(() => undefined))
+              void deleteAccount({ password: value }, offline.userId)
                 .then(() => {
                   router.replace("/entrar");
                   router.refresh();
@@ -92,28 +88,21 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
                 });
             }}
           >
-            <p className="font-semibold text-fail">
-              Esta ação não tem volta: todos os seus semestres, matérias, registros de presença,
-              trilha de auditoria e códigos compartilhados serão apagados agora.
-            </p>
+            <p className="font-semibold text-fail">{IRREVERSIBLE}</p>
             {error ? <Alert tone="error">{error}</Alert> : null}
             <Field
               id="delete-account-confirm"
-              label={
-                hasPassword
-                  ? "Confirme sua senha atual para excluir a conta"
-                  : `Digite seu e-mail (${email}) para confirmar a exclusão`
-              }
+              label="Confirme sua senha atual para excluir a conta"
             >
               <input
                 id="delete-account-confirm"
-                type={hasPassword ? "password" : "email"}
+                type="password"
                 required
-                autoComplete={hasPassword ? "current-password" : "email"}
+                autoComplete="current-password"
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="min-h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-sm outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10"
-                placeholder={hasPassword ? "Sua senha" : email}
+                placeholder="Sua senha"
               />
             </Field>
             <div className="flex flex-wrap items-center gap-2">
@@ -130,6 +119,52 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
               </Button>
             </div>
           </form>
+        ) : (
+          <div className="grid gap-3 rounded-xl border border-fail/30 bg-fail-soft/40 p-4">
+            <p className="font-semibold text-fail">{IRREVERSIBLE}</p>
+            {error ? <Alert tone="error">{error}</Alert> : null}
+            {linkSent ? (
+              <Alert tone="success">
+                Enviamos um link para <span className="[overflow-wrap:anywhere]">{email}</span>.
+                Abra-o neste aparelho em até 15 minutos para confirmar a exclusão.
+              </Alert>
+            ) : (
+              <p>
+                Como você entra sem senha, a confirmação é por e-mail: vamos enviar um link para{" "}
+                <strong className="[overflow-wrap:anywhere]">{email}</strong>.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="danger"
+                loading={pending}
+                onClick={() => {
+                  setPending(true);
+                  setError(undefined);
+                  api("/v1/me/delete-request", { method: "POST" })
+                    .then(() => setLinkSent(true))
+                    .catch((err: unknown) =>
+                      setError(
+                        err instanceof ApiError
+                          ? err.message
+                          : "Não foi possível enviar o link. Tente novamente.",
+                      ),
+                    )
+                    .finally(() => setPending(false));
+                }}
+              >
+                {linkSent ? "Enviar outro link" : "Enviar link de exclusão"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={pending}
+                onClick={() => setConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </section>

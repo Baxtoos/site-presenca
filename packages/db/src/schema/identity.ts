@@ -80,7 +80,7 @@ export const authTokens = app.table(
   "auth_tokens",
   {
     id: pk(),
-    /** Null só para magic link de cadastro (a conta ainda não existe). */
+    /** Null só para magic link e cadastro pendente (a conta ainda não existe). */
     userId: uuid().references(() => users.id, { onDelete: "cascade" }),
     email: text().notNull(),
     purpose: tokenPurpose().notNull(),
@@ -88,6 +88,10 @@ export const authTokens = app.table(
     createdAt: createdAt(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     usedAt: timestamp({ withTimezone: true }),
+    /** Cadastro pendente: nome informado no formulário. */
+    pendingFullName: text(),
+    /** Cadastro pendente: hash Argon2id da senha. Apagado assim que o link é usado. */
+    pendingPasswordHash: text(),
   },
   (t) => [
     unique("auth_tokens_token_hash_key").on(t.tokenHash),
@@ -97,7 +101,8 @@ export const authTokens = app.table(
     check("auth_tokens_token_hash_len_chk", sql`octet_length(${t.tokenHash}) = 32`),
     check(
       "auth_tokens_user_required_chk",
-      sql`${t.userId} is not null or ${t.purpose} = 'magic_link'`,
+      // ::text: o valor novo do enum não pode ser citado na transação que o cria (migration 0009).
+      sql`${t.userId} is not null or ${t.purpose}::text in ('magic_link', 'register')`,
     ),
   ],
 );

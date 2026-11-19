@@ -174,6 +174,95 @@ describe("app.auth_issue_token e app.auth_consume_token", () => {
   });
 });
 
+describe("app.auth_issue_registration e app.auth_consume_registration (cadastro pendente)", () => {
+  const issue = async (email: string, name = "Bia Souza", ttl = 86_400) => {
+    const hash = randomBytes(32);
+    await api().query("select app.auth_issue_registration($1, $2, $3, $4, $5)", [
+      email,
+      name,
+      "$argon2id$hash-de-teste",
+      hash,
+      ttl,
+    ]);
+    return hash;
+  };
+  const consume = async (hash: Buffer) =>
+    (
+      await api().query<{ email: string; full_name: string; password_hash: string | null }>(
+        "select email, full_name, password_hash from app.auth_consume_registration($1)",
+        [hash],
+      )
+    ).rows;
+
+  it("devolve e-mail, nome e hash uma vez só, e apaga o hash guardado", async () => {
+    const hash = await issue("  Bia@Exemplo.com ");
+    expect(await consume(hash)).toEqual([
+      {
+        email: "bia@exemplo.com",
+        full_name: "Bia Souza",
+        password_hash: "$argon2id$hash-de-teste",
+      },
+    ]);
+    expect(await consume(hash)).toEqual([]);
+    const { rows } = await db.admin.query(
+      "select pending_password_hash, used_at is not null as used from app.auth_tokens where token_hash = $1",
+      [hash],
+    );
+    expect(rows[0]).toEqual({ pending_password_hash: null, used: true });
+  });
+
+  it("um cadastro novo invalida o link anterior do mesmo e-mail (e apaga o hash dele)", async () => {
+    const first = await issue("caio@exemplo.com");
+    const second = await issue("caio@exemplo.com", "Caio Lima");
+    expect(await consume(first)).toEqual([]);
+    expect((await consume(second))[0]?.full_name).toBe("Caio Lima");
+    const { rows } = await db.admin.query(
+      "select count(*)::int as n from app.auth_tokens where token_hash = $1 and pending_password_hash is not null",
+      [first],
+    );
+    expect(rows[0]).toEqual({ n: 0 });
+  });
+
+  it("link de cadastro não serve como magic link nem como nova senha", async () => {
+    const hash = await issue("duda@exemplo.com");
+    for (const purpose of ["magic_link", "reset_password"]) {
+      const { rows } = await api().query("select * from app.auth_consume_token($1, $2)", [
+        hash,
+        purpose,
+      ]);
+      expect(rows).toEqual([]);
+    }
+  });
+
+  it("link expirado não cria conta", async () => {
+    const hash = await issue("eva@exemplo.com");
+    await db.admin.query(
+      "update app.auth_tokens set created_at = now() - interval '2 days', expires_at = now() - interval '1 day' where token_hash = $1",
+      [hash],
+    );
+    expect(await consume(hash)).toEqual([]);
+  });
+
+  it("exclusão de conta usa o mesmo mecanismo de links, presa à conta", async () => {
+    const hash = randomBytes(32);
+    await api().query("select app.auth_issue_token($1, $2, 'delete_account', $3, 900)", [
+      alice.userId,
+      ALICE_EMAIL,
+      hash,
+    ]);
+    const { rows } = await api().query(
+      "select user_id, email from app.auth_consume_token($1, 'delete_account')",
+      [hash],
+    );
+    expect(rows).toEqual([{ user_id: alice.userId, email: ALICE_EMAIL }]);
+    await expect(
+      api().query("select app.auth_issue_token(null, 'x@exemplo.com', 'delete_account', $1, 900)", [
+        randomBytes(32),
+      ]),
+    ).rejects.toThrow(/auth_tokens_user_required_chk/);
+  });
+});
+
 describe("app.auth_find_account", () => {
   it("acha a conta pelo sub do Google", async () => {
     const { rows } = await api().query("select app.auth_find_account('google', $1) as user_id", [
@@ -184,6 +273,14 @@ describe("app.auth_find_account", () => {
 });
 
 describe("quem pode executar", () => {
+  it("o worker não executa as funções de cadastro pendente", async () => {
+    await expect(
+      db.pools.app_worker.query("select * from app.auth_consume_registration($1)", [
+        randomBytes(32),
+      ]),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it("o worker não executa funções de autenticação", async () => {
     await expect(
       db.pools.app_worker.query("select * from app.auth_find_user_by_email('a@b.co')"),

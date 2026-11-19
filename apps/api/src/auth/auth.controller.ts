@@ -62,13 +62,22 @@ export class AuthController {
 
   @Public()
   @Post("register")
-  @RateLimit(LIMITS.register)
-  register(
-    @Body(new ZodPipe(registerBodySchema)) body: RegisterBody,
+  @HttpCode(202)
+  @RateLimit(LIMITS.register, LIMITS.emailPerAddress)
+  register(@Body(new ZodPipe(registerBodySchema)) body: RegisterBody): Promise<AcceptedResponse> {
+    return this.auth.register(body);
+  }
+
+  @Public()
+  @Post("register/confirm")
+  @HttpCode(200)
+  @RateLimit(LIMITS.tokenPerIp)
+  confirmRegistration(
+    @Body(new ZodPipe(tokenBodySchema)) body: TokenBody,
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<MeResponse> {
-    return this.auth.register(body, request, reply);
+    return this.auth.confirmRegistration(body.token, request, reply);
   }
 
   @Public()

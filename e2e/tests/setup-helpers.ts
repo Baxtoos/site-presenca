@@ -1,4 +1,5 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
+import { waitForLink } from "./mailpit";
 
 export const WEEKDAYS = ["", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 
@@ -21,6 +22,32 @@ export function isoWeekday(iso: string): number {
 export const uniqueEmail = (testInfo: TestInfo, slug: string) =>
   `e2e.${slug}.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
 
+/** Abre o link do e-mail no mesmo endereço do teste (o e-mail usa WEB_ORIGIN). */
+export async function openEmailLink(page: Page, link: string) {
+  const url = new URL(link);
+  await page.goto(`${url.pathname}${url.search}`);
+}
+
+/**
+ * Preenche o cadastro (a página /cadastro já aberta), confere o "confira seu e-mail" e abre o
+ * link de confirmação, que cria a conta e entra nela.
+ */
+export async function signUp(
+  page: Page,
+  opts: { name: string; email: string; password: string },
+): Promise<void> {
+  const requestedAt = new Date(Date.now() - 1_000);
+  await page.getByLabel("Nome").fill(opts.name);
+  await page.getByLabel("E-mail").fill(opts.email);
+  await page.getByLabel("Senha", { exact: true }).fill(opts.password);
+  await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page.getByText("Confira seu e-mail.")).toBeVisible();
+  await openEmailLink(
+    page,
+    await waitForLink(opts.email, "Confirme seu e-mail para criar a conta", requestedAt),
+  );
+}
+
 /**
  * Conta nova + semestre em volta de hoje + uma matéria com aula de 2 tempos no dia da semana de
  * hoje (limite de 18 tempos). Termina no semestre, com o card da matéria visível.
@@ -33,10 +60,11 @@ export async function setupStudentWithClassToday(
   const today = todayInSaoPaulo();
   await page.goto("/cadastro");
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
-  await page.getByLabel("Nome").fill(opts.name);
-  await page.getByLabel("E-mail").fill(opts.email ?? uniqueEmail(testInfo, opts.slug));
-  await page.getByLabel("Senha", { exact: true }).fill(`senha-forte-${opts.slug}-e2e`);
-  await page.getByRole("button", { name: "Criar conta" }).click();
+  await signUp(page, {
+    name: opts.name,
+    email: opts.email ?? uniqueEmail(testInfo, opts.slug),
+    password: `senha-forte-${opts.slug}-e2e`,
+  });
 
   await page.getByRole("link", { name: "Criar meu semestre" }).click();
   await expect(page.getByRole("heading", { name: "Semestres", exact: true })).toBeVisible();

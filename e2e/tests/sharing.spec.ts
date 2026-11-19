@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { waitForLink } from "./mailpit";
-import { expectPath, setupStudentWithClassToday, uniqueEmail } from "./setup-helpers";
+import { expectPath, setupStudentWithClassToday, signUp, uniqueEmail } from "./setup-helpers";
 
 /**
  * Compartilhamento de ponta a ponta: a Ana gera um código; um colega SEM conta abre o link, vê a
@@ -12,7 +11,6 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
 }, testInfo) => {
   // Fluxo longo (várias páginas); no `next dev`, cada página nova compila na primeira visita.
   test.slow();
-  const startedAt = new Date(Date.now() - 1_000);
   const email = uniqueEmail(testInfo, "compartilha");
   await setupStudentWithClassToday(page, testInfo, {
     name: "Ana Compartilha",
@@ -20,10 +18,7 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
     subject: "Estatística",
     email,
   });
-  // Compartilhar exige e-mail confirmado.
-  const link = new URL(await waitForLink(email, "Confirme seu e-mail", startedAt));
-  await page.goto(`${link.pathname}${link.search}`);
-  await expect(page.getByText("E-mail confirmado.")).toBeVisible();
+  // Compartilhar exige e-mail confirmado (o cadastro já confirmou).
 
   await page.goto("/");
   await page.getByRole("link", { name: "Gerenciar semestre" }).click();
@@ -54,12 +49,13 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
 
   await other.getByRole("link", { name: "Criar conta e importar" }).click();
   await expect(other.getByRole("heading", { name: "Criar conta" })).toBeVisible();
-  await other.getByLabel("Nome").fill("Bruno Colega");
-  await other.getByLabel("E-mail").fill(uniqueEmail(testInfo, "colega"));
-  await other.getByLabel("Senha", { exact: true }).fill("senha-forte-do-colega-e2e");
-  await other.getByRole("button", { name: "Criar conta" }).click();
+  await signUp(other, {
+    name: "Bruno Colega",
+    email: uniqueEmail(testInfo, "colega"),
+    password: "senha-forte-do-colega-e2e",
+  });
 
-  // Voltou para a importação já logado.
+  // O link do e-mail leva de volta para a importação, já logado.
   await expectPath(other, new RegExp(`^/importar/${code}$`));
   await other.getByRole("button", { name: "Importar este semestre" }).click();
   await expect(other.getByRole("heading", { name: /^Atual/ })).toBeVisible();

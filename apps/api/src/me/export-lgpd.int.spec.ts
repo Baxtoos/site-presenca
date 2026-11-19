@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { meResponseSchema, subjectSchema } from "@presenca/contracts";
 import ExcelJS from "exceljs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AuthTestEnv, Browser, startAuthTestEnv } from "../test/auth-harness";
+import {
+  type AuthTestEnv,
+  Browser,
+  registerAndConfirm,
+  startAuthTestEnv,
+} from "../test/auth-harness";
 
 let env: AuthTestEnv;
 beforeAll(async () => {
@@ -19,16 +24,13 @@ async function student(name = "Ana Ribeiro") {
   const b = new Browser(env.app);
   const email = `lgpd.${Date.now()}.${++seq}@exemplo.com`;
   const password = "senha-forte-exportacao-1";
-  const reg = await b.request("POST", "/v1/auth/register", {
+  const reg = await registerAndConfirm(env, b, {
     email,
     password,
     fullName: name,
   });
-  expect(reg.statusCode).toBe(201);
+  expect(reg.statusCode).toBe(200);
   const userId = meResponseSchema.parse(reg.json()).id;
-  await env.db.admin.query("update app.users set email_verified_at = now() where id = $1", [
-    userId,
-  ]);
   return { b, userId, email, password };
 }
 

@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { waitForLink } from "./mailpit";
-import { expectPath, realPath } from "./setup-helpers";
+import { waitForEmail, waitForLink } from "./mailpit";
+import { expectPath, openEmailLink, realPath, signUp } from "./setup-helpers";
 
 const uniqueEmail = (testInfo: { project: { name: string } }) =>
   `e2e.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
@@ -11,44 +11,28 @@ async function logout(page: Page) {
   await page.getByRole("region", { name: "Sair" }).getByRole("button", { name: "Sair" }).click();
 }
 
-/** Abre o link do e-mail no mesmo endereço do teste (o e-mail usa WEB_ORIGIN). */
-async function openEmailLink(page: Page, link: string) {
-  const url = new URL(link);
-  await page.goto(`${url.pathname}${url.search}`);
-}
-
-test("cadastro → confirmar e-mail → sair → entrar → esqueci a senha → nova senha", async ({
+test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → nova senha", async ({
   page,
 }, testInfo) => {
   const email = uniqueEmail(testInfo);
   const password = "uma-senha-bem-forte-do-e2e-1";
   const newPassword = "outra-senha-bem-forte-do-e2e-2";
-  const startedAt = new Date(Date.now() - 1_000);
 
   // Sem sessão, a página inicial manda para o login.
   await page.goto("/");
   await expectPath(page, /^\/entrar$/);
 
-  // Cadastro: entra direto, com o aviso de e-mail não confirmado.
+  // Cadastro: a conta só nasce no link do e-mail, que já entra e confirma o e-mail.
   await page.getByRole("link", { name: "Criar conta" }).click();
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
-  await page.getByLabel("Nome").fill("Ana E2E");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByLabel("Senha", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Criar conta" }).click();
+  await signUp(page, { name: "Ana E2E", email, password });
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
-  await expect(page.getByText("Confirme seu e-mail.")).toBeVisible();
+  expect(await realPath(page)).not.toMatch(/token=/);
+  await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
   // As sessões ficam na página Conta.
   await page.getByRole("link", { name: "Conta" }).click();
   await expect(page.getByText("este dispositivo")).toBeVisible();
   await page.getByRole("link", { name: "Início" }).first().click();
-
-  // Confirma o e-mail pelo link: o token some da barra de endereço.
-  await openEmailLink(page, await waitForLink(email, "Confirme seu e-mail", startedAt));
-  await expect(page.getByText("E-mail confirmado.")).toBeVisible();
-  expect(await realPath(page)).not.toMatch(/token=/);
-  await page.getByRole("link", { name: "Ir para o app" }).click();
-  await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
 
   // Sair e entrar de novo; senha errada mostra a mensagem genérica.
   await logout(page);
@@ -114,10 +98,7 @@ test("encerrar a sessão de outro dispositivo derruba aquele dispositivo", async
 
   const laptop = await (await browser.newContext()).newPage();
   await laptop.goto("/cadastro");
-  await laptop.getByLabel("Nome").fill("Bia Dois Aparelhos");
-  await laptop.getByLabel("E-mail").fill(email);
-  await laptop.getByLabel("Senha").fill(password);
-  await laptop.getByRole("button", { name: "Criar conta" }).click();
+  await signUp(laptop, { name: "Bia Dois Aparelhos", email, password });
   await expect(laptop.getByRole("heading", { name: "Olá, Bia" })).toBeVisible();
 
   const phone = await (await browser.newContext()).newPage();
@@ -134,4 +115,60 @@ test("encerrar a sessão de outro dispositivo derruba aquele dispositivo", async
 
   await phone.reload();
   await expectPath(phone, /^\/entrar(\?|$)/);
+});
+
+test("cadastro com e-mail que já tem conta não revela nada na tela", async ({
+  browser,
+}, testInfo) => {
+  const email = uniqueEmail(testInfo);
+  const owner = await (await browser.newContext()).newPage();
+  await owner.goto("/cadastro");
+  await signUp(owner, { name: "Dona da Conta", email, password: "senha-forte-da-dona-e2e" });
+  await expect(owner.getByRole("heading", { name: "Olá, Dona" })).toBeVisible();
+
+  // Outra pessoa tenta cadastrar o mesmo e-mail: a tela é a mesma de um e-mail novo.
+  const other = await (await browser.newContext()).newPage();
+  const triedAt = new Date(Date.now() - 1_000);
+  await other.goto("/cadastro");
+  await other.getByLabel("Nome").fill("Outra Pessoa");
+  await other.getByLabel("E-mail").fill(email);
+  await other.getByLabel("Senha", { exact: true }).fill("senha-forte-da-outra-e2e");
+  await other.getByRole("button", { name: "Criar conta" }).click();
+  await expect(other.getByText("Confira seu e-mail.")).toBeVisible();
+
+  // Quem recebe é a dona, com um aviso (sem link que crie ou altere conta).
+  const notice = await waitForEmail(email, "Você já tem uma conta", triedAt);
+  expect(notice.text).not.toMatch(/token=/);
+});
+
+test("conta sem senha exclui a conta pelo link enviado ao e-mail", async ({ page }, testInfo) => {
+  const email = uniqueEmail(testInfo);
+  const startedAt = new Date(Date.now() - 1_000);
+  await page.goto("/entrar/link");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByRole("button", { name: "Enviar link de acesso" }).click();
+  await openEmailLink(page, await waitForLink(email, "Crie sua conta", startedAt));
+  await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
+
+  await page.goto("/conta");
+  const lgpd = page.getByRole("region", { name: "Seus dados e privacidade (LGPD)" });
+  await lgpd.getByRole("button", { name: "Excluir minha conta" }).click();
+  await expect(lgpd).toContainText(email);
+  const askedAt = new Date(Date.now() - 1_000);
+  await lgpd.getByRole("button", { name: "Enviar link de exclusão" }).click();
+  await expect(lgpd.getByText("Enviamos um link para")).toBeVisible();
+
+  // Abrir o link não exclui sozinho: pede a confirmação.
+  await openEmailLink(page, await waitForLink(email, "Confirme a exclusão da sua conta", askedAt));
+  await expect(page.getByRole("heading", { name: "Excluir conta" })).toBeVisible();
+  expect(await realPath(page)).not.toMatch(/token=/);
+  await page.getByRole("button", { name: "Excluir minha conta" }).click();
+  await expectPath(page, /^\/entrar$/);
+
+  // A conta não existe mais: o mesmo e-mail recebe o convite de criar conta de novo.
+  const againAt = new Date(Date.now() - 1_000);
+  await page.goto("/entrar/link");
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByRole("button", { name: "Enviar link de acesso" }).click();
+  await waitForLink(email, "Crie sua conta", againAt);
 });

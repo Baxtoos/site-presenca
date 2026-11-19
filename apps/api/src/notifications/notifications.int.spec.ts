@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   type AuthTestEnv,
   Browser,
+  registerAndConfirm,
   startAuthTestEnv,
   TEST_VAPID_PUBLIC_KEY,
 } from "../test/auth-harness";
@@ -32,15 +33,17 @@ const problem = (res: { json: () => unknown }) => problemSchema.parse(res.json()
 /** Aluno com uma matéria de limite fixo (10 tempos): 1 tempo = 10% do limite. */
 async function setup(opts: { verified?: boolean; maxUnits?: number } = {}) {
   const b = new Browser(env.app);
-  const reg = await b.request("POST", "/v1/auth/register", {
+  const reg = await registerAndConfirm(env, b, {
     email: `avisos.${Date.now()}.${++seq}@exemplo.com`,
     password: "senha-forte-dos-avisos-1",
     fullName: "Aluno Avisos",
   });
-  expect(reg.statusCode).toBe(201);
+  expect(reg.statusCode).toBe(200);
   const userId = meResponseSchema.parse(reg.json()).id;
-  if (opts.verified ?? true) {
-    await env.db.admin.query("update app.users set email_verified_at = now() where id = $1", [
+  // A confirmação do cadastro já verifica o e-mail; "não verificado" só existe em contas
+  // antigas (criadas antes da confirmação obrigatória), simuladas aqui.
+  if (opts.verified === false) {
+    await env.db.admin.query("update app.users set email_verified_at = null where id = $1", [
       userId,
     ]);
   }

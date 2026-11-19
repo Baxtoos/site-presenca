@@ -1,6 +1,12 @@
 import { meResponseSchema, problemSchema, sessionsResponseSchema } from "@presenca/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AuthTestEnv, Browser, startAuthTestEnv, tokenFromMail } from "../test/auth-harness";
+import {
+  type AuthTestEnv,
+  Browser,
+  registerAndConfirm,
+  startAuthTestEnv,
+  tokenFromMail,
+} from "../test/auth-harness";
 
 let env: AuthTestEnv;
 beforeAll(async () => {
@@ -16,22 +22,52 @@ const PASSWORD = "senha-forte-do-teste-1";
 
 const browser = () => new Browser(env.app);
 
+/** Conta com senha, criada pelo fluxo completo (pedido + link do e-mail). */
 async function registered(email = uniqueEmail()) {
   const b = browser();
-  const res = await b.request("POST", "/v1/auth/register", {
+  const res = await registerAndConfirm(env, b, {
     email,
     password: PASSWORD,
     fullName: "Ana Teste",
   });
-  expect(res.statusCode).toBe(201);
+  expect(res.statusCode).toBe(200);
+  return { b, email, me: meResponseSchema.parse(res.json()) };
+}
+
+/** Conta antiga com e-mail ainda não confirmado (de antes da confirmação no cadastro). */
+async function legacyUnverified() {
+  const account = await registered();
+  await env.db.admin.query("update app.users set email_verified_at = null where id = $1", [
+    account.me.id,
+  ]);
+  return account;
+}
+
+/** Conta sem senha, criada pelo link de acesso. */
+async function passwordless() {
+  const email = uniqueEmail("semsenha");
+  await browser().request("POST", "/v1/auth/magic-link", { email });
   await env.drain();
+  const b = browser();
+  const res = await b.request("POST", "/v1/auth/magic-link/consume", {
+    token: tokenFromMail(env.mail, email),
+  });
+  expect(res.statusCode).toBe(200);
   return { b, email, me: meResponseSchema.parse(res.json()) };
 }
 
 const problem = (res: { json: () => unknown }) => problemSchema.parse(res.json());
 
-describe("cadastro, sessão e verificação de e-mail", () => {
-  it("cria a conta, abre sessão com cookie seguro e envia a verificação", async () => {
+const userCount = async (email: string) =>
+  (
+    await env.db.admin.query<{ n: string }>(
+      "select count(*) as n from app.users where email = $1",
+      [email],
+    )
+  ).rows[0]!.n;
+
+describe("cadastro com confirmação por e-mail", () => {
+  it("o pedido não cria conta nem sessão; a conta nasce no link, já verificada", async () => {
     const email = uniqueEmail();
     const b = browser();
     const res = await b.request("POST", "/v1/auth/register", {
@@ -39,52 +75,126 @@ describe("cadastro, sessão e verificação de e-mail", () => {
       password: PASSWORD,
       fullName: "  Ana Teste ",
     });
-    expect(res.statusCode).toBe(201);
-    const me = meResponseSchema.parse(res.json());
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ status: "accepted" });
+    expect(b.cookies.has("__Host-sid")).toBe(false);
+    await env.drain();
+    expect(await userCount(email)).toBe("0");
+
+    const message = env.mail.lastTo(email);
+    expect(message?.subject).toBe("Confirme seu e-mail para criar a conta");
+    expect(message?.text).toContain("http://localhost:3000/cadastro/confirmar?token=");
+    expect(message?.text).not.toContain(PASSWORD);
+
+    const confirm = await b.request("POST", "/v1/auth/register/confirm", {
+      token: tokenFromMail(env.mail, email),
+    });
+    expect(confirm.statusCode).toBe(200);
+    const me = meResponseSchema.parse(confirm.json());
     expect(me).toMatchObject({
       email,
       fullName: "Ana Teste",
-      emailVerified: false,
+      emailVerified: true,
       hasPassword: true,
     });
-
-    const cookie = (res.cookies as Array<Record<string, unknown>>).find(
+    const cookie = (confirm.cookies as Array<Record<string, unknown>>).find(
       (c) => c.name === "__Host-sid",
     );
     expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: "Lax", path: "/" });
     expect(cookie).not.toHaveProperty("domain");
+    expect((await b.request("GET", "/v1/me")).json()).toMatchObject({ id: me.id });
 
-    const meRes = await b.request("GET", "/v1/me");
-    expect(meRes.statusCode).toBe(200);
-    expect(meRes.json()).toMatchObject({ id: me.id });
-
-    await env.drain();
-    expect(env.mail.lastTo(email)?.subject).toBe("Confirme seu e-mail");
+    // A senha escolhida no formulário é a da conta.
+    expect(
+      (await browser().request("POST", "/v1/auth/login", { email, password: PASSWORD })).statusCode,
+    ).toBe(200);
   });
 
-  it("confirma o e-mail pelo link, que só funciona uma vez", async () => {
-    const { b, email } = await registered();
+  it("o link de cadastro só funciona uma vez", async () => {
+    const email = uniqueEmail();
+    await browser().request("POST", "/v1/auth/register", {
+      email,
+      password: PASSWORD,
+      fullName: "Ana",
+    });
+    await env.drain();
     const token = tokenFromMail(env.mail, email);
-
-    expect((await browser().request("POST", "/v1/auth/verify-email", { token })).statusCode).toBe(
-      204,
-    );
-    expect((await b.request("GET", "/v1/me")).json()).toMatchObject({ emailVerified: true });
-
-    const again = await browser().request("POST", "/v1/auth/verify-email", { token });
+    expect(
+      (await browser().request("POST", "/v1/auth/register/confirm", { token })).statusCode,
+    ).toBe(200);
+    const again = await browser().request("POST", "/v1/auth/register/confirm", { token });
     expect(again.statusCode).toBe(400);
     expect(problem(again).code).toBe("INVALID_TOKEN");
+    expect(await userCount(email)).toBe("1");
   });
 
-  it("recusa e-mail já cadastrado, sem diferenciar maiúsculas", async () => {
-    const { email } = await registered();
-    const res = await browser().request("POST", "/v1/auth/register", {
+  it("e-mail já cadastrado: mesma resposta, conta intacta e o dono recebe um aviso", async () => {
+    const { email, me } = await registered();
+    const b = browser();
+    const res = await b.request("POST", "/v1/auth/register", {
       email: email.toUpperCase(),
-      password: PASSWORD,
-      fullName: "Outra",
+      password: "senha-do-invasor-123",
+      fullName: "Outra Pessoa",
     });
-    expect(res.statusCode).toBe(409);
-    expect(problem(res).code).toBe("EMAIL_TAKEN");
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ status: "accepted" });
+    expect(b.cookies.has("__Host-sid")).toBe(false);
+    await env.drain();
+
+    const message = env.mail.lastTo(email);
+    expect(message?.subject).toBe("Você já tem uma conta no Monitor de Presenças");
+    expect(() => tokenFromMail(env.mail, email)).toThrow();
+
+    // Ninguém trocou a senha nem o nome da conta.
+    const login = await browser().request("POST", "/v1/auth/login", { email, password: PASSWORD });
+    expect(login.json()).toMatchObject({ id: me.id, fullName: "Ana Teste" });
+    expect(
+      (
+        await browser().request("POST", "/v1/auth/login", {
+          email,
+          password: "senha-do-invasor-123",
+        })
+      ).statusCode,
+    ).toBe(401);
+  });
+
+  it("só o último link pedido vale", async () => {
+    const email = uniqueEmail();
+    const ask = (fullName: string) =>
+      browser().request("POST", "/v1/auth/register", { email, password: PASSWORD, fullName });
+    await ask("Primeiro Nome");
+    await env.drain();
+    const first = tokenFromMail(env.mail, email);
+    await ask("Segundo Nome");
+    await env.drain();
+    const second = tokenFromMail(env.mail, email);
+
+    expect(
+      (await browser().request("POST", "/v1/auth/register/confirm", { token: first })).statusCode,
+    ).toBe(400);
+    const ok = await browser().request("POST", "/v1/auth/register/confirm", { token: second });
+    expect(ok.json()).toMatchObject({ fullName: "Segundo Nome" });
+  });
+
+  it("leva o caminho de volta no link e recusa caminhos para fora do app", async () => {
+    const email = uniqueEmail();
+    const ok = await browser().request("POST", "/v1/auth/register", {
+      email,
+      password: PASSWORD,
+      fullName: "Ana",
+      next: "/importar/ABCD2345",
+    });
+    expect(ok.statusCode).toBe(202);
+    await env.drain();
+    expect(env.mail.lastTo(email)?.text).toContain("next=%2Fimportar%2FABCD2345");
+
+    const evil = await browser().request("POST", "/v1/auth/register", {
+      email: uniqueEmail(),
+      password: PASSWORD,
+      fullName: "Ana",
+      next: "//outro-site.com",
+    });
+    expect(evil.statusCode).toBe(422);
   });
 
   it("recusa senha curta com a mensagem no campo", async () => {
@@ -97,6 +207,25 @@ describe("cadastro, sessão e verificação de e-mail", () => {
     expect(problem(res).errors).toEqual([
       { path: "password", message: "A senha precisa ter pelo menos 10 caracteres." },
     ]);
+  });
+});
+
+describe("verificação de e-mail (contas antigas)", () => {
+  it("confirma o e-mail pelo link, que só funciona uma vez", async () => {
+    const { b, email } = await legacyUnverified();
+    expect((await b.request("POST", "/v1/auth/verify-email/resend")).statusCode).toBe(202);
+    await env.drain();
+    expect(env.mail.lastTo(email)?.subject).toBe("Confirme seu e-mail");
+    const token = tokenFromMail(env.mail, email);
+
+    expect((await browser().request("POST", "/v1/auth/verify-email", { token })).statusCode).toBe(
+      204,
+    );
+    expect((await b.request("GET", "/v1/me")).json()).toMatchObject({ emailVerified: true });
+
+    const again = await browser().request("POST", "/v1/auth/verify-email", { token });
+    expect(again.statusCode).toBe(400);
+    expect(problem(again).code).toBe("INVALID_TOKEN");
   });
 });
 
@@ -373,7 +502,7 @@ describe("login com Google", () => {
   });
 
   it("não vincula a uma conta com senha que ainda não confirmou o e-mail", async () => {
-    const { email } = await registered();
+    const { email } = await legacyUnverified();
     env.google.profile = { sub: `sub-${++seq}`, email, emailVerified: true, name: "Invasor" };
     const res = await googleLogin(browser());
     expect(res.headers.location).toBe("http://localhost:3000/entrar?erro=conta_nao_verificada");
@@ -381,9 +510,6 @@ describe("login com Google", () => {
 
   it("vincula a uma conta com e-mail confirmado e entra nela", async () => {
     const { email, me } = await registered();
-    await browser().request("POST", "/v1/auth/verify-email", {
-      token: tokenFromMail(env.mail, email),
-    });
     env.google.profile = { sub: `sub-${++seq}`, email, emailVerified: true, name: "Ana" };
     const b = browser();
     await googleLogin(b);
@@ -391,5 +517,60 @@ describe("login com Google", () => {
       id: me.id,
       hasPassword: true,
     });
+  });
+});
+
+describe("exclusão de conta sem senha (link por e-mail)", () => {
+  it("exclui só depois de abrir o link enviado ao e-mail da conta", async () => {
+    const { b, email, me } = await passwordless();
+
+    // Sem senha, digitar qualquer coisa não basta: precisa do link.
+    const guess = await b.request("DELETE", "/v1/me", { password: "qualquer-coisa-123" });
+    expect(guess.statusCode).toBe(400);
+    expect(problem(guess).code).toBe("INVALID_TOKEN");
+
+    expect((await b.request("POST", "/v1/me/delete-request")).statusCode).toBe(202);
+    await env.drain();
+    const message = env.mail.lastTo(email);
+    expect(message?.subject).toBe("Confirme a exclusão da sua conta");
+    expect(message?.text).toContain("http://localhost:3000/conta/excluir?token=");
+    const token = tokenFromMail(env.mail, email);
+
+    expect((await b.request("DELETE", "/v1/me", { token })).statusCode).toBe(204);
+    expect((await b.request("GET", "/v1/me")).statusCode).toBe(401);
+    expect(await userCount(email)).toBe("0");
+    expect(me.hasPassword).toBe(false);
+  });
+
+  it("o link de uma conta não exclui outra", async () => {
+    const vitima = await passwordless();
+    const atacante = await passwordless();
+    await atacante.b.request("POST", "/v1/me/delete-request");
+    await env.drain();
+    const tokenDoAtacante = tokenFromMail(env.mail, atacante.email);
+
+    const res = await vitima.b.request("DELETE", "/v1/me", { token: tokenDoAtacante });
+    expect(res.statusCode).toBe(400);
+    expect((await vitima.b.request("GET", "/v1/me")).statusCode).toBe(200);
+  });
+
+  it("o link vale 15 minutos", async () => {
+    const { b, email } = await passwordless();
+    await b.request("POST", "/v1/me/delete-request");
+    await env.drain();
+    const token = tokenFromMail(env.mail, email);
+    await env.db.admin.query(
+      "update app.auth_tokens set created_at = now() - interval '16 minutes', expires_at = now() - interval '1 minute' where purpose = 'delete_account' and email = $1",
+      [email],
+    );
+    expect((await b.request("DELETE", "/v1/me", { token })).statusCode).toBe(400);
+    expect((await b.request("GET", "/v1/me")).statusCode).toBe(200);
+  });
+
+  it("conta com senha confirma pela senha, não por link", async () => {
+    const { b } = await registered();
+    const res = await b.request("POST", "/v1/me/delete-request");
+    expect(res.statusCode).toBe(409);
+    expect(problem(res).code).toBe("HAS_PASSWORD");
   });
 });

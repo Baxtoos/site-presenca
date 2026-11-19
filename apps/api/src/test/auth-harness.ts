@@ -146,3 +146,21 @@ export function tokenFromMail(mail: CaptureMailer, to: string): string {
   if (!token) throw new Error(`nenhum link com token no e-mail para ${to}`);
   return token;
 }
+
+/**
+ * Cadastro completo, como o aluno faz: pede o cadastro (202), abre o link do e-mail e confirma.
+ * Devolve a resposta da confirmação (200 + MeResponse, sessão aberta no navegador).
+ */
+export async function registerAndConfirm(
+  env: AuthTestEnv,
+  browser: Browser,
+  body: { email: string; password: string; fullName: string; next?: string },
+) {
+  const requested = await browser.request("POST", "/v1/auth/register", body);
+  if (requested.statusCode !== 202) {
+    throw new Error(`cadastro recusado (${requested.statusCode}): ${requested.body}`);
+  }
+  await env.drain();
+  const token = tokenFromMail(env.mail, body.email.trim().toLowerCase());
+  return browser.request("POST", "/v1/auth/register/confirm", { token });
+}

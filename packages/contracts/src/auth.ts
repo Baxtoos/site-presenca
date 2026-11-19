@@ -36,10 +36,25 @@ export const tokenSchema = z
 
 // ---- Corpos de requisição ----
 
+/**
+ * Caminho do próprio app para onde voltar depois de confirmar (ex.: a importação de uma grade).
+ * Nada de "//outro-site" ou "\\": o link do e-mail não pode virar um redirecionamento aberto.
+ */
+export const nextPathSchema = z
+  .string()
+  .max(300)
+  .regex(/^\/(?!\/)[^\s\\]*$/, { error: "Caminho de retorno inválido." });
+
+/**
+ * Cadastro: sempre responde "aceito" e manda um e-mail. A conta só é criada quando a pessoa
+ * confirma pelo link (POST /v1/auth/register/confirm), então a resposta não revela se o e-mail
+ * já tem conta.
+ */
 export const registerBodySchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   fullName: fullNameSchema,
+  next: nextPathSchema.optional(),
 });
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 
@@ -80,11 +95,13 @@ export const sessionIdParamsSchema = z.object({ id: z.uuid({ error: "Sessão inv
  */
 export const deleteMeBodySchema = z
   .object({
+    /** Conta com senha: confirma digitando a senha. */
     password: z.string().min(1).max(128).optional(),
-    email: emailSchema.optional(),
+    /** Conta sem senha: o token do link de exclusão enviado por e-mail. */
+    token: tokenSchema.optional(),
   })
-  .refine((b) => Boolean(b.password || b.email), {
-    error: "Confirme sua senha ou seu e-mail para excluir a conta.",
+  .refine((b) => Boolean(b.password || b.token), {
+    error: "Confirme com sua senha ou pelo link enviado ao seu e-mail.",
   });
 export type DeleteMeBody = z.infer<typeof deleteMeBodySchema>;
 
@@ -123,7 +140,6 @@ export type SessionsResponse = z.infer<typeof sessionsResponseSchema>;
 /** Códigos de erro estáveis das rotas de autenticação (campo `code` do problem+json). */
 export const AuthErrorCode = {
   invalidCredentials: "INVALID_CREDENTIALS",
-  emailTaken: "EMAIL_TAKEN",
   passwordBreached: "PASSWORD_BREACHED",
   invalidToken: "INVALID_TOKEN",
   accountDisabled: "ACCOUNT_DISABLED",

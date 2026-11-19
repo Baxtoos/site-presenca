@@ -11,7 +11,12 @@ import {
   todayResponseSchema,
 } from "@presenca/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AuthTestEnv, Browser, startAuthTestEnv } from "../test/auth-harness";
+import {
+  type AuthTestEnv,
+  Browser,
+  registerAndConfirm,
+  startAuthTestEnv,
+} from "../test/auth-harness";
 
 let env: AuthTestEnv;
 beforeAll(async () => {
@@ -47,12 +52,12 @@ const CALCULO = {
 /** Aluna com semestre 2026.2 e Cálculo II (segunda e quarta, 2 tempos). */
 async function setup(subjectOverrides: Record<string, unknown> = {}) {
   const b = new Browser(env.app);
-  const reg = await b.request("POST", "/v1/auth/register", {
+  const reg = await registerAndConfirm(env, b, {
     email: `presenca.${Date.now()}.${++seq}@exemplo.com`,
     password: "senha-forte-da-presenca-1",
     fullName: "Aluna Presença",
   });
-  expect(reg.statusCode).toBe(201);
+  expect(reg.statusCode).toBe(200);
   const userId = meResponseSchema.parse(reg.json()).id;
   const sem = await b.request("POST", "/v1/semesters", {
     label: `2026.${++seq}`,

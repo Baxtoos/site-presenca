@@ -1,5 +1,7 @@
 import {
+  BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -7,10 +9,12 @@ import {
   NotFoundException,
   Param,
   Patch,
+  Post,
   Res,
   UnauthorizedException,
 } from "@nestjs/common";
 import {
+  type AcceptedResponse,
   AuthErrorCode,
   type DeleteMeBody,
   deleteMeBodySchema,
@@ -23,6 +27,7 @@ import {
 import { schema } from "@presenca/db";
 import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import type { FastifyReply } from "fastify";
+import { AuthService } from "../auth/auth.service";
 import { type AuthContext, CurrentAuth } from "../auth/decorators";
 import { PasswordService } from "../auth/password.service";
 import { SessionService } from "../auth/session.service";
@@ -37,6 +42,7 @@ export class MeController {
     private readonly db: DbService,
     private readonly sessions: SessionService,
     private readonly passwords: PasswordService,
+    private readonly auth: AuthService,
   ) {}
 
   @Get()
@@ -140,40 +146,64 @@ export class MeController {
     return data;
   }
 
+  /** Conta sem senha: manda por e-mail o link que confirma a exclusão. */
+  @Post("delete-request")
+  @HttpCode(202)
+  @RateLimit({ bucket: "account-delete-link", by: "user", limit: 3, windowSeconds: 900 })
+  async requestDeletion(@CurrentAuth() auth: AuthContext): Promise<AcceptedResponse> {
+    const user = await this.db.tx((tx) =>
+      tx.query.users.findFirst({ columns: { passwordHash: true } }),
+    );
+    if (!user) throw new NotFoundException();
+    if (user.passwordHash !== null) {
+      throw new ConflictException({
+        code: "HAS_PASSWORD",
+        detail: "Sua conta tem senha: confirme a exclusão digitando a senha.",
+      });
+    }
+    return this.auth.requestAccountDeletion(auth.userId);
+  }
+
+  /**
+   * Exclui a conta. Quem tem senha confirma com ela; quem entra sem senha (Google ou link)
+   * confirma pelo link enviado ao e-mail, que só vale para a conta logada.
+   */
   @Delete()
   @HttpCode(204)
   @RateLimit({ bucket: "account-delete", by: "user", limit: 5, windowSeconds: 900 })
   async deleteAccount(
     @Body(new ZodPipe(deleteMeBodySchema)) body: DeleteMeBody,
+    @CurrentAuth() auth: AuthContext,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
-    await this.db.tx(async (tx) => {
-      const user = await tx.query.users.findFirst();
-      if (!user) throw new NotFoundException();
+    const user = await this.db.tx((tx) =>
+      tx.query.users.findFirst({ columns: { passwordHash: true } }),
+    );
+    if (!user) throw new NotFoundException();
 
-      if (user.passwordHash !== null) {
-        const ok =
-          typeof body.password === "string" &&
-          (await this.passwords.verify(user.passwordHash, body.password));
-        if (!ok) {
-          throw new UnauthorizedException({
-            code: AuthErrorCode.invalidCredentials,
-            detail: "Senha incorreta.",
-          });
-        }
-      } else {
-        const ok = typeof body.email === "string" && body.email === user.email;
-        if (!ok) {
-          throw new UnauthorizedException({
-            code: AuthErrorCode.invalidCredentials,
-            detail: "O e-mail informado não confere com o da conta.",
-          });
-        }
+    if (user.passwordHash !== null) {
+      const ok =
+        typeof body.password === "string" &&
+        (await this.passwords.verify(user.passwordHash, body.password));
+      if (!ok) {
+        throw new UnauthorizedException({
+          code: AuthErrorCode.invalidCredentials,
+          detail: "Senha incorreta.",
+        });
       }
+    } else {
+      const ok =
+        typeof body.token === "string" &&
+        (await this.auth.consumeDeletionToken(body.token, auth.userId));
+      if (!ok) {
+        throw new BadRequestException({
+          code: AuthErrorCode.invalidToken,
+          detail: "Link de exclusão inválido ou expirado. Peça um novo na página Conta.",
+        });
+      }
+    }
 
-      await tx.execute(sql`select app.delete_current_user()`);
-    });
-
+    await this.db.tx((tx) => tx.execute(sql`select app.delete_current_user()`));
     this.sessions.clearCookie(reply);
   }
 

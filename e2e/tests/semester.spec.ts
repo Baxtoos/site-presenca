@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signUp } from "./setup-helpers";
 
 const uniqueEmail = (project: string) =>
   `e2e.semestre.${project}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
@@ -7,10 +8,11 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   // Conta nova.
   await page.goto("/cadastro");
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
-  await page.getByLabel("Nome").fill("Carla Semestre");
-  await page.getByLabel("E-mail").fill(uniqueEmail(testInfo.project.name));
-  await page.getByLabel("Senha", { exact: true }).fill("senha-forte-do-semestre-e2e");
-  await page.getByRole("button", { name: "Criar conta" }).click();
+  await signUp(page, {
+    name: "Carla Semestre",
+    email: uniqueEmail(testInfo.project.name),
+    password: "senha-forte-do-semestre-e2e",
+  });
 
   // Início vazio → criar semestre.
   await expect(page.getByRole("heading", { name: "Comece pelo seu semestre" })).toBeVisible();

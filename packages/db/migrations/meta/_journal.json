@@ -64,6 +64,13 @@
       "when": 1795051932552,
       "tag": "0008_backup_role",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795090920500,
+      "tag": "0009_cadastro_e_exclusao",
+      "breakpoints": true
     }
   ]
 }

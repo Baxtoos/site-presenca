@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import { DbService } from "../database/db.service";
 
-export type TokenPurpose = "verify_email" | "reset_password" | "magic_link";
+export type TokenPurpose = "verify_email" | "reset_password" | "magic_link" | "delete_account";
 
 export interface UserCredentials {
   userId: string;
@@ -90,6 +90,33 @@ export class AuthRepository {
     );
     const row = rows[0];
     return row && { userId: row.user_id, email: row.email };
+  }
+
+  /** Cadastro pendente: guarda nome e hash da senha no link de confirmação (só o último vale). */
+  async issueRegistration(params: {
+    email: string;
+    fullName: string;
+    passwordHash: string;
+    tokenHash: Buffer;
+    ttlSeconds: number;
+  }): Promise<void> {
+    await this.db.unscoped.execute(
+      sql`select app.auth_issue_registration(${params.email}, ${params.fullName}, ${params.passwordHash}, ${params.tokenHash}, ${params.ttlSeconds})`,
+    );
+  }
+
+  /** Consome o link de cadastro (uma vez só). Undefined = inválido, usado ou expirado. */
+  async consumeRegistration(
+    tokenHash: Buffer,
+  ): Promise<{ email: string; fullName: string; passwordHash: string } | undefined> {
+    const { rows } = await this.db.unscoped.execute<{
+      email: string;
+      full_name: string | null;
+      password_hash: string | null;
+    }>(sql`select * from app.auth_consume_registration(${tokenHash})`);
+    const row = rows[0];
+    if (!row?.full_name || !row.password_hash) return undefined;
+    return { email: row.email, fullName: row.full_name, passwordHash: row.password_hash };
   }
 
   async findAccount(provider: "google", providerAccountId: string): Promise<string | undefined> {

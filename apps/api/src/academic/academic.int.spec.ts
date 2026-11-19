@@ -8,7 +8,12 @@ import {
 } from "@presenca/contracts";
 import { inTx } from "@presenca/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type AuthTestEnv, Browser, startAuthTestEnv } from "../test/auth-harness";
+import {
+  type AuthTestEnv,
+  Browser,
+  registerAndConfirm,
+  startAuthTestEnv,
+} from "../test/auth-harness";
 
 let env: AuthTestEnv;
 beforeAll(async () => {
@@ -21,12 +26,12 @@ afterAll(async () => {
 let seq = 0;
 async function student() {
   const b = new Browser(env.app);
-  const res = await b.request("POST", "/v1/auth/register", {
+  const res = await registerAndConfirm(env, b, {
     email: `academico.${Date.now()}.${++seq}@exemplo.com`,
     password: "senha-forte-academica-1",
     fullName: "Aluna Teste",
   });
-  expect(res.statusCode).toBe(201);
+  expect(res.statusCode).toBe(200);
   return { b, userId: meResponseSchema.parse(res.json()).id };
 }
 
