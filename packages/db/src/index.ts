@@ -28,9 +28,21 @@ export interface CreateDbOptions {
   statementTimeoutMs?: number;
 }
 
+/**
+ * Deixa explícita a verificação completa do certificado. O pg já trata `sslmode=require` (o que o
+ * Neon mostra) como `verify-full`, mas avisa que no pg 9 isso vira a semântica fraca do libpq.
+ * Pedir `verify-full` mantém a segurança de hoje e cala o aviso.
+ */
+export function withVerifiedTls(connectionString: string): string {
+  return connectionString.replace(
+    /([?&]sslmode=)(prefer|require|verify-ca)(?=&|$)/,
+    "$1verify-full",
+  );
+}
+
 export function createDb(options: CreateDbOptions): DbHandle {
   const config: PoolConfig = {
-    connectionString: options.connectionString,
+    connectionString: withVerifiedTls(options.connectionString),
     application_name: options.applicationName,
     max: options.maxConnections ?? 10,
     statement_timeout: options.statementTimeoutMs ?? 5_000,

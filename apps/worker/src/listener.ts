@@ -1,4 +1,5 @@
 import pg from "pg";
+import { withVerifiedTls } from "@presenca/db";
 
 export const OUTBOX_CHANNEL = "presenca_outbox";
 
@@ -25,7 +26,7 @@ export class OutboxListener {
   async start(): Promise<void> {
     if (this.stopped) return;
     const client = new pg.Client({
-      connectionString: this.connectionString,
+      connectionString: withVerifiedTls(this.connectionString),
       application_name: "presenca-worker-listen",
     });
     client.on("notification", (msg) => {

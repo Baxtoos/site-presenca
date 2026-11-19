@@ -37,11 +37,11 @@ jobs:
         if: env.HAS_DB != 'true'
         run: echo "WORKER_DATABASE_URL nao configurada, nada a fazer."
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: env.HAS_DB == 'true'
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         if: env.HAS_DB == 'true'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: env.HAS_DB == 'true'
         with:
           node-version-file: .nvmrc
