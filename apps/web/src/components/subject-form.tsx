@@ -4,6 +4,7 @@ import { SUBJECT_COLORS, type Subject } from "@presenca/contracts";
 import { maxAbsenceUnits, type SubjectRules, totalUnits } from "@presenca/engine";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
+import { useToast } from "@/components/toast";
 import { Alert, Button, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import {
@@ -580,17 +581,16 @@ export function NewSubjectWizard({ semesterId }: { semesterId: string }) {
 /** Edição de dados e regras de uma matéria existente (a grade é editada à parte). */
 export function EditSubjectForm({ subject }: { subject: Subject }) {
   const router = useRouter();
+  const toast = useToast();
   const { draft, set } = useDraft(subject);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
-  const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setPending(true);
     setError(undefined);
-    setSaved(false);
     setErrors({});
     try {
       await api(`/v1/subjects/${subject.id}`, {
@@ -598,7 +598,8 @@ export function EditSubjectForm({ subject }: { subject: Subject }) {
         body: toBody(draft),
         ifMatch: subject.version,
       });
-      setSaved(true);
+      // Aviso flutuante: o formulário é recriado quando a versão da matéria muda (router.refresh).
+      toast.push({ tone: "success", message: "Matéria atualizada." });
       router.refresh();
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;
@@ -612,7 +613,6 @@ export function EditSubjectForm({ subject }: { subject: Subject }) {
   return (
     <form method="post" onSubmit={(e) => void onSubmit(e)} className="grid gap-4" noValidate>
       {error ? <Alert tone="error">{error}</Alert> : null}
-      {saved ? <Alert tone="success">Matéria atualizada.</Alert> : null}
       <SubjectFields draft={draft} set={set} errors={errors} />
       <Button type="submit" loading={pending} className="sm:w-fit">
         Salvar alterações

@@ -21,6 +21,8 @@ import {
   createAttendanceBodySchema,
   idParamsSchema,
   type SimulateResponse,
+  type SubjectCalendar,
+  subjectCalendarQuerySchema,
   todayQuerySchema,
   type TodayResponse,
   type UpdateAttendanceBody,
@@ -31,6 +33,7 @@ import { IdempotencyKey } from "../common/idempotency";
 import { IfMatchVersion, setEtag } from "../common/versioning";
 import { ZodPipe } from "../common/zod.pipe";
 import { AttendanceService } from "./attendance.service";
+import { CalendarService } from "./calendar.service";
 import { SimulateService } from "./simulate.service";
 import { TodayService } from "./today.service";
 
@@ -42,6 +45,7 @@ export class AttendanceController {
     private readonly attendance: AttendanceService,
     private readonly today: TodayService,
     private readonly simulate: SimulateService,
+    private readonly calendar: CalendarService,
   ) {}
 
   @Get("today")
@@ -93,6 +97,14 @@ export class AttendanceController {
     @Query(new ZodPipe(attendanceListQuerySchema)) query: AttendanceListQuery,
   ): Promise<AttendanceList> {
     return this.attendance.list(id, query);
+  }
+
+  @Get("subjects/:id/calendar")
+  getCalendar(
+    @Param(idPipe) { id }: { id: string },
+    @Query(new ZodPipe(subjectCalendarQuerySchema)) query: { month?: string },
+  ): Promise<SubjectCalendar> {
+    return this.calendar.get(id, query.month);
   }
 
   @Get("subjects/:id/simulate")

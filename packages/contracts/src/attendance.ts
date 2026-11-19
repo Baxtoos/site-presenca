@@ -173,6 +173,45 @@ export const todayResponseSchema = z.object({
 });
 export type TodayResponse = z.infer<typeof todayResponseSchema>;
 
+// ---------------------------------------------------------------- calendário da matéria
+
+export const monthSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Use o formato AAAA-MM." });
+
+export const subjectCalendarQuerySchema = z.object({
+  /** Mês a mostrar (AAAA-MM). Padrão: o mês de hoje, ou o mais próximo dentro do semestre. */
+  month: monthSchema.optional(),
+});
+
+/** Uma aula num dia do calendário: da grade (scheduleId) ou extra, registrada fora dela. */
+export const calendarClassSchema = z.object({
+  /** Null = aula extra registrada fora da grade. */
+  scheduleId: z.uuid().nullable(),
+  startsAt: timeSchema.nullable(),
+  endsAt: timeSchema.nullable(),
+  units: z.number().int(),
+  room: z.string().nullable(),
+  /** Feriado ou dia sem aula que cancela esta aula. */
+  blocked: todayClassSchema.shape.blocked,
+  record: attendanceRecordSchema.nullable(),
+});
+export type CalendarClass = z.infer<typeof calendarClassSchema>;
+
+export const subjectCalendarSchema = z.object({
+  month: monthSchema,
+  /** Hoje, no fuso do aluno: dias depois de hoje não podem ser marcados. */
+  today: isoDateSchema,
+  semester: z.object({ startsOn: isoDateSchema, endsOn: isoDateSchema }),
+  /** Mês anterior e seguinte que ainda têm dias do semestre (null = fora do semestre). */
+  prevMonth: monthSchema.nullable(),
+  nextMonth: monthSchema.nullable(),
+  /** Só os dias com aula (ou com registro) dentro do semestre, em ordem. */
+  days: z.array(z.object({ date: isoDateSchema, classes: z.array(calendarClassSchema) })),
+  summary: subjectSummarySchema,
+});
+export type SubjectCalendar = z.infer<typeof subjectCalendarSchema>;
+
 // ---------------------------------------------------------------- "Posso faltar?"
 
 export const simulateResponseSchema = z.object({

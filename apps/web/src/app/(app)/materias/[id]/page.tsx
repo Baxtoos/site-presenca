@@ -2,17 +2,16 @@ import {
   attendanceListSchema,
   type SimulateResponse,
   simulateResponseSchema,
+  subjectCalendarSchema,
   subjectSchema,
 } from "@presenca/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
+import { SubjectCalendar } from "@/components/attendance/subject-calendar";
 import { RiskBadge } from "@/components/subject-card";
-import { EditSubjectForm } from "@/components/subject-form";
-import { SharePanel } from "@/components/sharing/share-panel";
-import { apiGet, getMe } from "@/lib/api-server";
+import { apiGet } from "@/lib/api-server";
 import { formatDayLabel, plural, RISK_LABEL, simulateHint } from "@/lib/format";
-import { DeleteSubject, ScheduleManager } from "./subject-client";
 
 export const metadata: Metadata = { title: "Matéria · Monitor de Presenças" };
 
@@ -70,9 +69,9 @@ function CanISkip({ sim }: { sim: SimulateResponse }) {
 
 export default async function SubjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [me, subject, sim, history] = await Promise.all([
-    getMe(),
+  const [subject, calendar, sim, history] = await Promise.all([
     apiGet(`/v1/subjects/${id}`, subjectSchema),
+    apiGet(`/v1/subjects/${id}/calendar`, subjectCalendarSchema),
     apiGet(`/v1/subjects/${id}/simulate`, simulateResponseSchema),
     apiGet(`/v1/subjects/${id}/attendance?limit=30`, attendanceListSchema),
   ]);
@@ -87,9 +86,17 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
         >
           ← Semestre
         </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
-          <RiskBadge risk={s.risk} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
+            <RiskBadge risk={s.risk} />
+          </div>
+          <Link
+            href={`/materias/${subject.id}/editar`}
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium hover:bg-surface-2"
+          >
+            <span aria-hidden>⚙</span> Editar matéria
+          </Link>
         </div>
         {subject.professor ? <p className="text-sm text-muted">{subject.professor}</p> : null}
       </header>
@@ -120,66 +127,43 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
         </dl>
       </section>
 
+      <section
+        className="grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-6"
+        aria-labelledby="calendario"
+      >
+        <h2 id="calendario" className="font-semibold">
+          Calendário de presença
+        </h2>
+        {subject.schedules.length === 0 && calendar.days.length === 0 ? (
+          <p className="text-sm text-muted">
+            Cadastre os horários da matéria em{" "}
+            <Link href={`/materias/${subject.id}/editar`} className="text-accent hover:underline">
+              Editar matéria
+            </Link>{" "}
+            para os dias de aula aparecerem aqui.
+          </p>
+        ) : null}
+        <SubjectCalendar key={calendar.month} subjectId={subject.id} initial={calendar} />
+      </section>
+
       <CanISkip sim={sim} />
 
-      <section
-        className="grid gap-4 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="historico"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="historico" className="font-semibold">
-            Histórico de chamadas
-          </h2>
-          <Link href="/hoje" className="text-sm font-medium text-accent hover:underline">
-            Marcar um dia da grade
-          </Link>
+      <details className="group rounded-2xl border border-line bg-surface p-6">
+        <summary className="cursor-pointer list-none font-semibold marker:hidden">
+          <span className="inline-block transition-transform group-open:rotate-90" aria-hidden>
+            ›
+          </span>{" "}
+          Histórico e aula extra
+        </summary>
+        <div className="mt-4 grid gap-4">
+          <AttendanceHistory subjectId={subject.id} initial={history} />
+          <ExtraClassForm
+            subjectId={subject.id}
+            defaultUnits={subject.unitsPerClass}
+            today={sim.asOf}
+          />
         </div>
-        <AttendanceHistory subjectId={subject.id} initial={history} />
-        <ExtraClassForm
-          subjectId={subject.id}
-          defaultUnits={subject.unitsPerClass}
-          today={sim.asOf}
-        />
-      </section>
-
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="grade"
-      >
-        <h2 id="grade" className="font-semibold">
-          Horários na semana
-        </h2>
-        <ScheduleManager
-          subjectId={subject.id}
-          schedules={subject.schedules}
-          defaultUnits={subject.unitsPerClass}
-        />
-      </section>
-
-      <section className="rounded-2xl border border-line bg-surface p-6">
-        <EditSubjectForm key={subject.version} subject={subject} />
-      </section>
-
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="compartilhar"
-      >
-        <div className="grid gap-1">
-          <h2 id="compartilhar" className="font-semibold">
-            Compartilhar esta matéria
-          </h2>
-          <p className="text-sm text-muted">
-            Útil para quem só faz esta matéria com você. Suas faltas não vão junto.
-          </p>
-        </div>
-        <SharePanel
-          source={{ kind: "subject", subjectId: subject.id }}
-          defaultTitle={subject.name}
-          emailVerified={me?.emailVerified ?? false}
-        />
-      </section>
-
-      <DeleteSubject subject={subject} />
+      </details>
     </>
   );
 }

@@ -29,9 +29,12 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
     .getByRole("region", { name: "Suas matérias" })
     .getByRole("link", { name: /Química/ })
     .click();
+  await page.getByRole("link", { name: "Editar matéria" }).click();
   await page.getByRole("radio", { name: /Limite fixo/ }).click();
   await page.getByLabel("Máximo de faltas (tempos)").fill("4");
   await page.getByRole("button", { name: "Salvar alterações" }).click();
+  await expect(page.getByText("Matéria atualizada.")).toBeVisible();
+  await page.getByRole("link", { name: "← Química" }).click();
   await expect(page.getByLabel("Resumo de faltas")).toContainText("0 de 4");
 
   const sino = page.getByTestId("sino");

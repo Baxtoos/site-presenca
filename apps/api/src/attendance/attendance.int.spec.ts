@@ -6,6 +6,7 @@ import {
   meResponseSchema,
   problemSchema,
   simulateResponseSchema,
+  subjectCalendarSchema,
   subjectSchema,
   todayResponseSchema,
 } from "@presenca/contracts";
@@ -715,6 +716,100 @@ describe("histórico paginado", () => {
     expect(
       (await c.b.request("GET", `/v1/subjects/${c.subject.id}/attendance?limit=500`)).statusCode,
     ).toBe(422);
+  });
+});
+
+describe("calendário da matéria", () => {
+  const calendar = async (c: Ctx, month?: string) => {
+    const res = await c.b.request(
+      "GET",
+      `/v1/subjects/${c.subject.id}/calendar${month ? `?month=${month}` : ""}`,
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    return subjectCalendarSchema.parse(res.json());
+  };
+
+  it("mostra os dias de aula do mês de hoje, com o registro, feriado e aula extra", async () => {
+    const c = await setup();
+    await c.b.request("POST", `/v1/semesters/${c.semesterId}/exceptions`, {
+      startsOn: "2026-11-02",
+      endsOn: "2026-11-02",
+      kind: "holiday",
+      label: "Finados",
+    });
+    const marked = await registered(c, {
+      classDate: MONDAY,
+      scheduleId: c.mon.id,
+      status: "present",
+    });
+    const extra = await registered(c, { classDate: "2026-11-07", status: "absent" }); // sábado
+
+    const cal = await calendar(c);
+    expect(cal).toMatchObject({
+      month: "2026-11",
+      today: TODAY,
+      semester: { startsOn: "2026-08-03", endsOn: "2026-12-18" },
+      prevMonth: "2026-10",
+      nextMonth: "2026-12",
+    });
+    // Segundas (2, 9, 16, 23, 30) e quartas (4, 11, 18, 25) + a aula extra do sábado 7.
+    expect(cal.days.map((d) => d.date)).toEqual([
+      "2026-11-02",
+      "2026-11-04",
+      "2026-11-07",
+      "2026-11-09",
+      "2026-11-11",
+      "2026-11-16",
+      "2026-11-18",
+      "2026-11-23",
+      "2026-11-25",
+      "2026-11-30",
+    ]);
+    const day = (date: string) => cal.days.find((d) => d.date === date)!.classes;
+    expect(day("2026-11-02")[0]!.blocked).toEqual({ kind: "holiday", label: "Finados" });
+    expect(day(MONDAY)).toEqual([
+      expect.objectContaining({
+        scheduleId: c.mon.id,
+        startsAt: "19:00",
+        endsAt: "20:40",
+        units: 2,
+        record: expect.objectContaining({ id: marked.record.id, status: "present" }),
+      }),
+    ]);
+    expect(day("2026-11-07")).toEqual([
+      expect.objectContaining({
+        scheduleId: null,
+        record: expect.objectContaining({ id: extra.record.id }),
+      }),
+    ]);
+    expect(day(TODAY)[0]!.record).toBeNull();
+    expect(cal.summary).toMatchObject({ absentUnits: 2 });
+  });
+
+  it("respeita o início e o fim do semestre", async () => {
+    const c = await setup();
+    const august = await calendar(c, "2026-08");
+    expect(august.prevMonth).toBeNull();
+    expect(august.days[0]!.date).toBe("2026-08-03");
+    const december = await calendar(c, "2026-12");
+    expect(december.nextMonth).toBeNull();
+    expect(december.days.map((d) => d.date)).toEqual([
+      "2026-12-02",
+      "2026-12-07",
+      "2026-12-09",
+      "2026-12-14",
+      "2026-12-16",
+    ]);
+    expect((await calendar(c, "2027-03")).days).toEqual([]);
+  });
+
+  it("recusa mês inválido e matéria de outra pessoa", async () => {
+    const c = await setup();
+    const bad = await c.b.request("GET", `/v1/subjects/${c.subject.id}/calendar?month=2026-13`);
+    expect(bad.statusCode).toBe(422);
+    const other = await setup();
+    const res = await other.b.request("GET", `/v1/subjects/${c.subject.id}/calendar`);
+    expect(res.statusCode).toBe(404);
   });
 });
 

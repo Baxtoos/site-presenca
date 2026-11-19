@@ -43,9 +43,20 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(page.getByText("Detalhes salvos.")).toBeVisible();
   await expect(aula).toContainText("Saúde");
 
-  // Na matéria: o histórico mostra o registro; corrigir para presença zera as faltas.
+  // Na matéria: o calendário já abre no dia de hoje, com a falta parcial marcada.
   await aula.getByRole("link", { name: "Física I" }).click();
   await expect(page.getByRole("heading", { name: "Posso faltar?" })).toBeVisible();
+  const calendario = page.getByTestId("calendario");
+  const hoje = calendario
+    .locator(`[data-estado]`)
+    .filter({ hasText: new RegExp(`^${Number(today.slice(8))}`) });
+  await expect(hoje).toHaveAttribute("data-estado", "partial");
+  await expect(hoje).toHaveAttribute("aria-pressed", "true");
+  const dia = page.getByTestId("dia-selecionado");
+  await expect(dia).toContainText("Faltei 1 de 2");
+
+  // O histórico (recolhido) mostra o registro; corrigir para presença zera as faltas.
+  await page.getByText("Histórico e aula extra").click();
   const registro = page.getByTestId("registro").first();
   await expect(registro).toContainText("Faltei 1 de 2");
   await expect(registro).toContainText("Consulta médica");
@@ -55,10 +66,29 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(page.getByText("Registro atualizado.")).toBeVisible();
   await expect(registro).toContainText("Compareci");
   await expect(page.getByLabel("Resumo de faltas")).toContainText("0 de 18");
+  await expect(hoje).toHaveAttribute("data-estado", "present");
 
   // O filtro de faltas fica vazio.
   await page.getByRole("button", { name: "Faltas", exact: true }).click();
   await expect(page.getByText("Nenhum registro com esse filtro.")).toBeVisible();
+
+  // Pelo calendário: falta no dia → resumo acompanha → apagar o registro volta a "falta marcar".
+  await dia.getByRole("button", { name: "Faltei", exact: true }).click();
+  await expect(page.getByText("Falta registrada.")).toBeVisible();
+  await expect(hoje).toHaveAttribute("data-estado", "absent");
+  await expect(page.getByLabel("Resumo de faltas")).toContainText("2 de 18");
+  await dia.getByRole("button", { name: "Apagar registro" }).click();
+  await expect(page.getByText("Registro apagado.")).toBeVisible();
+  await expect(hoje).toHaveAttribute("data-estado", "todo");
+  await expect(page.getByLabel("Resumo de faltas")).toContainText("0 de 18");
+
+  // As opções de edição ficam numa página à parte.
+  await page.getByRole("link", { name: "Editar matéria" }).click();
+  await expect(page.getByRole("heading", { name: "Editar matéria" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Horários na semana" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Apagar matéria" })).toBeVisible();
+  await page.getByRole("link", { name: "← Física I" }).click();
+  await expect(page.getByRole("heading", { name: "Posso faltar?" })).toBeVisible();
 
   // Nenhuma tela da área logada rola para o lado (nem com e-mail comprido, nem no celular).
   for (const url of [await realPath(page), "/", "/hoje", "/semestres", "/conta"]) {
