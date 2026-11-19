@@ -143,7 +143,7 @@ export function Sidebar({
       ) : null}
 
       <div className="mt-auto grid gap-2 border-t border-line pt-3">
-        <ThemeSwitcher />
+        <ThemeSwitcher className="px-2" />
         <div className="px-1 [&_button]:w-full [&_button]:justify-start">
           <LogoutButton variant="ghost" />
         </div>

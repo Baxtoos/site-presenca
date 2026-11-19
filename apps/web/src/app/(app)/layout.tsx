@@ -8,6 +8,7 @@ import {
 } from "@presenca/contracts";
 import { NotificationBell } from "@/components/notifications/bell";
 import { OfflineProvider } from "@/components/offline-provider";
+import { ThemeSwitcher } from "@/components/theme-picker";
 import { ToastProvider } from "@/components/toast";
 import { apiGet, getMe } from "@/lib/api-server";
 import { MobileTabBar, Sidebar } from "./shell";
@@ -48,6 +49,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                   Presenças
                 </Link>
                 <span className="flex-1 lg:hidden" />
+                {/* Celular: a barra lateral (com a troca de tema) não aparece. */}
+                <div className="lg:hidden">
+                  <ThemeSwitcher name="tema-topo" showLabel={false} />
+                </div>
                 <NotificationBell unread={unreadCount} />
               </div>
             </header>

@@ -229,30 +229,46 @@ Depois, à mão, no site:
     o alerta padrão de "novo problema" mandando e-mail. Sem DSN nada é enviado. Só erros vão para o
     Sentry: sem corpo das requisições, cookies, IP ou usuário, e com os e-mails mascarados.
 - **Backup automático (diário):** o workflow _Backup do banco_ roda todo dia às 03:23 (Brasília),
-  lê com o papel `app_backup` (só leitura), testa a restauração num PostgreSQL 17 temporário e
-  guarda o arquivo **criptografado** (AES-256) por 30 dias na aba _Actions_. Se falhar, o GitHub
+  lê com o papel `app_backup` (só leitura) e guarda só os **dados**: a estrutura, as permissões e
+  o histórico de migrations vêm do código. Ele ensaia a restauração (PostgreSQL 17 vazio →
+  migrations → dados) e guarda o arquivo **criptografado** (AES-256) por 30 dias na aba _Actions_.
+  Todo dia 1º, o workflow _Ensaio de restauração_ baixa o arquivo guardado mais recente, abre com
+  a senha e restaura de novo, para garantir que o caminho de emergência funciona. Se falhar, o GitHub
   avisa por e-mail. Para ligar (uma vez): `bash infra/prod/backup-role.sh`. Ele pede a conexão de
   administração do Neon, dá login ao `app_backup` **sem trocar as outras senhas**, aplica a
   migration 0008, grava `BACKUP_DATABASE_URL` e `BACKUP_PASSPHRASE` em `~/presenca-producao.env`,
   envia os dois ao GitHub e dispara o primeiro backup. Guarde a `BACKUP_PASSPHRASE` também no
   gerenciador de senhas: sem ela nenhum backup abre. (Rode esse script **antes** de qualquer
   `db:migrate` que inclua a 0008: ela precisa do papel `app_backup`.)
-- **Restaurar um backup:** em _Actions → Backup do banco_, abra a execução e baixe o artefato
-  (um `.zip`). Depois:
+- **Restaurar um backup** (perda do banco): primeiro tente a restauração do próprio Neon
+  (_Branches_ → restaurar para um horário anterior), que é mais rápida. Se não der:
+  1. Em _Actions → Backup do banco_, abra a execução e baixe o artefato (um `.zip`) e abra:
 
-  ```bash
-  unzip presenca-backup-*.zip
-  gpg -d presenca-*.sql.gz.gpg | gunzip > restaurar.sql   # pede a BACKUP_PASSPHRASE
-  ```
+     ```bash
+     unzip presenca-backup-*.zip
+     gpg -d presenca-dados-*.sql.gz.gpg > dados.sql.gz   # pede a BACKUP_PASSPHRASE
+     ```
 
-  Restaure primeiro num **branch novo do Neon** (Branches → Create branch), confira e só então
-  troque as conexões. O arquivo recria o schema `app` (tabelas, funções, políticas e dados) e
-  espera que os papéis `app_owner`, `app_api`, `app_worker`, `app_auth` e `app_backup` existam
-  (rode `pnpm db:provision` no banco novo antes): `psql "$URL_DO_DONO" -v ON_ERROR_STOP=1 < restaurar.sql`.
+  2. Crie um banco **novo e vazio** (no Neon: um projeto ou banco novo) e, com o código na mesma
+     versão do backup (`git checkout` do commit da época, se houve migration depois):
+
+     ```bash
+     ADMIN_DATABASE_URL="conexão do dono do banco novo" pnpm db:provision   # papéis e senhas novas
+     DATABASE_URL_OWNER="a linha que o provision mostrou" pnpm db:migrate  # estrutura e permissões
+     OWNER_URL="a mesma DATABASE_URL_OWNER" bash infra/prod/restore-data.sh dados.sql.gz
+     ```
+
+     O último passo só carrega num banco sem contas e mantém a trilha de auditoria como estava.
+
+  3. Rode `bash infra/prod/backup-role.sh` no banco novo (backup de novo), troque `DATABASE_URL`
+     no Render e `WORKER_DATABASE_URL` no GitHub, e confira entrando no app.
+
+  Arquivos de antes de 19/11/2026 (`presenca-AAAA-...`, sem `dados` no nome) têm outro formato e
+  saem da aba _Actions_ sozinhos em 30 dias.
 
 - **Backup manual (no seu computador):** `bash infra/prod/backup.sh --verify`
-  (gera um dump compactado em `~/backups-presenca/` com permissão `600` e testa a restauração em
-  um container PostgreSQL 17 temporário).
+  (gera os dados compactados em `~/backups-presenca/` com permissão `600` e ensaia a restauração
+  num container PostgreSQL 17 temporário, com as migrations do código).
 - **Trocar senhas:** rode de novo o `db:provision` (passo 2), atualize as variáveis no Render e no
   GitHub.
 - **Versão nova:** `git push` na `main` publica sozinho na Vercel e no Render. Se houver migration

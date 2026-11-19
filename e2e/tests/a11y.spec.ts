@@ -144,3 +144,20 @@ test("troca rápida de tema no rodapé da barra lateral", async ({ page }, testI
   await page.getByRole("complementary").locator('label[title="Automático"]').click();
   await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
 });
+
+test("troca rápida de tema no topo da tela do celular", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "celular", "no computador a troca fica na barra lateral");
+  await page.emulateMedia({ colorScheme: "light" });
+  await setupStudentWithClassToday(page, testInfo, {
+    name: "Cora Celular",
+    slug: "tema-celular",
+    subject: "Teatro",
+  });
+  const header = page.locator("header").first();
+  await expect(header.getByRole("radio", { name: "Tema automático" })).toBeChecked();
+  await header.locator('label[title="Escuro"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectAccessible(page, "topo do celular no tema escuro");
+  await header.locator('label[title="Claro"]').click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+});

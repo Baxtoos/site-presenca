@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Backup do banco de produção e teste opcional de restauração (Fase 9).
+# Backup manual dos DADOS do banco de produção e ensaio opcional de restauração.
 # Uso:
-#   bash infra/prod/backup.sh             # gera ~/backups-presenca/presenca-AAAA-MM-DD-HHMMSS.sql.gz (permissão 600)
-#   bash infra/prod/backup.sh --verify    # além do dump, sobe um Postgres 17 temporário no Docker e testa a restauração
+#   bash infra/prod/backup.sh             # gera ~/backups-presenca/presenca-dados-AAAA-MM-DD-HHMMSS.sql.gz (600)
+#   bash infra/prod/backup.sh --verify    # além disso, restaura num Postgres 17 temporário (Docker):
+#                                         # migrations do código + dados (infra/prod/restore-test.sh)
+# A estrutura, as permissões e o histórico de migrations vêm do código; restaurar: docs, passo 12.
 set -euo pipefail
 
 ENV_FILE="${PRESENCA_PROD_ENV:-$HOME/presenca-producao.env}"
@@ -28,39 +30,30 @@ mkdir -p "$OUT_DIR"
 chmod 700 "$OUT_DIR"
 
 STAMP="$(date +%Y-%m-%d-%H%M%S)"
-OUT_FILE="$OUT_DIR/presenca-$STAMP.sql.gz"
+OUT_FILE="$OUT_DIR/presenca-dados-$STAMP.sql.gz"
 
 echo "▸ Gerando backup compactado em $OUT_FILE ..."
 docker run --rm -e PGCONNECT_TIMEOUT=15 -e PGOPTIONS="-c app.deleting_account=on" postgres:17-alpine \
-  pg_dump --enable-row-security --no-owner --no-privileges --schema=app "$DB_URL" | gzip -9 > "$OUT_FILE"
+  pg_dump --data-only --enable-row-security --no-owner --no-privileges --rows-per-insert=500 \
+  --schema=app "$DB_URL" | gzip -9 > "$OUT_FILE"
 chmod 600 "$OUT_FILE"
 
 SIZE="$(du -h "$OUT_FILE" | cut -f1)"
 echo "✔ Backup salvo ($SIZE, permissão 600): $OUT_FILE"
 
 if [ "$VERIFY" = true ]; then
-  echo "▸ Testando restauração em container temporário..."
-  CID="$(docker run -d --rm -e POSTGRES_PASSWORD=verify_tmp -e POSTGRES_DB=verify_db postgres:17-alpine)"
+  echo "▸ Ensaio de restauração num container temporário..."
+  ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+  (cd "$ROOT" && pnpm --filter @presenca/db build >/dev/null)
+  CID="$(docker run -d --rm -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=verify_tmp postgres:17-alpine)"
   trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
-
-  for _ in $(seq 1 20); do
-    if docker exec "$CID" pg_isready -U postgres -d verify_db >/dev/null 2>&1; then
-      break
-    fi
+  for _ in $(seq 1 30); do
+    docker exec "$CID" pg_isready -U postgres >/dev/null 2>&1 && break
     sleep 1
   done
-
-  docker exec "$CID" psql -U postgres -d verify_db -v ON_ERROR_STOP=1 -c "
-    CREATE EXTENSION IF NOT EXISTS pgcrypto;
-    DO \$\$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_owner') THEN CREATE ROLE app_owner; END IF;
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_api') THEN CREATE ROLE app_api; END IF;
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_worker') THEN CREATE ROLE app_worker; END IF;
-      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_auth') THEN CREATE ROLE app_auth; END IF;
-    END \$\$;
-  " >/dev/null
-
-  gzip -dc "$OUT_FILE" | docker exec -i "$CID" psql -U postgres -d verify_db -v ON_ERROR_STOP=1 >/dev/null
-  TABLES="$(docker exec "$CID" psql -U postgres -d verify_db -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'app' AND table_type = 'BASE TABLE'")"
-  echo "✔ Restauração verificada com sucesso ($TABLES tabelas no schema app)."
+  sleep 1
+  COUNTS="$(ADMIN_URL=postgres://postgres:verify_tmp@127.0.0.1:55432/postgres \
+    bash "$ROOT/infra/prod/restore-test.sh" "$OUT_FILE")"
+  echo "$COUNTS" | awk '{ printf "  %-26s %8s\n", $1, $2 }'
+  echo "✔ Restauração verificada ($(echo "$COUNTS" | wc -l) tabelas, com a estrutura do código)."
 fi

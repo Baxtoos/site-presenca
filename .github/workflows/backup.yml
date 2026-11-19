@@ -1,7 +1,10 @@
-# Backup diário do banco de produção, com teste de restauração e arquivo criptografado.
+# Backup diário do banco de produção, com ensaio de restauração e arquivo criptografado.
 #
 # - Lê com o papel app_backup (só leitura; migration 0008), nunca com o dono do banco.
-# - Restaura o dump num Postgres 17 temporário e compara as tabelas e as contagens de linhas.
+# - Guarda só os DADOS (pg_dump --data-only, em INSERTs). A estrutura, as permissões dos papéis
+#   e o histórico de migrations vêm do código; assim o banco restaurado funciona com o app.
+# - Ensaio: num PostgreSQL 17 vazio, roda o provisionamento de desenvolvimento, as migrations do
+#   código e carrega os dados (infra/prod/restore-test.sh); compara tabelas e linhas.
 # - Guarda só o arquivo CRIPTOGRAFADO (AES-256, gpg) como artefato por 30 dias. O repositório é
 #   público: qualquer pessoa vê o artefato, mas sem a senha ele não serve para nada.
 #
@@ -9,7 +12,8 @@
 #   BACKUP_DATABASE_URL  conexão do papel app_backup (host direto do Neon)
 #   BACKUP_PASSPHRASE    senha da criptografia (guarde também no seu gerenciador de senhas)
 #
-# Restaurar: veja docs/deploy-gratuito.md, passo 12. Se falhar, o GitHub avisa por e-mail.
+# Restaurar: docs/deploy-gratuito.md, passo 12. Ensaio mensal do arquivo guardado:
+# restore-drill.yml. Se falhar, o GitHub avisa por e-mail.
 name: Backup do banco
 
 on:
@@ -22,10 +26,13 @@ concurrency:
   group: backup
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       HAS_SECRETS: ${{ secrets.BACKUP_DATABASE_URL != '' && secrets.BACKUP_PASSPHRASE != '' }}
     services:
@@ -33,7 +40,6 @@ jobs:
         image: postgres:17-alpine
         env:
           POSTGRES_PASSWORD: restore_test
-          POSTGRES_DB: restore
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s
@@ -45,45 +51,41 @@ jobs:
           echo "::error::Faltam BACKUP_DATABASE_URL ou BACKUP_PASSPHRASE. Rode: bash infra/prod/backup-role.sh"
           exit 1
 
-      - name: Dump, teste de restauração e criptografia
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Compila o pacote do banco (migrations)
+        run: pnpm --filter @presenca/db build
+
+      - name: Dump dos dados e ensaio de restauração
         env:
           DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
-          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
-          RESTORE_URL: postgres://postgres:restore_test@localhost:5432/restore
+          ADMIN_URL: postgres://postgres:restore_test@localhost:5432/postgres
         run: |
           set -euo pipefail
           umask 077
           mkdir -p out
           STAMP="$(date -u +%Y-%m-%d-%H%M)"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
-          pg() { docker run --rm --network host -e PGCONNECT_TIMEOUT=30 -e DB_URL -e RESTORE_URL -i postgres:17-alpine "$@"; }
+          pg() { docker run --rm --network host -e PGCONNECT_TIMEOUT=30 -e DB_URL -i postgres:17-alpine "$@"; }
 
           COUNTS_SQL="select format('select %L as t, count(*) as n from app.%I', relname, relname)
                         from pg_class where relnamespace = 'app'::regnamespace and relkind in ('r','p')"
-          table_counts() {
-            pg sh -c "psql \"\$$1\" -XAtc \"$COUNTS_SQL\" | paste -sd '|' | sed 's/|/ union all /g' \
-              | psql \"\$$1\" -XAt -F ' ' | sort"
-          }
 
           echo "▸ Contando as linhas na produção..."
-          table_counts DB_URL > out/source.txt
+          pg sh -c "psql \"\$DB_URL\" -XAtc \"$COUNTS_SQL\" | paste -sd '|' | sed 's/|/ union all /g' \
+            | psql \"\$DB_URL\" -XAt -F ' ' | sort" > out/source.txt
 
-          echo "▸ Gerando o dump (papel app_backup, só leitura)..."
-          pg sh -c 'pg_dump --enable-row-security --no-owner --no-privileges --schema=app "$DB_URL"' > out/dump.sql
+          echo "▸ Gerando o dump dos dados (papel app_backup, só leitura)..."
+          pg sh -c 'pg_dump --data-only --enable-row-security --no-owner --no-privileges \
+            --rows-per-insert=500 --schema=app "$DB_URL"' > out/dados.sql
 
-          echo "▸ Restaurando num Postgres 17 temporário..."
-          pg sh -c 'psql "$RESTORE_URL" -XqAt -v ON_ERROR_STOP=1' <<'SQL'
-          create extension if not exists pgcrypto;
-          do $$ declare r text; begin
-            foreach r in array array['app_owner', 'app_api', 'app_worker', 'app_auth', 'app_backup'] loop
-              if not exists (select 1 from pg_roles where rolname = r) then
-                execute format('create role %I', r);
-              end if;
-            end loop;
-          end $$;
-          SQL
-          pg sh -c 'psql "$RESTORE_URL" -Xq -v ON_ERROR_STOP=1' < out/dump.sql > /dev/null
-          table_counts RESTORE_URL > out/restored.txt
+          echo "▸ Ensaio: PostgreSQL vazio → migrations do código → dados..."
+          bash infra/prod/restore-test.sh out/dados.sql > out/restored.txt
 
           echo "Tabela / linhas na produção / linhas restauradas:"
           join -a1 -a2 -e '-' -o 0,1.2,2.2 out/source.txt out/restored.txt \
@@ -91,22 +93,27 @@ jobs:
           SRC_TABLES="$(wc -l < out/source.txt)"
           RES_TABLES="$(wc -l < out/restored.txt)"
           if [ "$SRC_TABLES" -ne "$RES_TABLES" ] || [ "$SRC_TABLES" -eq 0 ]; then
-            echo "::error::Tabelas na produção ($SRC_TABLES) e no backup ($RES_TABLES) não batem."
+            echo "::error::Tabelas na produção ($SRC_TABLES) e no código ($RES_TABLES) não batem. Falta aplicar uma migration no Neon?"
             exit 1
           fi
-          # Tabela com linhas na produção e vazia no backup = política backup_read faltando.
+          # Tabela com linhas na produção e vazia no ensaio = política backup_read faltando.
           EMPTY="$(join out/source.txt out/restored.txt | awk '$2 > 0 && $3 == 0 { print $1 }')"
           if [ -n "$EMPTY" ]; then
             echo "::error::Backup sem as linhas de: $EMPTY"
             exit 1
           fi
-          echo "✔ Restauração conferida: $RES_TABLES tabelas."
+          echo "✔ Restauração conferida: $RES_TABLES tabelas, com a estrutura e as permissões do código."
 
-          echo "▸ Compactando e criptografando (AES-256)..."
-          gzip -9 out/dump.sql
+      - name: Compacta e criptografa (AES-256)
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          gzip -9 out/dados.sql
           gpg --batch --yes --pinentry-mode loopback --passphrase-fd 3 --symmetric \
-            --cipher-algo AES256 -o "out/presenca-$STAMP.sql.gz.gpg" out/dump.sql.gz 3<<< "$PASSPHRASE"
-          shred -u out/dump.sql.gz
+            --cipher-algo AES256 -o "out/presenca-dados-$STAMP.sql.gz.gpg" out/dados.sql.gz 3<<< "$PASSPHRASE"
+          shred -u out/dados.sql.gz
           ls -l out/*.gpg
 
       - name: Guarda o arquivo criptografado (30 dias)

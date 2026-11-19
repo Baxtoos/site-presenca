@@ -1,0 +1,100 @@
+# Ensaio mensal de restauração do arquivo GUARDADO (o que você usaria numa emergência).
+#
+# O backup diário já testa a restauração antes de criptografar. Este ensaio testa o resto do
+# caminho: pega o artefato criptografado mais recente, confere que ele tem no máximo 2 dias
+# (o backup diário está rodando), abre com a BACKUP_PASSPHRASE guardada no GitHub e restaura num
+# PostgreSQL 17 vazio com as migrations do código (infra/prod/restore-test.sh).
+# Se falhar, o GitHub avisa por e-mail. Não lê a produção: só o artefato.
+name: Ensaio de restauração
+
+on:
+  schedule:
+    # Dia 1 de cada mês, 07:41 UTC (04:41 em Brasília), depois do backup diário.
+    - cron: "41 7 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HAS_SECRETS: ${{ secrets.BACKUP_PASSPHRASE != '' }}
+    services:
+      restore:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: restore_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s
+          --health-retries 30
+    steps:
+      - name: Segredo configurado?
+        if: env.HAS_SECRETS != 'true'
+        run: |
+          echo "::error::Falta BACKUP_PASSPHRASE. Rode: bash infra/prod/backup-role.sh"
+          exit 1
+
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Compila o pacote do banco (migrations)
+        run: pnpm --filter @presenca/db build
+
+      - name: Baixa o backup mais recente
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p drill
+          ART="$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" --jq '
+            [.artifacts[] | select(.name | startswith("presenca-backup-")) | select(.expired | not)]
+            | sort_by(.created_at) | last // empty | "\(.id) \(.created_at) \(.name)"')"
+          if [ -z "$ART" ]; then
+            echo "::error::Nenhum backup guardado. O workflow 'Backup do banco' está rodando?"
+            exit 1
+          fi
+          read -r ID CREATED NAME <<< "$ART"
+          AGE_H=$(( ( $(date -u +%s) - $(date -u -d "$CREATED" +%s) ) / 3600 ))
+          echo "Backup: $NAME (criado em $CREATED, há ${AGE_H} h)"
+          if [ "$AGE_H" -gt 48 ]; then
+            echo "::error::O backup mais recente tem ${AGE_H} h. O backup diário parou de rodar?"
+            exit 1
+          fi
+          gh api "repos/${{ github.repository }}/actions/artifacts/$ID/zip" > drill/backup.zip
+          unzip -q drill/backup.zip -d drill
+          ls -l drill
+
+      - name: Abre com a senha e restaura
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          ADMIN_URL: postgres://postgres:restore_test@localhost:5432/postgres
+        run: |
+          set -euo pipefail
+          umask 077
+          FILE="$(ls drill/presenca-dados-*.sql.gz.gpg 2>/dev/null | head -1 || true)"
+          if [ -z "$FILE" ]; then
+            echo "::error::O artefato mais recente está no formato antigo (antes do backup só de dados). Rode o 'Backup do banco' e tente de novo."
+            exit 1
+          fi
+          gpg --batch --quiet --pinentry-mode loopback --passphrase-fd 3 -d -o drill/dados.sql.gz "$FILE" 3<<< "$PASSPHRASE" \
+            || { echo "::error::A BACKUP_PASSPHRASE do GitHub não abre o backup."; exit 1; }
+          bash infra/prod/restore-test.sh drill/dados.sql.gz > drill/restored.txt
+          echo "Tabela / linhas restauradas:"
+          awk '{ printf "  %-26s %8s\n", $1, $2 }' drill/restored.txt
+          USERS="$(awk '$1 == "users" { print $2 }' drill/restored.txt)"
+          if [ "${USERS:-0}" -lt 1 ]; then
+            echo "::error::O backup restaurado não tem nenhuma conta."
+            exit 1
+          fi
+          shred -u drill/dados.sql.gz
+          echo "✔ Ensaio concluído: o backup guardado abre com a senha e restaura com a estrutura do código ($USERS contas)."

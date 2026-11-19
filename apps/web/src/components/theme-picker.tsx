@@ -58,17 +58,28 @@ export function ThemePicker() {
 }
 
 /**
- * Troca rápida de tema no rodapé da barra lateral: três ícones, o atual destacado. Mesma escolha
- * da página Conta (guardada neste aparelho).
+ * Troca rápida de tema: três ícones, o atual destacado. Fica no rodapé da barra lateral
+ * (computador) e no topo da tela (celular). Mesma escolha da página Conta (guardada no aparelho).
  */
-export function ThemeSwitcher() {
+export function ThemeSwitcher({
+  name = "tema-rapido",
+  showLabel = true,
+  className = "",
+}: {
+  /** Nome do grupo de opções (um diferente para cada lugar onde aparece na página). */
+  name?: string;
+  showLabel?: boolean;
+  className?: string;
+}) {
   const theme = useSyncExternalStore(subscribeTheme, readTheme, (): Theme => "system");
   return (
-    <fieldset className="flex items-center justify-between gap-2 px-2">
+    <fieldset className={`flex items-center justify-between gap-2 ${className}`}>
       <legend className="sr-only">Tema</legend>
-      <span className="text-xs font-medium text-muted" aria-hidden>
-        Tema
-      </span>
+      {showLabel ? (
+        <span className="text-xs font-medium text-muted" aria-hidden>
+          Tema
+        </span>
+      ) : null}
       <div className="flex gap-0.5 rounded-md bg-surface-2 p-0.5">
         {OPTIONS.map((o) => {
           const Icon = o.icon;
@@ -83,7 +94,7 @@ export function ThemeSwitcher() {
             >
               <input
                 type="radio"
-                name="tema-rapido"
+                name={name}
                 value={o.value}
                 checked={checked}
                 onChange={() => applyTheme(o.value)}
