@@ -5,11 +5,12 @@ import {
   todayResponseSchema,
 } from "@presenca/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { TodayPanel } from "@/components/attendance/today-panel";
+import { PlusIcon } from "@/components/icons";
 import { SubjectCard } from "@/components/subject-card";
+import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { apiGet, getMe } from "@/lib/api-server";
-import { simulateHint } from "@/lib/format";
+import { plural, simulateHint } from "@/lib/format";
 import { InstallPrompt, VerifyEmailBanner } from "./home-client";
 
 export const metadata: Metadata = { title: "Monitor de Presenças" };
@@ -41,75 +42,100 @@ export default async function Home() {
     ),
   );
   const firstName = me?.fullName.split(" ")[0] ?? "";
+  const atRisk = subjects.filter((s) => s.summary.risk !== "safe").length;
+  const pendingToday = today?.classes.filter((c) => !c.record && !c.blocked).length ?? 0;
+  const hour = Number(
+    new Intl.DateTimeFormat("pt-BR", { hour: "numeric", timeZone: me?.timezone }).format(
+      new Date(),
+    ),
+  );
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
 
   return (
     <>
-      <header className="grid gap-0.5">
-        <p className="text-sm text-muted">
-          {current ? `Semestre ${current.label}` : "Bem-vinda(o)"}
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight">Olá, {firstName}</h1>
-      </header>
+      <PageHeader
+        icon={hour < 18 ? "☀️" : "🌙"}
+        eyebrow={current ? `${greeting} · Semestre ${current.label}` : "Bem-vinda(o)"}
+        title={`Olá, ${firstName}`}
+        description={
+          current && subjects.length > 0
+            ? [
+                today && today.classes.length > 0
+                  ? pendingToday > 0
+                    ? `${plural(pendingToday, "aula", "aulas")} para marcar hoje.`
+                    : "Tudo marcado hoje."
+                  : "Sem aula hoje.",
+                atRisk > 0
+                  ? `${plural(atRisk, "matéria pede", "matérias pedem")} atenção.`
+                  : "Todas as matérias com folga.",
+              ].join(" ")
+            : undefined
+        }
+      />
 
       {me && !me.emailVerified ? <VerifyEmailBanner email={me.email} /> : null}
       <InstallPrompt />
 
       {!current ? (
-        <section className="grid gap-3 rounded-2xl border border-dashed border-line bg-surface p-6">
-          <h2 className="font-semibold">Comece pelo seu semestre</h2>
-          <p className="text-sm text-muted">
-            Cadastre o semestre e as matérias com a regra de faltas de cada uma. O app passa a
-            mostrar quantas faltas você ainda pode ter.
-          </p>
+        <section className="card grid gap-4 p-6 sm:p-8">
+          <div className="text-4xl" aria-hidden>
+            🎓
+          </div>
+          <div className="grid gap-1.5">
+            <h2 className="text-xl font-semibold tracking-tight">Comece pelo seu semestre</h2>
+            <p className="max-w-prose text-[15px] text-muted">
+              Cadastre o semestre e as matérias com a regra de faltas de cada uma. O app passa a
+              mostrar quantas faltas você ainda pode ter.
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/semestres"
-              className="inline-flex min-h-11 w-fit items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
-            >
-              Criar meu semestre
-            </Link>
-            <Link href="/importar" className="text-sm font-medium text-accent hover:underline">
+            <ButtonLink href="/semestres">Criar meu semestre</ButtonLink>
+            <ButtonLink href="/importar" variant="ghost">
               ou importe a grade de um colega
-            </Link>
+            </ButtonLink>
           </div>
         </section>
       ) : subjects.length === 0 ? (
-        <section className="grid gap-3 rounded-2xl border border-dashed border-line bg-surface p-6">
-          <h2 className="font-semibold">Nenhuma matéria em {current.label}</h2>
-          <Link
-            href={`/semestres/${current.id}/materias/nova`}
-            className="inline-flex min-h-11 w-fit items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
-          >
+        <section className="card grid gap-4 p-6 sm:p-8">
+          <div className="text-4xl" aria-hidden>
+            📚
+          </div>
+          <h2 className="text-xl font-semibold tracking-tight">
+            Nenhuma matéria em {current.label}
+          </h2>
+          <ButtonLink href={`/semestres/${current.id}/materias/nova`}>
+            <PlusIcon size={16} />
             Adicionar a primeira matéria
-          </Link>
+          </ButtonLink>
         </section>
       ) : (
         <>
           {today ? (
             <section className="grid gap-3" aria-labelledby="hoje">
-              <div className="flex items-center justify-between gap-3">
-                <h2 id="hoje" className="font-semibold">
-                  Aulas de hoje
-                </h2>
-                <Link href="/hoje" className="text-sm font-medium text-accent hover:underline">
-                  Outros dias
-                </Link>
-              </div>
+              <SectionTitle
+                id="hoje"
+                action={
+                  <ButtonLink href="/hoje" variant="ghost" className="-mr-2">
+                    Outros dias
+                  </ButtonLink>
+                }
+              >
+                Aulas de hoje
+              </SectionTitle>
               <TodayPanel data={today} compact />
             </section>
           ) : null}
           <section className="grid gap-3" aria-labelledby="materias">
-            <div className="flex items-center justify-between gap-3">
-              <h2 id="materias" className="font-semibold">
-                Suas matérias
-              </h2>
-              <Link
-                href={`/semestres/${current.id}`}
-                className="text-sm font-medium text-accent hover:underline"
-              >
-                Gerenciar semestre
-              </Link>
-            </div>
+            <SectionTitle
+              id="materias"
+              action={
+                <ButtonLink href={`/semestres/${current.id}`} variant="ghost" className="-mr-2">
+                  Gerenciar semestre
+                </ButtonLink>
+              }
+            >
+              Suas matérias
+            </SectionTitle>
             <div className="grid gap-3 sm:grid-cols-2">
               {subjects.map((subject) => (
                 <SubjectCard key={subject.id} subject={subject} hint={hints.get(subject.id)} />

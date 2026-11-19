@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { REASON_LABEL, STATUS_LABEL, type AttendanceStatusKey } from "@/lib/format";
 
 const selectClass =
-  "min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base";
+  "min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm";
 
 /**
  * Corrige um registro: status (opcional), tempos perdidos na parcial, atestado, motivo e observação.
@@ -148,7 +148,7 @@ export function RecordEditor({
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}
           rows={2}
-          className="w-full min-w-0 rounded-lg border border-line bg-surface px-3 py-2 text-base"
+          className="w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 py-2 text-base outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:text-sm"
         />
       </label>
       <div className="flex flex-wrap gap-2">

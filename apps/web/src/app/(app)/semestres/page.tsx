@@ -1,6 +1,8 @@
 import { semestersResponseSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronRightIcon } from "@/components/icons";
+import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
 import { formatDate, plural } from "@/lib/format";
 import { CreateSemesterForm } from "./semester-forms";
@@ -14,32 +16,34 @@ export default async function SemestersPage() {
 
   return (
     <>
-      <header className="grid gap-0.5">
-        <h1 className="text-2xl font-bold tracking-tight">Semestres</h1>
-        <p className="text-sm text-muted">O semestre atual é o que aparece no início.</p>
-        <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
-          <Link href="/importar" className="font-medium text-accent hover:underline">
+      <PageHeader
+        icon="🎓"
+        title="Semestres"
+        description="O semestre atual é o que aparece no início e na barra lateral."
+      >
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/importar" variant="secondary">
             Importar grade de um colega
-          </Link>
-          <Link href="/compartilhar" className="font-medium text-accent hover:underline">
+          </ButtonLink>
+          <ButtonLink href="/compartilhar" variant="ghost">
             Seus códigos compartilhados
-          </Link>
-        </p>
-      </header>
+          </ButtonLink>
+        </div>
+      </PageHeader>
 
       {active.length > 0 ? (
-        <ul className="grid gap-2">
+        <ul className="card divide-y divide-line overflow-hidden">
           {active.map((s) => (
             <li key={s.id}>
               <Link
                 href={`/semestres/${s.id}`}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface p-4 hover:border-accent/50"
+                className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-surface-2"
               >
                 <span className="grid gap-0.5">
                   <span className="font-semibold">
                     {s.label}
                     {s.isCurrent ? (
-                      <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">
+                      <span className="ml-2 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs font-medium text-accent">
                         atual
                       </span>
                     ) : null}
@@ -49,22 +53,17 @@ export default async function SemestersPage() {
                     {plural(s.subjectsCount, "matéria", "matérias")}
                   </span>
                 </span>
-                <span aria-hidden className="text-muted">
-                  →
-                </span>
+                <ChevronRightIcon size={18} className="shrink-0 text-muted" />
               </Link>
             </li>
           ))}
         </ul>
       ) : null}
 
-      <section
-        className="grid gap-4 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="novo"
-      >
-        <h2 id="novo" className="font-semibold">
+      <section className="card grid gap-4 p-5 sm:p-6" aria-labelledby="novo">
+        <SectionTitle id="novo">
           {semesters.length === 0 ? "Criar meu primeiro semestre" : "Novo semestre"}
-        </h2>
+        </SectionTitle>
         <CreateSemesterForm makeCurrentByDefault={!semesters.some((s) => s.isCurrent)} />
       </section>
 

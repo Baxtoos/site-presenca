@@ -9,9 +9,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { SubjectCalendar } from "@/components/attendance/subject-calendar";
+import { BookIcon, SettingsIcon } from "@/components/icons";
 import { RiskBadge } from "@/components/subject-card";
+import { ButtonLink, PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
-import { formatDayLabel, plural, RISK_LABEL, simulateHint } from "@/lib/format";
+import {
+  formatDayLabel,
+  plural,
+  RISK_LABEL,
+  simulateHint,
+  SUBJECT_COLOR_CLASS,
+} from "@/lib/format";
 
 export const metadata: Metadata = { title: "Matéria · Monitor de Presenças" };
 
@@ -28,11 +36,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 function CanISkip({ sim }: { sim: SimulateResponse }) {
   const next = sim.ifSkipNext;
   return (
-    <section
-      className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-      aria-labelledby="posso-faltar"
-    >
-      <h2 id="posso-faltar" className="font-semibold">
+    <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="posso-faltar">
+      <h2 id="posso-faltar" className="text-lg font-semibold tracking-tight">
         Posso faltar?
       </h2>
       {sim.nextClass && next ? (
@@ -79,32 +84,30 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <header className="grid gap-1">
-        <Link
-          href={`/semestres/${subject.semesterId}`}
-          className="text-sm text-muted hover:text-ink"
-        >
-          ← Semestre
-        </Link>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
-            <RiskBadge risk={s.risk} />
-          </div>
-          <Link
-            href={`/materias/${subject.id}/editar`}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium hover:bg-surface-2"
+      <PageHeader
+        back={{ href: `/semestres/${subject.semesterId}`, label: "← Semestre" }}
+        icon={
+          <span
+            className={`grid size-12 place-items-center rounded-xl text-white shadow-sm ${subject.color ? SUBJECT_COLOR_CLASS[subject.color] : "bg-muted"}`}
           >
-            <span aria-hidden>⚙</span> Editar matéria
-          </Link>
-        </div>
-        {subject.professor ? <p className="text-sm text-muted">{subject.professor}</p> : null}
-      </header>
-
-      <section
-        className="rounded-2xl border border-line bg-surface p-6"
-        aria-label="Resumo de faltas"
+            <BookIcon size={26} />
+          </span>
+        }
+        title={subject.name}
+        description={subject.professor ?? undefined}
+        actions={
+          <ButtonLink href={`/materias/${subject.id}/editar`} variant="secondary">
+            <SettingsIcon size={16} />
+            Editar matéria
+          </ButtonLink>
+        }
       >
+        <div>
+          <RiskBadge risk={s.risk} />
+        </div>
+      </PageHeader>
+
+      <section className="card p-5 sm:p-6" aria-label="Resumo de faltas">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Stat label="Faltas" value={`${s.absentUnits} de ${s.maxAbsenceUnits}`} />
           <Stat
@@ -127,11 +130,8 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
         </dl>
       </section>
 
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-4 sm:p-6"
-        aria-labelledby="calendario"
-      >
-        <h2 id="calendario" className="font-semibold">
+      <section className="grid gap-3 card p-4 sm:p-6" aria-labelledby="calendario">
+        <h2 id="calendario" className="text-lg font-semibold tracking-tight">
           Calendário de presença
         </h2>
         {subject.schedules.length === 0 && calendar.days.length === 0 ? (
@@ -148,7 +148,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
 
       <CanISkip sim={sim} />
 
-      <details className="group rounded-2xl border border-line bg-surface p-6">
+      <details className="group card p-5 sm:p-6">
         <summary className="cursor-pointer list-none font-semibold marker:hidden">
           <span className="inline-block transition-transform group-open:rotate-90" aria-hidden>
             ›

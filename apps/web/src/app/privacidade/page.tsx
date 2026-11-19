@@ -12,11 +12,11 @@ export default function PrivacidadePage() {
         <Link href="/" className="text-sm font-medium text-accent hover:underline">
           ← Voltar ao Monitor de Presenças
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Política de Privacidade e LGPD</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Política de Privacidade e LGPD</h1>
         <p className="text-xs text-muted">Última atualização: novembro de 2026</p>
       </header>
 
-      <section className="grid gap-3 rounded-2xl border border-line bg-surface p-6">
+      <section className="grid gap-3 card p-5 sm:p-6">
         <h2 className="text-base font-semibold">1. Quais dados coletamos</h2>
         <ul className="list-disc space-y-1 pl-5 text-muted">
           <li>

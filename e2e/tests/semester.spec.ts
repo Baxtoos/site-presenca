@@ -41,7 +41,7 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
 
   // Volta ao semestre com o card da matéria.
   await expect(page.getByRole("heading", { name: /^2026\.2/ })).toBeVisible();
-  const card = page.getByRole("link", { name: /Cálculo II/ });
+  const card = page.getByRole("main").getByRole("link", { name: /Cálculo II/ });
   await expect(card).toContainText("0 de 18 faltas");
   await expect(card).toContainText("Seguro");
   await expect(card).toContainText("Seg · Qua");

@@ -10,11 +10,11 @@ export default function TermosPage() {
         <Link href="/" className="text-sm font-medium text-accent hover:underline">
           ← Voltar ao Monitor de Presenças
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Termos de Uso</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Termos de Uso</h1>
         <p className="text-xs text-muted">Última atualização: novembro de 2026</p>
       </header>
 
-      <section className="grid gap-3 rounded-2xl border border-line bg-surface p-6">
+      <section className="grid gap-3 card p-5 sm:p-6">
         <h2 className="text-base font-semibold">1. Finalidade do serviço</h2>
         <p className="text-muted">
           O Monitor de Presenças é uma ferramenta pessoal de organização acadêmica para estudantes

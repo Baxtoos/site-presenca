@@ -1,60 +1,63 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+  notificationListSchema,
+  semestersResponseSchema,
+  subjectsResponseSchema,
+} from "@presenca/contracts";
 import { NotificationBell } from "@/components/notifications/bell";
 import { OfflineProvider } from "@/components/offline-provider";
 import { ToastProvider } from "@/components/toast";
-import { notificationListSchema } from "@presenca/contracts";
 import { apiGet, getMe } from "@/lib/api-server";
-import { LogoutButton } from "./home-client";
-import { NavLink } from "./nav-link";
+import { AppMark, MobileTabBar, Sidebar } from "./shell";
 
-/** Área logada: confere a sessão na API e mostra a navegação. */
+/**
+ * Área logada no estilo de um espaço de trabalho: barra lateral com a navegação e as matérias do
+ * semestre (computador), topo enxuto e abas embaixo (celular). Confere a sessão na API.
+ */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const me = await getMe();
   if (!me) redirect("/entrar");
-  const { unreadCount } = await apiGet("/v1/notifications?limit=1", notificationListSchema);
+  const [{ unreadCount }, { semesters }] = await Promise.all([
+    apiGet("/v1/notifications?limit=1", notificationListSchema),
+    apiGet("/v1/semesters", semestersResponseSchema),
+  ]);
+  const current = semesters.find((s) => s.isCurrent) ?? null;
+  const subjects = current
+    ? (await apiGet(`/v1/semesters/${current.id}/subjects`, subjectsResponseSchema)).subjects
+    : [];
 
   return (
     <ToastProvider>
       <OfflineProvider userId={me.id}>
-        <div className="min-h-dvh">
-          <header className="sticky top-0 z-10 border-b border-line bg-paper/90 backdrop-blur">
-            <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
-              <Link
-                href="/"
-                className="mr-1 flex shrink-0 items-center gap-2 font-semibold sm:mr-2"
-                aria-label="Início"
-              >
-                <span
-                  className="grid size-8 place-items-center rounded-lg bg-accent font-bold text-accent-ink"
-                  aria-hidden
+        <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
+          <Sidebar
+            firstName={me.fullName.split(" ")[0] ?? ""}
+            unread={unreadCount}
+            semesterLabel={current?.label ?? null}
+            subjects={subjects.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
+          />
+          <div className="min-w-0">
+            <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur">
+              <div className="flex h-12 items-center gap-2 px-3 pt-[env(safe-area-inset-top)] sm:px-5 lg:justify-end">
+                <Link
+                  href="/"
+                  className="flex items-center gap-2 rounded-md px-1.5 py-1 text-sm font-semibold hover:bg-surface-2 lg:hidden"
                 >
-                  P
-                </span>
-              </Link>
-              <nav
-                className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-sm sm:gap-1"
-                aria-label="Principal"
-              >
-                <NavLink href="/" exact>
-                  Início
-                </NavLink>
-                <NavLink href="/hoje">Hoje</NavLink>
-                <NavLink href="/semestres">Semestres</NavLink>
-                <NavLink href="/conta">Conta</NavLink>
-              </nav>
-              <NotificationBell unread={unreadCount} />
-              {/* No celular, "Sair" fica na página Conta: o cabeçalho não cabe tudo. */}
-              <div className="hidden shrink-0 sm:block">
-                <LogoutButton />
+                  <AppMark size={26} />
+                  Presenças
+                </Link>
+                <span className="flex-1 lg:hidden" />
+                <NotificationBell unread={unreadCount} />
               </div>
-            </div>
-          </header>
-          <main className="mx-auto grid w-full max-w-3xl grid-cols-[minmax(0,1fr)] gap-6 px-4 pb-28 pt-6">
-            {children}
-          </main>
+            </header>
+            <main className="mx-auto grid w-full max-w-[50rem] grid-cols-[minmax(0,1fr)] gap-8 px-4 pb-32 pt-4 sm:px-8 lg:px-12 lg:pb-24 lg:pt-8">
+              {children}
+            </main>
+          </div>
         </div>
+        <MobileTabBar />
       </OfflineProvider>
     </ToastProvider>
   );

@@ -137,7 +137,7 @@ export function ExceptionsManager({
             Tipo
             <select
               name="exc-tipo"
-              className="min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base"
+              className="min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm"
             >
               <option value="holiday">Feriado</option>
               <option value="no_classes">Sem aula (recesso, evento)</option>
@@ -148,7 +148,7 @@ export function ExceptionsManager({
             Vale para
             <select
               name="exc-materia"
-              className="min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base"
+              className="min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm"
             >
               <option value="">Todas as matérias</option>
               {subjects.map((s) => (

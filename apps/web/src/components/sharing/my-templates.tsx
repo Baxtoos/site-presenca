@@ -44,7 +44,7 @@ export function MyTemplates({ templates }: { templates: SharedTemplate[] }) {
 
   if (templates.length === 0) {
     return (
-      <div className="grid gap-2 rounded-2xl border border-dashed border-line bg-surface p-6 text-sm">
+      <div className="grid gap-2 rounded-xl border border-dashed border-line bg-surface p-6 text-sm">
         <p className="font-medium">Você ainda não compartilhou nenhuma grade.</p>
         <p className="text-muted">
           Abra um semestre ou uma matéria e use “Gerar código para colegas”. Quem receber o código
@@ -57,11 +57,7 @@ export function MyTemplates({ templates }: { templates: SharedTemplate[] }) {
   return (
     <ul className="grid gap-3" aria-label="Seus códigos">
       {templates.map((t) => (
-        <li
-          key={t.id}
-          className="grid gap-2 rounded-2xl border border-line bg-surface p-4 text-sm"
-          data-testid="meu-codigo"
-        >
+        <li key={t.id} className="grid gap-2 card p-4 text-sm" data-testid="meu-codigo">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="grid min-w-0 gap-0.5">
               <strong className="truncate">{t.title}</strong>

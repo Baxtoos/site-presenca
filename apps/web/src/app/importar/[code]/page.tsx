@@ -14,7 +14,7 @@ export default async function ImportPage({ params }: { params: Promise<{ code: s
   const code = normalizeShareCode(decodeURIComponent((await params).code));
   if (!code) {
     return (
-      <section className="grid gap-4 rounded-2xl border border-line bg-surface p-6 text-sm">
+      <section className="grid gap-4 card p-5 sm:p-6 text-sm">
         <h1 className="text-xl font-bold">Código inválido</h1>
         <p className="text-muted">O código tem 8 letras e números (ex.: K7QM-2XPA).</p>
         <Link href="/importar" className="font-medium text-accent hover:underline">

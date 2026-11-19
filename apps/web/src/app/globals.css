@@ -1,46 +1,62 @@
 @import "tailwindcss";
 
-/* Tokens do app: papel frio e tinta azul de caneta, como um diário de classe. */
+/*
+ * Tokens do app. Direção visual inspirada no Notion: página clara e calma, tinta grafite quente,
+ * cinzas levemente amarelados, bordas quase invisíveis, cor só onde informa (status, matéria).
+ * Todas as combinações de texto passam no contraste WCAG AA (o E2E confere com o axe).
+ */
 @theme {
-  --color-paper: #f4f6f8;
+  --color-paper: #ffffff;
+  --color-sidebar: #f7f7f5;
   --color-surface: #ffffff;
-  --color-surface-2: #eef2f6;
-  --color-ink: #15212c;
-  --color-muted: #56657a;
-  --color-line: #d9e0e8;
-  --color-accent: #1d5c8c;
+  --color-surface-2: #f1f1ef;
+  --color-hover: #ebebea;
+  --color-ink: #37352f;
+  --color-muted: #64635e;
+  --color-line: #e9e9e7;
+  --color-line-strong: #d5d4d1;
+  --color-accent: #0b6bcb;
   --color-accent-ink: #ffffff;
-  --color-accent-soft: #e2ecf5;
-  --color-ok: #2c7a4b;
-  --color-ok-soft: #e1f2e7;
-  --color-warn: #946f00;
-  --color-warn-soft: #fbf1cf;
-  --color-fail: #ae2a22;
-  --color-fail-soft: #f8dedb;
-  --color-crit: #b8521a;
-  --color-crit-soft: #fbe5d6;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-accent-soft: #e7f1fb;
+  --color-ok: #2b7046;
+  --color-ok-soft: #e6f2ea;
+  --color-warn: #8a5f00;
+  --color-warn-soft: #fbf3db;
+  --color-fail: #b93b35;
+  --color-fail-soft: #fdebec;
+  --color-crit: #a34d12;
+  --color-crit-soft: #fcebdc;
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI",
+    Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  --shadow-pop:
+    0 0 0 1px rgb(15 15 15 / 0.05), 0 3px 6px rgb(15 15 15 / 0.1), 0 9px 24px rgb(15 15 15 / 0.2);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-paper: #0e141a;
-    --color-surface: #151d25;
-    --color-surface-2: #1b2530;
-    --color-ink: #e4eaf0;
-    --color-muted: #9aa9b8;
-    --color-line: #2a3642;
-    --color-accent: #74aee0;
-    --color-accent-ink: #0e141a;
-    --color-accent-soft: #1a2b3b;
-    --color-ok: #6cc891;
-    --color-ok-soft: #173025;
-    --color-warn: #e3c04f;
-    --color-warn-soft: #30290f;
-    --color-fail: #f07a72;
-    --color-fail-soft: #3b1c1a;
-    --color-crit: #f0965c;
-    --color-crit-soft: #3a2416;
+    --color-paper: #191919;
+    --color-sidebar: #202020;
+    --color-surface: #202020;
+    --color-surface-2: #2a2a2a;
+    --color-hover: #303030;
+    --color-ink: #e6e5e3;
+    --color-muted: #a3a29e;
+    --color-line: #2f2f2f;
+    --color-line-strong: #3f3f3f;
+    --color-accent: #529cca;
+    --color-accent-ink: #111111;
+    --color-accent-soft: #1d2d3a;
+    --color-ok: #6bbf8a;
+    --color-ok-soft: #1e2d24;
+    --color-warn: #dfb455;
+    --color-warn-soft: #332a17;
+    --color-fail: #ef7d76;
+    --color-fail-soft: #3a2222;
+    --color-crit: #ee9a62;
+    --color-crit-soft: #392818;
+    --shadow-pop:
+      0 0 0 1px rgb(255 255 255 / 0.08), 0 3px 6px rgb(0 0 0 / 0.4), 0 9px 24px rgb(0 0 0 / 0.5);
     color-scheme: dark;
   }
 }
@@ -48,6 +64,19 @@
 body {
   background: var(--color-paper);
   color: var(--color-ink);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* Bloco de conteúdo (equivale aos "callouts" e blocos de uma página do Notion). */
+@utility card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
 }
 
 @keyframes toast-countdown {
@@ -57,6 +86,21 @@ body {
   to {
     transform: scaleX(0);
   }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-rise {
+  animation: rise 180ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {

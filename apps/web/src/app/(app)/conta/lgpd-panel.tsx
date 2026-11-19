@@ -18,10 +18,7 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
   const [error, setError] = useState<string>();
 
   return (
-    <section
-      className="grid gap-4 rounded-2xl border border-line bg-surface p-6 text-sm"
-      aria-labelledby="lgpd-heading"
-    >
+    <section className="grid gap-4 card p-5 sm:p-6 text-sm" aria-labelledby="lgpd-heading">
       <div className="grid gap-1">
         <h2 id="lgpd-heading" className="text-base font-semibold text-ink">
           Seus dados e privacidade (LGPD)
@@ -115,7 +112,7 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
                 autoComplete={hasPassword ? "current-password" : "email"}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                className="min-h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm"
+                className="min-h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-sm outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10"
                 placeholder={hasPassword ? "Sua senha" : email}
               />
             </Field>

@@ -20,7 +20,7 @@ export default async function VerifyEmailPage({
   return (
     <>
       <header className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Confirmar e-mail</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Confirmar e-mail</h1>
       </header>
       {token ? (
         <ConsumeToken

@@ -14,7 +14,7 @@ export default function AppError({ error, retry }: { error: unknown; retry: () =
   }, [error]);
 
   return (
-    <section className="grid gap-3 rounded-2xl border border-line bg-surface p-6" role="alert">
+    <section className="grid gap-3 card p-5 sm:p-6" role="alert">
       <h1 className="text-lg font-semibold">Não foi possível carregar esta página</h1>
       <p className="text-sm text-muted">
         O servidor não respondeu como esperado. Seus dados estão salvos; tente de novo em instantes.

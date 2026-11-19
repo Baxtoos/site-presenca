@@ -1,8 +1,8 @@
 import { notificationListSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Inbox } from "@/components/notifications/inbox";
 import { apiGet } from "@/lib/api-server";
+import { ButtonLink, PageHeader } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Avisos · Monitor de Presenças" };
 
@@ -10,15 +10,16 @@ export default async function NotificationsPage() {
   const list = await apiGet("/v1/notifications?limit=20", notificationListSchema);
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Avisos</h1>
-        <Link
-          href="/conta#notificacoes"
-          className="text-sm font-medium text-accent hover:underline"
-        >
-          Configurar avisos
-        </Link>
-      </header>
+      <PageHeader
+        icon="🔔"
+        title="Avisos"
+        description="Alertas de falta e lembretes. Os mais novos ficam em cima."
+        actions={
+          <ButtonLink href="/conta#notificacoes" variant="secondary">
+            Configurar avisos
+          </ButtonLink>
+        }
+      />
       <Inbox initial={list} />
     </>
   );

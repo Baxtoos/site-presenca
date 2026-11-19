@@ -101,7 +101,7 @@ export function ScheduleManager({
           <select
             name="dia"
             defaultValue="1"
-            className="min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base"
+            className="min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm"
           >
             {[1, 2, 3, 4, 5, 6, 7].map((d) => (
               <option key={d} value={d}>
@@ -123,7 +123,7 @@ export function ScheduleManager({
           <select
             name="tempos"
             defaultValue={String(defaultUnits)}
-            className="min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base"
+            className="min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm"
           >
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <option key={n} value={n}>

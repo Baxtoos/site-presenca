@@ -3,6 +3,7 @@
 import type { SessionsResponse } from "@presenca/contracts";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { LogoutIcon } from "@/components/icons";
 import { Alert, Button } from "@/components/ui";
 import { useOffline } from "@/components/offline-provider";
 import { api, ApiError } from "@/lib/api-client";
@@ -10,13 +11,13 @@ import { clearOfflineData } from "@/lib/offline-cache";
 import { disablePushOnThisDevice } from "@/lib/push-client";
 import { plural } from "@/lib/format";
 
-export function LogoutButton() {
+export function LogoutButton({ variant = "secondary" }: { variant?: "secondary" | "ghost" }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const offline = useOffline();
   return (
     <Button
-      variant="secondary"
+      variant={variant === "ghost" ? "ghost" : "secondary"}
       loading={pending}
       onClick={() => {
         const unsent = offline.pending.length;
@@ -42,6 +43,7 @@ export function LogoutButton() {
           });
       }}
     >
+      {variant === "ghost" ? <LogoutIcon size={18} /> : null}
       Sair
     </Button>
   );
@@ -51,7 +53,7 @@ export function VerifyEmailBanner({ email }: { email: string }) {
   const [state, setState] = useState<"idle" | "pending" | "sent" | "error">("idle");
   const [error, setError] = useState<string>();
   return (
-    <div className="grid min-w-0 gap-3 rounded-2xl border border-warn/40 bg-warn-soft p-4 text-sm [overflow-wrap:anywhere] sm:flex sm:items-center sm:justify-between">
+    <div className="grid min-w-0 gap-3 rounded-xl border border-warn/40 bg-warn-soft p-4 text-sm [overflow-wrap:anywhere] sm:flex sm:items-center sm:justify-between">
       <p>
         <strong className="font-semibold">Confirme seu e-mail.</strong> Mandamos um link para{" "}
         {email}. Sem a confirmação, os alertas de faltas por e-mail ficam desligados.
@@ -141,12 +143,9 @@ export function SessionsPanel() {
   }
 
   return (
-    <section
-      className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-      aria-labelledby="sessoes"
-    >
+    <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="sessoes">
       <div className="grid gap-1">
-        <h2 id="sessoes" className="font-semibold">
+        <h2 id="sessoes" className="text-lg font-semibold tracking-tight">
           Onde você está conectado
         </h2>
         <p className="text-sm text-muted">Encerre qualquer sessão que você não reconheça.</p>
@@ -246,7 +245,7 @@ export function InstallPrompt() {
 
   return (
     <section
-      className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft p-4 text-sm"
+      className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/30 bg-accent-soft p-4 text-sm"
       aria-label="Instalar o app"
     >
       <p className="min-w-0 flex-1">

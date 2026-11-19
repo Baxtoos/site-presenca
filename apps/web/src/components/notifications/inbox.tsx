@@ -97,7 +97,7 @@ export function Inbox({ initial }: { initial: NotificationList }) {
 
   if (items.length === 0) {
     return (
-      <div className="grid gap-2 rounded-2xl border border-dashed border-line bg-surface p-6 text-sm">
+      <div className="grid gap-2 rounded-xl border border-dashed border-line bg-surface p-6 text-sm">
         <p className="font-medium">Nenhum aviso por enquanto.</p>
         <p className="text-muted">
           Quando uma matéria chegar a 50%, 75%, 90% ou 100% do limite de faltas, o aviso aparece
@@ -129,7 +129,7 @@ export function Inbox({ initial }: { initial: NotificationList }) {
             <Link
               href={item.url}
               onClick={() => void markRead(item)}
-              className={`relative grid gap-1 rounded-2xl border p-4 pl-5 transition-colors hover:border-accent/50 ${
+              className={`relative grid gap-1 rounded-xl border p-4 pl-5 transition-colors hover:border-accent/50 ${
                 item.readAt ? "border-line bg-surface" : "border-accent/30 bg-accent-soft"
               }`}
             >

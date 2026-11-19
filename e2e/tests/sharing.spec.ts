@@ -63,7 +63,7 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
   await expectPath(other, new RegExp(`^/importar/${code}$`));
   await other.getByRole("button", { name: "Importar este semestre" }).click();
   await expect(other.getByRole("heading", { name: /^Atual/ })).toBeVisible();
-  const card = other.getByRole("link", { name: /Estatística/ });
+  const card = other.getByRole("main").getByRole("link", { name: /Estatística/ });
   await expect(card).toContainText("0 de 18 faltas");
   await colleague.close();
 

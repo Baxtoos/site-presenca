@@ -5,7 +5,7 @@ import { plural, RISK_LABEL, RISK_STYLE, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } f
 export function RiskBadge({ risk }: { risk: Subject["summary"]["risk"] }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${RISK_STYLE[risk].badge}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ${RISK_STYLE[risk].badge}`}
     >
       <span className="size-1.5 rounded-full bg-current" aria-hidden />
       {RISK_LABEL[risk]}
@@ -25,15 +25,15 @@ export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string
   return (
     <Link
       href={`/materias/${subject.id}`}
-      className="group relative grid gap-3 overflow-hidden rounded-2xl border border-line bg-surface p-5 pl-6 transition-colors hover:border-accent/50"
+      className="group card relative grid gap-3 overflow-hidden p-4 pt-5 transition-[background-color,box-shadow] hover:bg-surface-2/60 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       <span
-        className={`absolute inset-y-0 left-0 w-1.5 ${subject.color ? SUBJECT_COLOR_CLASS[subject.color] : "bg-line"}`}
+        className={`absolute inset-x-0 top-0 h-1.5 ${subject.color ? SUBJECT_COLOR_CLASS[subject.color] : "bg-line-strong"}`}
         aria-hidden
       />
       <div className="flex items-start justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <h3 className="truncate font-semibold group-hover:text-accent">{subject.name}</h3>
+          <h3 className="truncate font-semibold">{subject.name}</h3>
           <p className="truncate text-xs text-muted">
             {[subject.professor, days || "sem horário na grade"].filter(Boolean).join(" · ")}
           </p>
@@ -44,13 +44,13 @@ export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string
       <div className="grid gap-1.5">
         <div className="flex items-baseline justify-between text-sm">
           <span>
-            <strong className="text-lg tabular-nums">{s.absentUnits}</strong>
+            <strong className="text-xl font-semibold tabular-nums">{s.absentUnits}</strong>
             <span className="text-muted"> de {s.maxAbsenceUnits} faltas</span>
           </span>
           <span className="text-xs tabular-nums text-muted">{s.consumptionPct}% do limite</span>
         </div>
         <div
-          className="h-2 overflow-hidden rounded-full bg-surface-2"
+          className="h-1.5 overflow-hidden rounded-full bg-surface-2"
           role="progressbar"
           aria-valuenow={s.consumptionPct}
           aria-valuemin={0}

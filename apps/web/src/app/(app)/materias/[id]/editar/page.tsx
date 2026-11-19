@@ -1,8 +1,8 @@
 import { subjectSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { SharePanel } from "@/components/sharing/share-panel";
 import { EditSubjectForm } from "@/components/subject-form";
+import { PageHeader } from "@/components/ui";
 import { apiGet, getMe } from "@/lib/api-server";
 import { DeleteSubject, ScheduleManager } from "../subject-client";
 
@@ -15,18 +15,15 @@ export default async function EditSubjectPage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <header className="grid gap-1">
-        <Link href={`/materias/${subject.id}`} className="text-sm text-muted hover:text-ink">
-          ← {subject.name}
-        </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Editar matéria</h1>
-      </header>
+      <PageHeader
+        back={{ href: `/materias/${subject.id}`, label: `← ${subject.name}` }}
+        icon="⚙️"
+        title="Editar matéria"
+        description={`Horários, regras de falta, compartilhamento e exclusão de ${subject.name}.`}
+      />
 
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="grade"
-      >
-        <h2 id="grade" className="font-semibold">
+      <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="grade">
+        <h2 id="grade" className="text-lg font-semibold tracking-tight">
           Horários na semana
         </h2>
         <ScheduleManager
@@ -36,16 +33,13 @@ export default async function EditSubjectPage({ params }: { params: Promise<{ id
         />
       </section>
 
-      <section className="rounded-2xl border border-line bg-surface p-6">
+      <section className="card p-5 sm:p-6">
         <EditSubjectForm key={subject.version} subject={subject} />
       </section>
 
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="compartilhar"
-      >
+      <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="compartilhar">
         <div className="grid gap-1">
-          <h2 id="compartilhar" className="font-semibold">
+          <h2 id="compartilhar" className="text-lg font-semibold tracking-tight">
             Compartilhar esta matéria
           </h2>
           <p className="text-sm text-muted">
@@ -60,10 +54,10 @@ export default async function EditSubjectPage({ params }: { params: Promise<{ id
       </section>
 
       <section
-        className="grid gap-3 rounded-2xl border border-fail/30 bg-surface p-6"
+        className="grid gap-3 rounded-xl border border-fail/30 bg-surface p-6"
         aria-labelledby="zona-perigo"
       >
-        <h2 id="zona-perigo" className="font-semibold">
+        <h2 id="zona-perigo" className="text-lg font-semibold tracking-tight">
           Apagar matéria
         </h2>
         <DeleteSubject subject={subject} />

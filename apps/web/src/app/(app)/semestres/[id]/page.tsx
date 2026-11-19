@@ -4,8 +4,9 @@ import {
   subjectsResponseSchema,
 } from "@presenca/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { PlusIcon } from "@/components/icons";
 import { SubjectCard } from "@/components/subject-card";
+import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { SharePanel } from "@/components/sharing/share-panel";
 import { apiGet, getMe } from "@/lib/api-server";
 import { formatDate } from "@/lib/format";
@@ -25,51 +26,46 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <header className="grid gap-1">
-        <Link href="/semestres" className="text-sm text-muted hover:text-ink">
-          ← Semestres
-        </Link>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {semester.label}
-          {semester.isCurrent ? (
-            <span className="ml-2 align-middle rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">
-              atual
-            </span>
-          ) : null}
-          {semester.status === "archived" ? (
-            <span className="ml-2 align-middle rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-muted">
-              arquivado
-            </span>
-          ) : null}
-        </h1>
-        <p className="text-sm text-muted">
-          Aulas de {formatDate(semester.startsOn)} a {formatDate(semester.endsOn)}
-        </p>
-      </header>
+      <PageHeader
+        back={{ href: "/semestres", label: "← Semestres" }}
+        icon="🗓️"
+        title={
+          <>
+            {semester.label}
+            {semester.isCurrent ? (
+              <span className="ml-3 rounded-md bg-accent-soft px-2 py-1 align-middle text-sm font-medium text-accent">
+                atual
+              </span>
+            ) : null}
+            {semester.status === "archived" ? (
+              <span className="ml-3 rounded-md bg-surface-2 px-2 py-1 align-middle text-sm font-medium text-muted">
+                arquivado
+              </span>
+            ) : null}
+          </>
+        }
+        description={`Aulas de ${formatDate(semester.startsOn)} a ${formatDate(semester.endsOn)}`}
+      />
 
       <section className="grid gap-3" aria-labelledby="materias">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="materias" className="font-semibold">
-            Matérias
-          </h2>
+          <SectionTitle id="materias">Matérias</SectionTitle>
           <div className="flex flex-wrap items-center gap-2">
             <a
               href={`/api/v1/semesters/${semester.id}/export.xlsx`}
               download
-              className="inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink hover:border-accent/50"
+              className="inline-flex min-h-11 items-center rounded-md border border-line-strong bg-surface px-3.5 text-sm font-medium text-ink transition-colors hover:bg-surface-2 sm:min-h-10"
             >
               Exportar Excel (.xlsx)
             </a>
-            <Link
-              href={`/semestres/${semester.id}/materias/nova`}
-              className="inline-flex min-h-10 items-center rounded-lg bg-accent px-3 text-sm font-semibold text-accent-ink"
-            >
+            <ButtonLink href={`/semestres/${semester.id}/materias/nova`}>
+              <PlusIcon size={16} />
               Adicionar matéria
-            </Link>
+            </ButtonLink>
           </div>
         </div>
         {subjects.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line bg-surface p-6 text-sm text-muted">
+          <p className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-muted">
             Nenhuma matéria ainda. Cada matéria tem sua própria regra de faltas.
           </p>
         ) : (
@@ -81,12 +77,9 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
         )}
       </section>
 
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="feriados"
-      >
+      <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="feriados">
         <div className="grid gap-1">
-          <h2 id="feriados" className="font-semibold">
+          <h2 id="feriados" className="text-lg font-semibold tracking-tight">
             Feriados e dias sem aula
           </h2>
           <p className="text-sm text-muted">
@@ -100,12 +93,9 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
         />
       </section>
 
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="compartilhar"
-      >
+      <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="compartilhar">
         <div className="grid gap-1">
-          <h2 id="compartilhar" className="font-semibold">
+          <h2 id="compartilhar" className="text-lg font-semibold tracking-tight">
             Compartilhar com colegas
           </h2>
           <p className="text-sm text-muted">

@@ -206,7 +206,7 @@ function Select({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base"
+        className="min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm"
       >
         {children}
       </select>
@@ -549,15 +549,12 @@ export function NewSubjectWizard({ semesterId }: { semesterId: string }) {
   return (
     <form method="post" onSubmit={(e) => void onSubmit(e)} className="grid gap-6" noValidate>
       {error ? <Alert tone="error">{error}</Alert> : null}
-      <section className="rounded-2xl border border-line bg-surface p-6">
+      <section className="card p-5 sm:p-6">
         <SubjectFields draft={draft} set={set} errors={errors} />
       </section>
-      <section
-        className="grid gap-3 rounded-2xl border border-line bg-surface p-6"
-        aria-labelledby="grade"
-      >
+      <section className="grid gap-3 card p-5 sm:p-6" aria-labelledby="grade">
         <div className="grid gap-1">
-          <h2 id="grade" className="font-semibold">
+          <h2 id="grade" className="text-lg font-semibold tracking-tight">
             Horários na semana
           </h2>
           <p className="text-sm text-muted">

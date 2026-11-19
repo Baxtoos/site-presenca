@@ -51,7 +51,9 @@ export async function setupStudentWithClassToday(
   await page.getByRole("button", { name: "Adicionar horário" }).click();
   await page.getByLabel("Dia").selectOption(String(isoWeekday(today)));
   await page.getByRole("button", { name: "Salvar matéria" }).click();
-  await expect(page.getByRole("link", { name: new RegExp(opts.subject) })).toBeVisible();
+  await expect(
+    page.getByRole("main").getByRole("link", { name: new RegExp(opts.subject) }),
+  ).toBeVisible();
   return today;
 }
 

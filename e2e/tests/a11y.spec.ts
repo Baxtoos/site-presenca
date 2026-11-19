@@ -8,6 +8,15 @@ import { realPath, setupStudentWithClassToday } from "./setup-helpers";
  */
 async function expectAccessible(page: Page, label: string) {
   await page.waitForLoadState("networkidle");
+  // Mede a tela parada: título reposto depois de atualizar e animações de entrada concluídas
+  // (no meio de um fade, o contraste medido é o de uma cor semitransparente).
+  await page.waitForFunction(
+    () =>
+      document.title.length > 0 &&
+      document
+        .getAnimations()
+        .every((a) => (a as CSSAnimation).animationName !== "rise" || a.playState === "finished"),
+  );
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
@@ -43,7 +52,10 @@ for (const scheme of ["light", "dark"] as const) {
     });
     await expectAccessible(page, "semestre");
 
-    await page.getByRole("link", { name: /Biologia/ }).click();
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: /Biologia/ })
+      .click();
     await expect(page.getByTestId("calendario")).toBeVisible();
     await expectAccessible(page, "matéria (calendário)");
     // Um dia selecionado com registro: botões de ação, status e editor de detalhes.

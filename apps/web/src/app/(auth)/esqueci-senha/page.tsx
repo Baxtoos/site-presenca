@@ -8,7 +8,7 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <header className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Esqueci a senha</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Esqueci a senha</h1>
         <p className="text-sm text-muted">Enviamos um link para você escolher uma senha nova.</p>
       </header>
       <EmailRequestForm

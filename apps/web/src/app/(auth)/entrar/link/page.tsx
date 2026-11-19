@@ -22,7 +22,7 @@ export default async function MagicLinkPage({
   return (
     <>
       <header className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Entrar sem senha</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Entrar sem senha</h1>
         <p className="text-sm text-muted">
           Mandamos um link de uso único para o seu e-mail. Se ainda não tiver conta, ela é criada.
         </p>

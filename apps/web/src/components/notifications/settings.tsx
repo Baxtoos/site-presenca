@@ -16,7 +16,7 @@ import {
 
 const THRESHOLDS = [50, 75, 90, 100] as const;
 const inputClass =
-  "min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base disabled:opacity-60";
+  "min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm disabled:opacity-60";
 
 function Toggle({
   id,
@@ -173,7 +173,7 @@ export function NotificationSettings({ initial }: { initial: NotificationPrefere
     <form
       method="post"
       onSubmit={(e) => void save(e)}
-      className="grid gap-6 rounded-2xl border border-line bg-surface p-6 text-sm"
+      className="grid gap-6 card p-5 sm:p-6 text-sm"
       aria-labelledby="notificacoes"
       noValidate
     >

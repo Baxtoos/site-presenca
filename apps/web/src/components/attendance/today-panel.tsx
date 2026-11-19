@@ -267,7 +267,7 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     return (
       <>
         {stale}
-        <div className="grid gap-2 rounded-2xl border border-dashed border-line bg-surface p-5 text-sm">
+        <div className="grid gap-2 rounded-xl border border-dashed border-line bg-surface p-5 text-sm">
           {data.exceptions.length > 0 ? (
             <p>
               <strong>{data.exceptions[0]!.label}</strong>: sem aula
@@ -297,7 +297,7 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
           return (
             <li
               key={key}
-              className="relative grid gap-3 overflow-hidden rounded-2xl border border-line bg-surface p-4 pl-5"
+              className="relative grid gap-3 overflow-hidden card p-4 pl-5"
               aria-busy={isBusy || undefined}
               data-testid="aula"
             >

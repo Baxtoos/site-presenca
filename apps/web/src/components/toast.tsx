@@ -51,7 +51,7 @@ function ToastView({ toast, onClose }: { toast: ToastItem; onClose: () => void }
 
   return (
     <div
-      className={`pointer-events-auto relative overflow-hidden rounded-xl border bg-surface shadow-lg ${TONE_STYLE[toast.tone]}`}
+      className={`animate-rise pointer-events-auto relative overflow-hidden rounded-lg border bg-surface shadow-pop ${TONE_STYLE[toast.tone]}`}
       role={toast.tone === "error" ? "alert" : "status"}
     >
       <div className="flex items-center gap-3 px-4 py-3 text-sm">
@@ -112,7 +112,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 mx-auto grid max-w-md gap-2 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      {/* No celular fica acima da barra de abas; no computador, no canto como no Notion. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-50 mx-auto grid max-w-md gap-2 px-4 lg:bottom-6 lg:left-auto lg:right-6 lg:mx-0 lg:w-96 lg:px-0">
         {toasts.map((toast) => (
           <ToastView key={toast.id} toast={toast} onClose={() => dismiss(toast.id)} />
         ))}

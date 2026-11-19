@@ -20,7 +20,7 @@ export default async function ResetPasswordPage({
   return (
     <>
       <header className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Escolher nova senha</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Escolher nova senha</h1>
         <p className="text-sm text-muted">
           Ao salvar, as sessões abertas em outros dispositivos são encerradas.
         </p>

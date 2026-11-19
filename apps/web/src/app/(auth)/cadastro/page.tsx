@@ -17,7 +17,7 @@ export default async function RegisterPage({
   return (
     <>
       <header className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Criar conta</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Criar conta</h1>
         <p className="text-sm text-muted">Leva menos de um minuto. Depois você monta sua grade.</p>
       </header>
       <RegisterForm next={next} />

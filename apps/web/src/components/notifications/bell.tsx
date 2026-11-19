@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BellIcon } from "@/components/icons";
 
 /** Sino do cabeçalho: leva à central e mostra quantos avisos não foram lidos. */
 export function NotificationBell({ unread }: { unread: number }) {
@@ -9,26 +10,12 @@ export function NotificationBell({ unread }: { unread: number }) {
       href="/avisos"
       aria-label={label}
       title={label}
-      className="relative grid size-10 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2 hover:text-ink"
+      className="relative grid size-10 shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
       data-testid="sino"
     >
-      <svg
-        viewBox="0 0 24 24"
-        className="size-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        aria-hidden
-      >
-        <path
-          d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <BellIcon size={20} />
       {unread > 0 ? (
-        <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-fail px-1 text-[10px] font-bold leading-4 text-white">
+        <span className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-fail px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-paper">
           {unread > 9 ? "9+" : unread}
         </span>
       ) : null}

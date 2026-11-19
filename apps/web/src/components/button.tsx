@@ -24,21 +24,22 @@ export function Button({
   className = "",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "danger" | "ghost";
   loading?: boolean;
 }) {
   const hydrated = useHydrated();
   const styles = {
-    primary: "bg-accent text-accent-ink hover:bg-accent/90",
-    secondary: "border border-line bg-surface text-ink hover:bg-surface-2",
-    danger: "border border-line bg-surface text-fail hover:bg-fail-soft",
+    primary: "bg-accent text-accent-ink shadow-sm hover:bg-accent/90 active:bg-accent/80",
+    secondary: "border border-line-strong bg-surface text-ink hover:bg-surface-2 active:bg-hover",
+    danger: "border border-line-strong bg-surface text-fail hover:bg-fail-soft active:bg-fail-soft",
+    ghost: "text-muted hover:bg-hover hover:text-ink",
   }[variant];
   return (
     <button
       {...props}
       disabled={props.disabled || loading || !hydrated}
       aria-busy={loading || undefined}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3.5 text-sm font-medium transition-colors sm:min-h-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${className}`}
     >
       {loading ? (
         <span

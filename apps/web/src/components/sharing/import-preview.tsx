@@ -103,17 +103,14 @@ export function ImportPreview({
 
   if (state.kind === "loading") {
     return (
-      <section
-        className="rounded-2xl border border-line bg-surface p-6 text-sm text-muted"
-        aria-busy
-      >
+      <section className="card p-5 sm:p-6 text-sm text-muted" aria-busy>
         Carregando a grade {formatShareCode(code)}…
       </section>
     );
   }
   if (state.kind === "error") {
     return (
-      <section className="grid gap-4 rounded-2xl border border-line bg-surface p-6 text-sm">
+      <section className="grid gap-4 card p-5 sm:p-6 text-sm">
         <h1 className="text-xl font-bold">Código {formatShareCode(code)}</h1>
         <Alert tone="error">{state.message}</Alert>
         <Link href="/importar" className="font-medium text-accent hover:underline">
@@ -126,16 +123,13 @@ export function ImportPreview({
   const p = state.preview;
   const next = `/importar/${code}`;
   return (
-    <section
-      className="grid gap-5 rounded-2xl border border-line bg-surface p-6"
-      aria-labelledby="titulo-modelo"
-    >
+    <section className="grid gap-5 card p-5 sm:p-6" aria-labelledby="titulo-modelo">
       <header className="grid gap-1">
         <p className="text-xs font-medium uppercase tracking-wider text-muted">
           {p.kind === "semester" ? "Grade de semestre" : "Matéria"} · código{" "}
           {formatShareCode(p.code)}
         </p>
-        <h1 id="titulo-modelo" className="text-2xl font-bold tracking-tight">
+        <h1 id="titulo-modelo" className="text-3xl font-bold tracking-tight">
           {p.title}
         </h1>
         <p className="text-sm text-muted">
@@ -200,13 +194,13 @@ export function ImportPreview({
         <div className="grid gap-2 sm:grid-cols-2">
           <Link
             href={withNext("/cadastro", next)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-accent-ink shadow-sm transition-colors hover:bg-accent/90 sm:min-h-10"
           >
             Criar conta e importar
           </Link>
           <Link
             href={withNext("/entrar", next)}
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface-2"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-line-strong bg-surface px-4 text-sm font-medium transition-colors hover:bg-surface-2 sm:min-h-10"
           >
             Já tenho conta
           </Link>
@@ -228,7 +222,7 @@ export function ImportPreview({
                 id="semestre-destino"
                 value={target}
                 onChange={(e) => setTarget(e.target.value)}
-                className="min-h-11 w-full min-w-0 rounded-lg border border-line bg-surface px-3 text-base"
+                className="min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm"
               >
                 {semesters.map((s) => (
                   <option key={s.id} value={s.id}>

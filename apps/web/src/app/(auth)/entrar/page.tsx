@@ -21,7 +21,7 @@ export default async function LoginPage({
   return (
     <>
       <header className="grid gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Entrar</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Entrar</h1>
         <p className="text-sm text-muted">
           Acompanhe suas faltas e saiba quanto ainda pode faltar.
         </p>
@@ -37,14 +37,14 @@ export default async function LoginPage({
         {/* Navegação de página inteira: o fluxo OAuth passa pelo Google e volta via /api. */}
         <a
           href="/api/v1/auth/google"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface-2"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-4 text-sm font-medium transition-colors hover:bg-surface-2 sm:min-h-10"
         >
           <GoogleMark />
           Entrar com Google
         </a>
         <a
           href="/entrar/link"
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface-2"
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-line-strong bg-surface px-4 text-sm font-medium transition-colors hover:bg-surface-2 sm:min-h-10"
         >
           Receber link de acesso por e-mail
         </a>
