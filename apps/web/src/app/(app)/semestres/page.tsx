@@ -25,6 +25,9 @@ export default async function SemestersPage() {
           <ButtonLink href="/importar" variant="secondary">
             Importar grade de um colega
           </ButtonLink>
+          <ButtonLink href="/semestres/importar" variant="secondary">
+            Importar planilha (.xlsx)
+          </ButtonLink>
           <ButtonLink href="/compartilhar" variant="ghost">
             Seus códigos compartilhados
           </ButtonLink>

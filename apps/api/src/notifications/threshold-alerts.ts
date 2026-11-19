@@ -24,7 +24,21 @@ type NewLog = typeof notificationLogs.$inferInsert;
  */
 @Injectable()
 export class ThresholdAlerts {
-  async evaluate(tx: Tx, subject: SubjectRow, summary: SubjectSummary): Promise<void> {
+  /**
+   * Só atualiza o estado dos marcos, sem gerar aviso. Para quando os números chegam de uma vez
+   * (importação de planilha): os marcos já passados ficam como "já avisados", e só um marco novo
+   * a partir daqui gera aviso.
+   */
+  sync(tx: Tx, subject: SubjectRow, summary: SubjectSummary): Promise<void> {
+    return this.evaluate(tx, subject, summary, { silent: true });
+  }
+
+  async evaluate(
+    tx: Tx,
+    subject: SubjectRow,
+    summary: SubjectSummary,
+    options: { silent?: boolean } = {},
+  ): Promise<void> {
     // Uma avaliação por matéria por vez: duas correções simultâneas não geram alerta em dobro.
     await tx
       .select({ id: subjects.id })
@@ -72,7 +86,7 @@ export class ThresholdAlerts {
     }
 
     // Matéria arquivada continua com o estado em dia, mas não incomoda ninguém.
-    if (!result.notify || subject.archivedAt) return;
+    if (!result.notify || subject.archivedAt || options.silent) return;
 
     const [user] = await tx.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users);
     const emailOn = prefs?.emailEnabled ?? true;

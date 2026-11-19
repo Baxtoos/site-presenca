@@ -22,6 +22,7 @@ import {
 } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
 import { and, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { freeSemesterLabel } from "../academic/labels";
 import { scheduleColumns, subjectColumns } from "../academic/mappers";
 import { isUniqueViolation } from "../auth/user-mapper";
 import { ClockService } from "../common/clock";
@@ -314,7 +315,7 @@ export class SharingService {
     }
 
     const data = payload.data;
-    const label = await this.freeLabel(tx, body.label ?? data.semester.label);
+    const label = await freeSemesterLabel(tx, body.label ?? data.semester.label);
     const [hasCurrent] = await tx
       .select({ id: semesters.id })
       .from(semesters)
@@ -381,17 +382,5 @@ export class SharingService {
       );
     }
     return row!.id;
-  }
-
-  /** "2026.2" já existe → "2026.2 (2)", "2026.2 (3)"… (o nome é único por aluno). */
-  private async freeLabel(tx: Tx, wanted: string): Promise<string> {
-    const rows = await tx.select({ label: semesters.label }).from(semesters);
-    const taken = new Set(rows.map((r) => r.label));
-    if (!taken.has(wanted)) return wanted;
-    for (let n = 2; ; n++) {
-      const suffix = ` (${n})`;
-      const candidate = `${wanted.slice(0, 60 - suffix.length)}${suffix}`;
-      if (!taken.has(candidate)) return candidate;
-    }
   }
 }

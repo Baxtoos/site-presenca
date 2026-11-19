@@ -13,7 +13,7 @@ export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;
 export const absenceReasonSchema = z.enum(["health", "work", "transport", "personal", "other"]);
 export type AbsenceReason = z.infer<typeof absenceReasonSchema>;
 
-const noteSchema = z
+export const noteSchema = z
   .string()
   .trim()
   .max(500, { error: "Use no máximo 500 caracteres." })
@@ -22,14 +22,14 @@ const noteSchema = z
 
 // ---------------------------------------------------------------- registro
 
-const unitsMissedSchema = z
+export const unitsMissedSchema = z
   .number()
   .int()
   .min(1, { error: "Informe quantos tempos você perdeu." })
   .max(5, { error: "No máximo 5 tempos perdidos em uma aula parcial." });
 
 /** Regras que dependem só do corpo; as que dependem do banco (tempos da aula) ficam na API. */
-function refineAttendance(
+export function refineAttendance(
   body: { status?: AttendanceStatus; unitsMissed?: number; isExcused?: boolean },
   ctx: z.RefinementCtx,
 ) {

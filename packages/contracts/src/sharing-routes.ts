@@ -1,3 +1,4 @@
+import { semesterImportBodySchema, semesterImportResultSchema } from "./imports";
 import type { RouteDef } from "./route-types";
 import {
   createTemplateBodySchema,
@@ -15,6 +16,20 @@ const notFound = {
 };
 
 export const sharingRoutes = {
+  importSpreadsheet: {
+    method: "POST",
+    path: "/v1/imports/semester",
+    summary:
+      "Cria um semestre completo (matérias, grade, feriados e registros) a partir da planilha exportada pelo app",
+    tag: "Compartilhamento",
+    auth: true,
+    idempotent: true,
+    request: { body: semesterImportBodySchema },
+    responses: {
+      201: { description: "Semestre criado", schema: semesterImportResultSchema },
+      422: { description: "Dados inválidos (com o campo e a linha do problema)" },
+    },
+  },
   createTemplate: {
     method: "POST",
     path: "/v1/templates",

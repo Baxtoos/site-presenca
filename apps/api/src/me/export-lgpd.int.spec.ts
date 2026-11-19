@@ -154,7 +154,9 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     await wb.xlsx.load(res.rawPayload as unknown as ExcelJS.Buffer);
 
     const sheetNames = wb.worksheets.map((w) => w.name);
-    expect(sheetNames).toEqual(["Resumo", "Historico", "Grade Horária"]);
+    // "Dados" fica muito oculta: guarda tudo para a importação (o aluno não vê nem reexibe no Excel).
+    expect(sheetNames).toEqual(["Resumo", "Historico", "Grade Horária", "Dados"]);
+    expect(wb.getWorksheet("Dados")!.state).toBe("veryHidden");
 
     const resumo = wb.getWorksheet("Resumo")!;
     expect(resumo.getCell("A1").value).toBe("Relatório de Frequência · 2026.1");

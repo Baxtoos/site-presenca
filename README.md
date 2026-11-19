@@ -123,6 +123,29 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
 - **Login com retorno:** `/entrar?next=/importar/...` e `/cadastro?next=...` voltam para a página de
   origem. Só caminhos internos (nada de `//outro-site` ou `https://...`).
 
+## Planilha Excel: exportar e importar
+
+- **Exportar** (`GET /v1/semesters/:id/export.xlsx`): abas Resumo (com fórmulas), Historico (as
+  faltas) e Grade Horária, mais uma aba **muito oculta** `Dados` (o aluno não vê nem reexibe pelo
+  Excel) com o semestre inteiro em JSON: regras, grade, feriados e todos os registros (presenças,
+  faltas, parciais, canceladas, anotações). O formato é `spreadsheetDataSchema`
+  (`packages/contracts/src/imports.ts`), em pedaços de 30 mil caracteres por célula (limite do Excel).
+- **Importar** (`/semestres/importar` → `POST /v1/imports/semester`, com `Idempotency-Key`): o
+  navegador lê o arquivo (`apps/web/src/lib/spreadsheet-import.ts`, ExcelJS carregado só nessa hora)
+  e mostra uma prévia com nome e datas editáveis; nada sai do aparelho até o aluno confirmar.
+  - Planilha nova: usa a aba `Dados`, importação exata. Se o Histórico foi editado no Excel, avisa que
+    vale o original.
+  - Planilha antiga (sem `Dados`): reconstrói pelas abas visíveis. Regras e cor saem do Resumo e da
+    Grade, as faltas do Historico; as datas do semestre são estimadas pelo nome (`2026.1` → fev–jul,
+    `.2` → ago–dez, sempre cobrindo as faltas). Presenças e feriados não existem nelas, e a tela avisa.
+  - A API valida tudo de novo (`SpreadsheetImportService`): data dentro do semestre e não no futuro,
+    horário no dia da semana certo, parcial menor que a aula, sem aula repetida. O erro aponta o
+    registro (`attendance.N.campo`, "Registro N (dd/mm/aaaa): ..."), e nada é gravado.
+  - Cria semestre, matérias, grade, feriados e registros numa transação só (nome repetido ganha
+    "(2)"). Os marcos de aviso ficam em dia **sem avisar** sobre faltas antigas
+    (`ThresholdAlerts.sync`). Limite de 10 importações por hora, até 3.000 registros, corpo de até
+    2 MB só nessa rota.
+
 ## Hospedagem gratuita (sem cartão)
 
 Guia passo a passo em [`docs/deploy-gratuito.md`](docs/deploy-gratuito.md): site na Vercel, API no

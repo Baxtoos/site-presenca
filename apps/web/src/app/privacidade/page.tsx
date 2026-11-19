@@ -53,7 +53,9 @@ export default function PrivacidadePage() {
             <strong>Acesso e portabilidade:</strong> em <em>Conta → Seus dados e privacidade</em>,
             você pode baixar todos os seus dados estruturados em formato JSON (
             <code>/api/v1/me/export.json</code>), além de exportar cada semestre em planilha Excel (
-            <code>.xlsx</code>).
+            <code>.xlsx</code>). A planilha também pode ser importada de volta (em outra conta ou
+            neste app): o arquivo é lido no seu aparelho, e só os dados do semestre são enviados,
+            quando você confirma.
           </li>
           <li>
             <strong>Eliminação definitiva:</strong> em <em>Conta → Excluir minha conta</em>, você

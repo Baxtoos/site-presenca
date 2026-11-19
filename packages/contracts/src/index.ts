@@ -3,6 +3,7 @@ export * from "./academic";
 export * from "./attendance";
 export * from "./notifications";
 export * from "./sharing";
+export * from "./imports";
 export * from "./health";
 export * from "./problem";
 export * from "./routes";

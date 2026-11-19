@@ -1,9 +1,18 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  SPREADSHEET_CHUNK,
+  SPREADSHEET_DATA_SHEET,
+  SPREADSHEET_FORMAT,
+  SUBJECT_COLORS,
+  type SpreadsheetData,
+  spreadsheetDataSchema,
+} from "@presenca/contracts";
 import { schema } from "@presenca/db";
 import { isoWeekday, summarize } from "@presenca/engine";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { DbService } from "../database/db.service";
+import { subjectToTemplate } from "../sharing/sharing.mapper";
 import { NO_ATTENDANCE, rulesFromRow } from "./mappers";
 
 const WEEKDAY_NAMES: Record<number, string> = {
@@ -25,14 +34,15 @@ const REASON_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-const SUBJECT_TINTS: Record<string, string> = {
+/** Tipado pelas cores do contrato: uma cor nova ou renomeada quebra a compilação aqui. */
+const SUBJECT_TINTS: Record<(typeof SUBJECT_COLORS)[number], string> = {
   blue: "FFE2ECF5",
   teal: "FFDDF2EE",
   green: "FFE1F2E7",
   amber: "FFFBF1CF",
   orange: "FFFBE5D6",
   rose: "FFF8DEDB",
-  purple: "FFEDE4F7",
+  violet: "FFEDE4F7",
   slate: "FFEEF2F6",
 };
 
@@ -97,6 +107,8 @@ export interface GeneratedExcel {
 
 @Injectable()
 export class ExcelExportService {
+  private readonly logger = new Logger(ExcelExportService.name);
+
   constructor(private readonly db: DbService) {}
 
   async exportSemester(semesterId: string): Promise<GeneratedExcel> {
@@ -122,6 +134,8 @@ export class ExcelExportService {
           schedules: [],
           totalsRows: [],
           logs: [],
+          allLogs: [],
+          exceptions: [],
         };
       }
 
@@ -147,7 +161,19 @@ export class ExcelExportService {
         )
         .orderBy(asc(schema.attendanceLogs.classDate), asc(schema.attendanceLogs.createdAt));
 
-      return { user, semester, subjects, schedules, totalsRows, logs };
+      // Para a aba oculta "Dados" (reimportar a planilha): todos os registros e os feriados.
+      const allLogs = await tx
+        .select()
+        .from(schema.attendanceLogs)
+        .where(inArray(schema.attendanceLogs.subjectId, subjectIds))
+        .orderBy(asc(schema.attendanceLogs.classDate));
+      const exceptions = await tx
+        .select()
+        .from(schema.calendarExceptions)
+        .where(eq(schema.calendarExceptions.semesterId, semesterId))
+        .orderBy(asc(schema.calendarExceptions.startsOn));
+
+      return { user, semester, subjects, schedules, totalsRows, logs, allLogs, exceptions };
     });
 
     const workbook = new ExcelJS.Workbook();
@@ -527,13 +553,17 @@ export class ExcelExportService {
           });
           cell.value = lines.join("\n---\n");
           const tint =
-            (firstSubject?.color ? SUBJECT_TINTS[firstSubject.color] : undefined) ?? "FFE2ECF5";
+            (firstSubject?.color
+              ? SUBJECT_TINTS[firstSubject.color as (typeof SUBJECT_COLORS)[number]]
+              : undefined) ?? "FFE2ECF5";
           cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: tint } };
         }
       }
     });
 
     autoFitColumns(grade, 7, 15, 32);
+
+    this.addDataSheet(workbook, data);
 
     const arrayBuffer = await workbook.xlsx.writeBuffer();
     const slug =
@@ -548,5 +578,82 @@ export class ExcelExportService {
       buffer: Buffer.from(arrayBuffer),
       filename: `presenca_${slug}.xlsx`,
     };
+  }
+
+  /**
+   * Aba "muito oculta" com o semestre completo em JSON (o mesmo formato da importação), para o
+   * site reconstruir tudo ao receber a planilha de volta: regras, grade, feriados e registros.
+   * Não aparece no Excel; se o semestre passar dos limites da importação, a aba fica de fora.
+   */
+  private addDataSheet(
+    workbook: ExcelJS.Workbook,
+    data: {
+      semester: { label: string; startsOn: string; endsOn: string };
+      subjects: (typeof schema.subjects.$inferSelect)[];
+      schedules: (typeof schema.subjectSchedules.$inferSelect)[];
+      allLogs: (typeof schema.attendanceLogs.$inferSelect)[];
+      exceptions: (typeof schema.calendarExceptions.$inferSelect)[];
+    },
+  ): void {
+    const subjectIndex = new Map(data.subjects.map((s, i) => [s.id, i]));
+    // Mesma ordem dos horários que subjectToTemplate usa: o índice aponta o horário certo.
+    const scheduleIndex = new Map<string, number>();
+    for (const s of data.subjects) {
+      data.schedules
+        .filter((x) => x.subjectId === s.id)
+        .sort((a, b) => a.weekday - b.weekday || a.startsAt.localeCompare(b.startsAt))
+        .forEach((x, i) => scheduleIndex.set(x.id, i));
+    }
+    const payload: SpreadsheetData = {
+      format: SPREADSHEET_FORMAT,
+      version: 1,
+      data: {
+        semester: {
+          label: data.semester.label,
+          startsOn: data.semester.startsOn,
+          endsOn: data.semester.endsOn,
+        },
+        subjects: data.subjects.map((s) =>
+          subjectToTemplate(
+            s,
+            data.schedules.filter((x) => x.subjectId === s.id),
+          ),
+        ),
+        exceptions: data.exceptions
+          .filter((e) => e.subjectId === null || subjectIndex.has(e.subjectId))
+          .map((e) => ({
+            startsOn: e.startsOn,
+            endsOn: e.endsOn,
+            kind: e.kind,
+            label: e.label,
+            subjectIndex: e.subjectId === null ? null : subjectIndex.get(e.subjectId)!,
+          })),
+        attendance: data.allLogs
+          .filter((l) => subjectIndex.has(l.subjectId))
+          .map((l) => ({
+            subjectIndex: subjectIndex.get(l.subjectId)!,
+            scheduleIndex: l.scheduleId ? (scheduleIndex.get(l.scheduleId) ?? null) : null,
+            classDate: l.classDate,
+            status: l.status,
+            ...(l.scheduleId ? {} : { unitsScheduled: l.unitsScheduled }),
+            ...(l.status === "partial" ? { unitsMissed: l.unitsMissed } : {}),
+            isExcused: l.isExcused,
+            reason: l.reason,
+            ...(l.note ? { note: l.note } : {}),
+          })),
+      },
+    };
+    const parsed = spreadsheetDataSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.logger.warn(`aba de dados fora da planilha: ${parsed.error.issues[0]?.message ?? "?"}`);
+      return;
+    }
+    const sheet = workbook.addWorksheet(SPREADSHEET_DATA_SHEET, { state: "veryHidden" });
+    sheet.getCell("A1").value =
+      "Dados do Monitor de Presenças para reimportar esta planilha. Não edite esta aba.";
+    const json = JSON.stringify(parsed.data);
+    for (let i = 0, row = 2; i < json.length; i += SPREADSHEET_CHUNK, row++) {
+      sheet.getCell(`A${row}`).value = json.slice(i, i + SPREADSHEET_CHUNK);
+    }
   }
 }

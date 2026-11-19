@@ -72,7 +72,15 @@ for (const scheme of ["light", "dark"] as const) {
     await page.goto(`${subjectPath}/editar`);
     await expectAccessible(page, "editar matéria");
 
-    for (const url of ["/", "/hoje", "/semestres", "/conta", "/avisos", "/compartilhar"]) {
+    for (const url of [
+      "/",
+      "/hoje",
+      "/semestres",
+      "/conta",
+      "/avisos",
+      "/compartilhar",
+      "/semestres/importar",
+    ]) {
       await page.goto(url);
       await expectAccessible(page, url);
     }
