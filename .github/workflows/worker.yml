@@ -9,13 +9,16 @@
 #   SMTP_URL / RESEND_API_KEY / MAIL_FROM   conforme o transporte
 #   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT   (opcionais; juntos, para o push)
 #
-# Repositório PRIVADO: o GitHub dá 2000 min/mês grátis e cada disparo gasta ~1 min. Com "*/15" são
-# ~2900 min/mês; troque para "*/30" (~1450 min). Repositório público: sem limite.
+# Repositório PRIVADO: o GitHub dá 2000 min/mês grátis e cada disparo gasta ~1 min. A cada 15 min são
+# ~2900 min/mês; deixe só dois minutos por hora (~1450 min). Repositório público: sem limite.
 name: Worker (pontual)
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Minutos "quebrados" de propósito: o agendador do GitHub é "melhor esforço" e atrasa ou
+    # descarta disparos nos minutos cheios (:00, :15, :30, :45), quando todo mundo agenda. Com
+    # "*/15" o worker rodou 1 vez em 7 horas.
+    - cron: "4,19,34,49 * * * *"
   workflow_dispatch:
 
 # Nunca dois ao mesmo tempo (o banco já evita envio duplicado; isto só poupa trabalho).
