@@ -192,11 +192,39 @@ export type NotificationPreferences = z.infer<typeof notificationPreferencesSche
 
 // ---------------------------------------------------------------- push
 
+/**
+ * Serviços de push dos navegadores (Chrome/Edge/Brave via FCM, Firefox, Safari, Windows).
+ * O worker faz POST no endereço da inscrição: aceitar qualquer URL abriria SSRF.
+ */
+const PUSH_HOSTS = [
+  /^fcm\.googleapis\.com$/,
+  /^android\.googleapis\.com$/,
+  /^updates\.push\.services\.mozilla\.com$/,
+  /^([a-z0-9-]+\.)*push\.apple\.com$/,
+  /^([a-z0-9-]+\.)*notify\.windows\.com$/,
+];
+
+/** true se o endereço é HTTPS, na porta padrão, de um serviço de push conhecido. */
+export function isPushServiceUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === "" &&
+      PUSH_HOSTS.some((host) => host.test(url.hostname))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const pushSubscriptionBodySchema = z.object({
   endpoint: z
     .url({ error: "Endereço de push inválido." })
     .max(2048)
-    .refine((v) => v.startsWith("https://"), { error: "O endereço de push precisa ser HTTPS." }),
+    .refine(isPushServiceUrl, { error: "Este navegador usa um serviço de push não suportado." }),
   keys: z.object({
     p256dh: z.string().min(16).max(256),
     auth: z.string().min(8).max(128),

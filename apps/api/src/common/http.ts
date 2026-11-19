@@ -51,6 +51,12 @@ export async function configureApp(
   // Cookies (sessão e OAuth). Sem assinatura: os valores são tokens aleatórios conferidos no banco.
   await app.register(cookie as never);
 
+  // Respostas com dados do aluno não ficam em cache (navegador, proxy, CDN).
+  fastify.addHook("onSend", (_request, reply, payload, done) => {
+    if (!reply.hasHeader("cache-control")) void reply.header("cache-control", "no-store");
+    done(null, payload);
+  });
+
   fastify.decorateRequest("clientIp", "");
   fastify.addHook("onRequest", (request, reply, done) => {
     void reply.header("x-request-id", request.id);

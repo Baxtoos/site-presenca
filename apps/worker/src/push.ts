@@ -1,3 +1,4 @@
+import { isPushServiceUrl } from "@presenca/contracts";
 import webpush, { WebPushError } from "web-push";
 
 export interface PushTarget {
@@ -36,6 +37,10 @@ export class WebPushSender implements PushSender {
   }
 
   async send(target: PushTarget, message: PushMessage, urgent: boolean): Promise<PushOutcome> {
+    // Defesa em profundidade (a API já valida): nunca faz POST fora dos serviços de push.
+    if (!isPushServiceUrl(target.endpoint)) {
+      return { ok: false, gone: true, error: "endereço de push fora dos serviços conhecidos" };
+    }
     try {
       await webpush.sendNotification(
         { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },

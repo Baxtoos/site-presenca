@@ -726,6 +726,8 @@ describe("calendário da matéria", () => {
       `/v1/subjects/${c.subject.id}/calendar${month ? `?month=${month}` : ""}`,
     );
     expect(res.statusCode, res.body).toBe(200);
+    // Dados do aluno nunca ficam em cache de navegador ou proxy.
+    expect(res.headers["cache-control"]).toBe("no-store");
     return subjectCalendarSchema.parse(res.json());
   };
 

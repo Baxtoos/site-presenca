@@ -53,9 +53,45 @@ export default function PrivacidadePage() {
           <li>
             <strong>Eliminação definitiva:</strong> em <em>Conta → Excluir minha conta</em>, você
             pode apagar imediatamente sua conta, matérias, registros de presença, sessões e trilha
-            de auditoria.
+            de auditoria. Cópias de segurança criptografadas do banco são guardadas por até 30 dias
+            e depois apagadas automaticamente; nesse prazo, seus dados só seriam lidos para
+            restaurar o serviço após uma falha.
+          </li>
+          <li>
+            <strong>Correção, informação e revogação:</strong> você corrige seus dados em{" "}
+            <em>Conta</em> e pode pedir informações sobre o tratamento pelo contato abaixo.
           </li>
         </ul>
+
+        <h2 className="pt-2 text-base font-semibold">4. Para que usamos e por quanto tempo</h2>
+        <ul className="list-disc space-y-1 pl-5 text-muted">
+          <li>
+            <strong>Finalidade:</strong> calcular suas faltas, avisar quando você se aproxima do
+            limite e proteger sua conta. Base legal: execução do serviço que você pediu ao criar a
+            conta (art. 7º, V) e legítimo interesse na segurança (art. 7º, IX).
+          </li>
+          <li>
+            <strong>Retenção:</strong> enquanto a conta existir. Sessões expiram após 14 dias sem
+            uso (no máximo 90 dias); links de acesso e de nova senha valem 15 minutos.
+          </li>
+        </ul>
+
+        <h2 className="pt-2 text-base font-semibold">5. Quem processa os dados para nós</h2>
+        <p className="text-muted">
+          Usamos serviços de infraestrutura que tratam os dados só para operar o app, sem uso
+          próprio: Vercel (site), Render (servidor), Neon (banco de dados), Upstash (limite de
+          tentativas), GitHub (avisos agendados e cópias de segurança criptografadas) e Google
+          (envio de e-mails). Se ativado, o Sentry recebe relatórios de erro sem dados pessoais (sem
+          e-mail, IP ou conteúdo das suas anotações). Esses serviços ficam fora do Brasil
+          (principalmente nos Estados Unidos); a transferência é necessária para prestar o serviço
+          (art. 33 da LGPD).
+        </p>
+
+        <h2 className="pt-2 text-base font-semibold">6. Contato</h2>
+        <p className="text-muted">
+          Dúvidas ou pedidos sobre seus dados: responda a qualquer e-mail enviado pelo Monitor de
+          Presenças. Respondemos em até 15 dias.
+        </p>
       </section>
 
       <footer className="flex flex-wrap gap-4 text-xs text-muted">

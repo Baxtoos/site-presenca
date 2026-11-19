@@ -427,7 +427,7 @@ describe("preferências e push", () => {
   });
 
   const subscription = (n: number) => ({
-    endpoint: `https://push.exemplo.com/send/${n}-${randomUUID()}`,
+    endpoint: `https://fcm.googleapis.com/fcm/send/${n}-${randomUUID()}`,
     keys: { p256dh: "B".repeat(87), auth: "a".repeat(22) },
   });
 
@@ -471,12 +471,32 @@ describe("preferências e push", () => {
     expect(owner.rows[0]).toEqual({ user_id: ana.userId });
   });
 
-  it("endereço que não é HTTPS é recusado", async () => {
+  it.each([
+    ["sem HTTPS", "http://fcm.googleapis.com/fcm/send/x"],
+    ["serviço desconhecido", "https://push.exemplo.com/x"],
+    ["rede interna (SSRF)", "https://169.254.169.254/latest/meta-data"],
+    ["porta fora do padrão", "https://fcm.googleapis.com:8443/fcm/send/x"],
+    ["domínio parecido", "https://fcm.googleapis.com.evil.example/x"],
+  ])("endereço de push recusado: %s", async (_label, endpoint) => {
     const c = await setup();
     const res = await c.b.request("POST", "/v1/push-subscriptions", {
       ...subscription(3),
-      endpoint: "http://push.exemplo.com/x",
+      endpoint,
     });
     expect(res.statusCode).toBe(422);
+  });
+
+  it.each([
+    "https://fcm.googleapis.com/fcm/send/abc",
+    "https://updates.push.services.mozilla.com/wpush/v2/abc",
+    "https://web.push.apple.com/QGx",
+    "https://wns2-par02p.notify.windows.com/w/?token=abc",
+  ])("serviço de push dos navegadores aceito: %s", async (endpoint) => {
+    const c = await setup();
+    const res = await c.b.request("POST", "/v1/push-subscriptions", {
+      ...subscription(4),
+      endpoint,
+    });
+    expect(res.statusCode, res.body).toBe(201);
   });
 });
