@@ -12,67 +12,200 @@ interface ActionEmailProps {
   paragraphs: string[];
   actionLabel: string;
   actionUrl: string;
+  /** Link secundário, em texto, abaixo do botão (ex.: "Esqueci a senha"). */
+  secondary?: { label: string; url: string };
+  /** Destaque em bloco cinza (o texto principal de um aviso). */
+  callout?: string;
   footnote: string;
 }
 
+/*
+ * Visual do app (inspirado no Notion): página quase branca, cartão branco de borda fina,
+ * tinta grafite, azul só no botão. Sem imagens: nada a bloquear, nada a baixar.
+ */
+const C = {
+  page: "#F7F7F5",
+  card: "#FFFFFF",
+  line: "#E9E9E7",
+  ink: "#37352F",
+  muted: "#64635E",
+  accent: "#0B6BCB",
+  calloutBg: "#F1F1EF",
+};
+const FONT =
+  "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+
 /** Layout de e-mail com uma ação principal: tabelas e estilos inline (Gmail, Outlook, Apple Mail). */
 function ActionEmail(props: ActionEmailProps) {
+  // Texto que aparece ao lado do assunto na caixa de entrada.
+  const preview = props.callout ?? props.paragraphs.find((p) => !p.startsWith("Olá")) ?? "";
   return (
     <html lang="pt-BR">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light" />
+        <meta name="supported-color-schemes" content="light" />
         <title>{props.title}</title>
       </head>
-      <body style={{ margin: 0, backgroundColor: "#F4F6F8", fontFamily: "Arial, sans-serif" }}>
-        <table role="presentation" width="100%" cellPadding={0} cellSpacing={0}>
+      <body style={{ margin: 0, padding: 0, backgroundColor: C.page, fontFamily: FONT }}>
+        <div
+          style={{
+            display: "none",
+            maxHeight: 0,
+            overflow: "hidden",
+            opacity: 0,
+            color: C.page,
+            fontSize: 1,
+            lineHeight: "1px",
+          }}
+        >
+          {preview}
+        </div>
+        <table
+          role="presentation"
+          width="100%"
+          cellPadding={0}
+          cellSpacing={0}
+          style={{ backgroundColor: C.page }}
+        >
           <tbody>
             <tr>
-              <td align="center" style={{ padding: "24px 12px" }}>
+              <td align="center" style={{ padding: "32px 12px" }}>
                 <table
                   role="presentation"
                   width="100%"
                   cellPadding={0}
                   cellSpacing={0}
-                  style={{ maxWidth: 520, backgroundColor: "#FFFFFF", borderRadius: 10 }}
+                  style={{ maxWidth: 520 }}
                 >
                   <tbody>
                     <tr>
-                      <td style={{ padding: 28, color: "#15212C", fontSize: 15, lineHeight: 1.55 }}>
-                        <p style={{ margin: "0 0 16px", fontSize: 13, color: "#56657A" }}>
-                          Monitor de Presenças
-                        </p>
-                        <h1 style={{ fontSize: 20, margin: "0 0 16px" }}>{props.title}</h1>
+                      <td
+                        style={{
+                          padding: "0 4px 14px",
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: C.ink,
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        Monitor de Presenças
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        style={{
+                          backgroundColor: C.card,
+                          border: `1px solid ${C.line}`,
+                          borderRadius: 12,
+                          padding: "28px 28px 24px",
+                          color: C.ink,
+                          fontSize: 15,
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        <h1
+                          style={{
+                            fontSize: 22,
+                            lineHeight: 1.3,
+                            fontWeight: 700,
+                            letterSpacing: "-0.01em",
+                            margin: "0 0 16px",
+                            color: C.ink,
+                          }}
+                        >
+                          {props.title}
+                        </h1>
                         {props.paragraphs.map((p) => (
                           <p key={p} style={{ margin: "0 0 14px" }}>
                             {p}
                           </p>
                         ))}
-                        <p style={{ margin: "22px 0" }}>
+                        {props.callout ? (
+                          <table
+                            role="presentation"
+                            width="100%"
+                            cellPadding={0}
+                            cellSpacing={0}
+                            style={{ margin: "4px 0 14px" }}
+                          >
+                            <tbody>
+                              <tr>
+                                <td
+                                  style={{
+                                    backgroundColor: C.calloutBg,
+                                    borderRadius: 8,
+                                    padding: "14px 16px",
+                                  }}
+                                >
+                                  {props.callout}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        ) : null}
+                        <p style={{ margin: "22px 0 8px" }}>
                           <a
                             href={props.actionUrl}
                             style={{
                               display: "inline-block",
-                              backgroundColor: "#1D5C8C",
+                              backgroundColor: C.accent,
                               color: "#FFFFFF",
-                              padding: "11px 20px",
-                              borderRadius: 8,
+                              padding: "10px 18px",
+                              borderRadius: 6,
                               textDecoration: "none",
                               fontWeight: 600,
+                              fontSize: 15,
                             }}
                           >
                             {props.actionLabel}
                           </a>
                         </p>
-                        <p style={{ margin: "0 0 8px", fontSize: 13, color: "#56657A" }}>
+                        {props.secondary ? (
+                          <p style={{ margin: "12px 0 0", fontSize: 14 }}>
+                            <a
+                              href={props.secondary.url}
+                              style={{ color: C.accent, textDecoration: "underline" }}
+                            >
+                              {props.secondary.label}
+                            </a>
+                          </p>
+                        ) : null}
+                        <p
+                          style={{
+                            margin: "22px 0 6px",
+                            paddingTop: 18,
+                            borderTop: `1px solid ${C.line}`,
+                            fontSize: 13,
+                            color: C.muted,
+                          }}
+                        >
                           Se o botão não funcionar, copie este endereço no navegador:
                         </p>
-                        <p style={{ margin: "0 0 20px", fontSize: 13, wordBreak: "break-all" }}>
+                        <p
+                          style={{
+                            margin: "0 0 14px",
+                            fontSize: 13,
+                            color: C.muted,
+                            wordBreak: "break-all",
+                          }}
+                        >
                           {props.actionUrl}
                         </p>
-                        <p style={{ margin: 0, fontSize: 13, color: "#56657A" }}>
-                          {props.footnote}
-                        </p>
+                        <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{props.footnote}</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        style={{
+                          padding: "14px 4px 0",
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                          color: C.muted,
+                        }}
+                      >
+                        Monitor de Presenças · controle de faltas por matéria
                       </td>
                     </tr>
                   </tbody>
@@ -91,8 +224,10 @@ function render(subject: string, props: ActionEmailProps): RenderedEmail {
     props.title,
     "",
     ...props.paragraphs,
+    ...(props.callout ? ["", props.callout] : []),
     "",
     `${props.actionLabel}: ${props.actionUrl}`,
+    ...(props.secondary ? [`${props.secondary.label}: ${props.secondary.url}`] : []),
     "",
     props.footnote,
   ].join("\n");
@@ -139,10 +274,11 @@ export function accountExistsMessage(params: {
     title: "Você já tem uma conta",
     paragraphs: [
       "Alguém (provavelmente você) tentou criar uma conta com este e-mail, mas ela já existe.",
-      `Para entrar, use o botão abaixo. Se esqueceu a senha, escolha uma nova em ${params.resetUrl}.`,
+      "Para entrar, use o botão abaixo. Se esqueceu a senha, escolha uma nova pelo link logo abaixo dele.",
     ],
     actionLabel: "Entrar",
     actionUrl: params.loginUrl,
+    secondary: { label: "Esqueci a senha", url: params.resetUrl },
     footnote: "Se não foi você, ignore este e-mail: nada mudou na sua conta.",
   });
 }
@@ -203,7 +339,8 @@ export function noticeMessage(params: {
 }): RenderedEmail {
   return render(params.title, {
     title: params.title,
-    paragraphs: [`Olá, ${params.name}.`, params.body],
+    paragraphs: [`Olá, ${params.name}.`],
+    callout: params.body,
     actionLabel: "Abrir no app",
     actionUrl: params.url,
     footnote: `Você recebe este e-mail porque os avisos por e-mail estão ligados. Para mudar, abra ${params.settingsUrl}.`,

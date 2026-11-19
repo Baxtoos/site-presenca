@@ -18,12 +18,18 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
   const password = "uma-senha-bem-forte-do-e2e-1";
   const newPassword = "outra-senha-bem-forte-do-e2e-2";
 
-  // Sem sessão, a página inicial manda para o login.
+  // Sem sessão, a página inicial é a apresentação do app (a barra continua em "/").
   await page.goto("/");
-  await expectPath(page, /^\/entrar$/);
+  await expect(
+    page.getByRole("heading", { name: "Saiba quanto você ainda pode faltar." }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Já tenho conta" })).toHaveAttribute(
+    "href",
+    "/entrar",
+  );
 
   // Cadastro: a conta só nasce no link do e-mail, que já entra e confirma o e-mail.
-  await page.getByRole("link", { name: "Criar conta" }).click();
+  await page.getByRole("link", { name: "Criar conta grátis" }).first().click();
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
   await signUp(page, { name: "Ana E2E", email, password });
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();

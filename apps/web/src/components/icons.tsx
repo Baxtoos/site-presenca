@@ -187,3 +187,10 @@ export const LibraryIcon = (p: IconProps) => (
     <path d="m16.2 5.4 3.8-1 3 14.6-3.8 1z" />
   </Svg>
 );
+
+export const MonitorIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="4" width="19" height="13" rx="2" />
+    <path d="M8.5 21h7M12 17v4" />
+  </Svg>
+);

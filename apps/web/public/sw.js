@@ -82,7 +82,15 @@ async function handleNavigation(request) {
   try {
     const response = await fetchWithTimeout(request, NAV_TIMEOUT_MS);
     // Só guarda página completa da própria URL: redirecionamento (sessão expirada → /entrar) não.
-    if (cacheable && response.ok && response.type === "basic" && !response.redirected) {
+    // Nem a apresentação pública, que o site mostra em "/" para quem está sem sessão.
+    const publicPage = response.headers.get("x-presenca-publica") === "1";
+    if (
+      cacheable &&
+      !publicPage &&
+      response.ok &&
+      response.type === "basic" &&
+      !response.redirected
+    ) {
       const cache = await caches.open(PAGES_CACHE);
       await cache.put(request, response.clone());
     }

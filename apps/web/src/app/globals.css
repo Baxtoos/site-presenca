@@ -33,8 +33,9 @@
     0 0 0 1px rgb(15 15 15 / 0.05), 0 3px 6px rgb(15 15 15 / 0.1), 0 9px 24px rgb(15 15 15 / 0.2);
 }
 
+/* Escuro: segue o aparelho, a menos que a pessoa tenha fixado o claro (ver lib/theme.ts). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --color-paper: #191919;
     --color-sidebar: #202020;
     --color-surface: #202020;
@@ -59,6 +60,37 @@
       0 0 0 1px rgb(255 255 255 / 0.08), 0 3px 6px rgb(0 0 0 / 0.4), 0 9px 24px rgb(0 0 0 / 0.5);
     color-scheme: dark;
   }
+}
+
+/* Escuro escolhido no app, mesmo com o aparelho no claro. */
+:root[data-theme="dark"] {
+  --color-paper: #191919;
+  --color-sidebar: #202020;
+  --color-surface: #202020;
+  --color-surface-2: #2a2a2a;
+  --color-hover: #303030;
+  --color-ink: #e6e5e3;
+  --color-muted: #a3a29e;
+  --color-line: #2f2f2f;
+  --color-line-strong: #3f3f3f;
+  --color-accent: #529cca;
+  --color-accent-ink: #111111;
+  --color-accent-soft: #1d2d3a;
+  --color-ok: #6bbf8a;
+  --color-ok-soft: #1e2d24;
+  --color-warn: #dfb455;
+  --color-warn-soft: #332a17;
+  --color-fail: #ef7d76;
+  --color-fail-soft: #3a2222;
+  --color-crit: #ee9a62;
+  --color-crit-soft: #392818;
+  --shadow-pop:
+    0 0 0 1px rgb(255 255 255 / 0.08), 0 3px 6px rgb(0 0 0 / 0.4), 0 9px 24px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {

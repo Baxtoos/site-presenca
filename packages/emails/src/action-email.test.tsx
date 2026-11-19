@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountExistsMessage,
   magicLinkMessage,
   noticeMessage,
   resetPasswordMessage,
@@ -48,5 +49,25 @@ describe("aviso do app", () => {
     expect(email.html).toContain('href="https://app.exemplo/materias/1"');
     expect(email.html).not.toContain("<script>");
     expect(email.text).toContain("https://app.exemplo/conta");
+  });
+});
+
+describe("visual dos e-mails", () => {
+  it("usa a paleta do app, sem imagens, com texto de prévia", () => {
+    const msg = resetPasswordMessage({ url: "https://app.exemplo/r?token=x" });
+    expect(msg.html).toContain("background-color:#0B6BCB");
+    expect(msg.html).toContain("color:#37352F");
+    expect(msg.html).not.toMatch(/<img/i);
+    // Prévia na caixa de entrada: a primeira frase que não é a saudação.
+    expect(msg.html).toContain("Recebemos um pedido para trocar a senha da sua conta.");
+  });
+
+  it("aviso de conta existente traz o link de nova senha como link secundário", () => {
+    const msg = accountExistsMessage({
+      loginUrl: "https://app.exemplo/entrar",
+      resetUrl: "https://app.exemplo/esqueci-senha",
+    });
+    expect(msg.html).toContain('href="https://app.exemplo/esqueci-senha"');
+    expect(msg.text).toContain("Esqueci a senha: https://app.exemplo/esqueci-senha");
   });
 });

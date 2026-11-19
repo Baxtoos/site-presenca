@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { THEME_COLOR, THEME_SCRIPT } from "@/lib/theme";
 import { URL_MASK_SCRIPT } from "@/lib/url-mask";
 import "./globals.css";
 
@@ -17,15 +18,17 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#191919" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
   ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    // data-theme é posto pelo script de tema antes da hidratação (ver lib/theme.ts).
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* Precisa rodar antes do Next hidratar (ver lib/url-mask.ts). */}
         <script dangerouslySetInnerHTML={{ __html: URL_MASK_SCRIPT }} />
       </head>

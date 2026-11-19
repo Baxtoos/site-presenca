@@ -10,7 +10,25 @@ import { type NextRequest, NextResponse } from "next/server";
 const CLIENT_IP_HEADER = "x-presenca-client-ip";
 const PROXY_SECRET_HEADER = "x-presenca-proxy-secret";
 
+/** Cookie de sessão da API (apps/api/src/auth/session.service.ts). */
+const SESSION_COOKIE = "__Host-sid";
+
+/**
+ * Quem abre "/" sem sessão vê a apresentação do app (a barra continua em "/"). Com cookie, segue
+ * para o Início; se o cookie estiver vencido, a área logada manda para /entrar como sempre.
+ * O cabeçalho avisa o service worker para não guardar esta página como cópia do Início.
+ */
+function landing(request: NextRequest) {
+  const response = NextResponse.rewrite(new URL("/apresentacao", request.url));
+  response.headers.set("x-presenca-publica", "1");
+  return response;
+}
+
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/") {
+    return request.cookies.has(SESSION_COOKIE) ? NextResponse.next() : landing(request);
+  }
+
   const headers = new Headers(request.headers);
   // Valores vindos do navegador nunca passam adiante.
   headers.delete(CLIENT_IP_HEADER);
@@ -28,6 +46,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Só as chamadas à API (reescritas para o Render em next.config.ts).
-  matcher: "/api/:path*",
+  // As chamadas à API (reescritas para o Render em next.config.ts) e a página inicial.
+  matcher: ["/", "/api/:path*"],
 };

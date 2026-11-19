@@ -40,7 +40,8 @@ for (const scheme of ["light", "dark"] as const) {
     test.slow();
     await page.emulateMedia({ colorScheme: scheme });
 
-    for (const url of ["/entrar", "/cadastro", "/esqueci-senha", "/privacidade", "/termos"]) {
+    // "/" sem sessão é a apresentação pública.
+    for (const url of ["/", "/entrar", "/cadastro", "/esqueci-senha", "/privacidade", "/termos"]) {
       await page.goto(url);
       await expectAccessible(page, url);
     }
@@ -77,3 +78,43 @@ for (const scheme of ["light", "dark"] as const) {
     }
   });
 }
+
+test("tema escolhido no app vale mesmo com o aparelho no outro tema", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await setupStudentWithClassToday(page, testInfo, {
+    name: "Teo Tema",
+    slug: "tema",
+    subject: "Artes",
+  });
+  const paper = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(await paper()).toBe("rgb(255, 255, 255)");
+
+  await page.goto("/conta");
+  const aparencia = page.getByRole("region", { name: "Aparência" });
+  await expect(aparencia.getByRole("radio", { name: "Automático" })).toBeChecked();
+  await aparencia.getByText("Escuro", { exact: true }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  expect(await paper()).toBe("rgb(25, 25, 25)");
+  await expectAccessible(page, "conta (tema escuro escolhido)");
+
+  // Continua escuro ao recarregar e nas outras telas (sem piscar o claro).
+  await page.goto("/hoje");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  expect(await paper()).toBe("rgb(25, 25, 25)");
+
+  // Claro fixo com o aparelho no escuro.
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/conta");
+  await page.getByRole("region", { name: "Aparência" }).getByText("Claro", { exact: true }).click();
+  expect(await paper()).toBe("rgb(255, 255, 255)");
+
+  // Automático volta a seguir o aparelho.
+  await page
+    .getByRole("region", { name: "Aparência" })
+    .getByText("Automático", { exact: true })
+    .click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+  expect(await paper()).toBe("rgb(25, 25, 25)");
+});

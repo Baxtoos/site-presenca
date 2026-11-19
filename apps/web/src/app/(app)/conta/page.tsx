@@ -1,6 +1,7 @@
 import { notificationPreferencesSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
 import { NotificationSettings } from "@/components/notifications/settings";
+import { ThemePicker } from "@/components/theme-picker";
 import { apiGet, getMe } from "@/lib/api-server";
 import { LogoutButton, SessionsPanel } from "../home-client";
 import { LgpdPanel } from "./lgpd-panel";
@@ -26,6 +27,7 @@ export default async function AccountPage() {
         }
       />
       <NotificationSettings initial={prefs} />
+      <ThemePicker />
       <SessionsPanel />
       {me ? <LgpdPanel email={me.email} hasPassword={me.hasPassword} /> : null}
       <section
