@@ -1,6 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { waitForEmail, waitForLink } from "./mailpit";
 import { expectPath, openEmailLink, realPath, signUp } from "./setup-helpers";
+import { totp } from "./totp";
 
 const uniqueEmail = (testInfo: { project: { name: string } }) =>
   `e2e.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
@@ -177,4 +178,68 @@ test("conta sem senha exclui a conta pelo link enviado ao e-mail", async ({ page
   await page.getByLabel("E-mail").fill(email);
   await page.getByRole("button", { name: "Enviar link de acesso" }).click();
   await waitForLink(email, "Crie sua conta", againAt);
+});
+
+test("verificação em duas etapas: ligar, entrar com o código e com um código de recuperação", async ({
+  page,
+}, testInfo) => {
+  const email = uniqueEmail(testInfo);
+  const password = "senha-forte-com-dois-fatores";
+  await page.goto("/cadastro");
+  await signUp(page, { name: "Duda Dois Fatores", email, password });
+  await expect(page.getByRole("heading", { name: "Olá, Duda" })).toBeVisible();
+
+  // Ligar na página Conta: QR Code, chave para digitar, código do app e senha.
+  await page.goto("/conta");
+  const mfa = page.getByRole("region", { name: "Verificação em duas etapas" });
+  await mfa.getByRole("button", { name: "Ligar verificação em duas etapas" }).click();
+  await expect(
+    mfa.getByRole("img", { name: /QR Code para adicionar o Monitor de Presenças/ }),
+  ).toBeVisible();
+  const secret = (await mfa.getByTestId("mfa-chave").textContent())!.replace(/\s/g, "");
+  await mfa.getByLabel("Código do app").fill(totp(secret));
+  await mfa.getByLabel("Senha atual").fill(password);
+  await mfa.getByRole("button", { name: "Ligar", exact: true }).click();
+  await expect(mfa.getByTestId("mfa-codigos").locator("li")).toHaveCount(10);
+  const codes = (await mfa.getByTestId("mfa-codigos").locator("li").allTextContents()).map((c) =>
+    c.trim(),
+  );
+  expect(codes).toHaveLength(10);
+  await mfa.getByRole("button", { name: "Já guardei" }).click();
+  await expect(mfa).toContainText("Ligada");
+  await expect(mfa).toContainText("Restam 10 códigos de recuperação.");
+
+  // Login: a senha certa leva à tela do código.
+  await logout(page);
+  await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();
+  await page.getByLabel("Código do app").fill("000000");
+  await page.getByRole("button", { name: "Verificar e entrar" }).click();
+  await expect(page.locator("main").getByRole("alert")).toContainText("Código incorreto");
+  // O código de agora já foi usado para ligar: o app mostra o próximo.
+  await page.getByLabel("Código do app").fill(totp(secret, 1));
+  await page.getByRole("button", { name: "Verificar e entrar" }).click();
+  await expect(page.getByRole("heading", { name: "Olá, Duda" })).toBeVisible();
+
+  // Sem o celular: código de recuperação.
+  await logout(page);
+  await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await page.getByRole("button", { name: /Usar um código de recuperação/ }).click();
+  await page.getByLabel("Código de recuperação").fill(codes[0]!);
+  await page.getByRole("button", { name: "Verificar e entrar" }).click();
+  await expect(page.getByRole("heading", { name: "Olá, Duda" })).toBeVisible();
+
+  // Desligar pede um código (aqui, outro de recuperação).
+  await page.goto("/conta");
+  await expect(mfa).toContainText("Restam 9 códigos de recuperação.");
+  await mfa.getByRole("button", { name: "Desligar" }).click();
+  await mfa.getByLabel("Código do app ou de recuperação").fill(codes[1]!);
+  await mfa.getByRole("button", { name: "Desligar" }).click();
+  await expect(mfa.getByRole("button", { name: "Ligar verificação em duas etapas" })).toBeVisible();
 });

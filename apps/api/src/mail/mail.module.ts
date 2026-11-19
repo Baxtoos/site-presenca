@@ -18,7 +18,7 @@ import { MAILER, type Mailer } from "./mailer";
           resendApiKey: env.RESEND_API_KEY,
           // relay: o app web (Vercel) envia por SMTP, que o Render gratuito bloqueia.
           relayUrl: new URL(MAIL_RELAY_PATH, env.WEB_ORIGIN).href,
-          relaySecret: env.API_PROXY_SECRET,
+          relaySecret: env.MAIL_RELAY_SECRET ?? env.API_PROXY_SECRET,
           log: (line) => logger.log(line),
         });
       },

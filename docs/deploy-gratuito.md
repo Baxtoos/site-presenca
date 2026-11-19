@@ -107,7 +107,7 @@ o Brevo, costuma ser bloqueado pelo Gmail).
 
 > **O Render gratuito bloqueia SMTP** (portas 25, 465 e 587, desde setembro de 2025). Por isso a
 > API usa `MAIL_TRANSPORT=relay`: ela entrega a mensagem por HTTPS à rota interna do site
-> (`/interno/email`, na Vercel, protegida pelo `API_PROXY_SECRET`), e o site envia por SMTP. O
+> (`/interno/email`, na Vercel, protegida pelo `MAIL_RELAY_SECRET`), e o site envia por SMTP. O
 > worker roda no GitHub Actions, que não bloqueia SMTP, e envia direto (`MAIL_TRANSPORT=smtp`).
 
 1. Na conta Google do remetente, ligue a verificação em duas etapas e crie uma senha de app em
@@ -126,13 +126,15 @@ por HTTPS) também funciona direto do Render e dá um remetente mais profissiona
    `presenca-api` no plano **Free**.
 3. Preencha as variáveis marcadas como "sync: false":
 
-   | Variável           | Valor                                                                                                                                                    |
-   | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `WEB_ORIGIN`       | O endereço do site na Vercel, com `https://` e **sem** barra no fim (ex.: `https://meu-site.vercel.app`). Tem de ser idêntico ao que o navegador mostra. |
-   | `DATABASE_URL`     | A linha `DATABASE_URL` do passo 2 (papel `app_api`).                                                                                                     |
-   | `REDIS_URL`        | A URL `rediss://` do passo 4.                                                                                                                            |
-   | `API_PROXY_SECRET` | Gere com `openssl rand -base64 32`; o **mesmo** valor vai na Vercel (passo 8). Também protege o repasse de e-mail.                                       |
-   | `VAPID_PUBLIC_KEY` | A chave pública do passo 5 (ou deixe vazio).                                                                                                             |
+   | Variável             | Valor                                                                                                                                                                                               |
+   | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `WEB_ORIGIN`         | O endereço do site na Vercel, com `https://` e **sem** barra no fim (ex.: `https://meu-site.vercel.app`). Tem de ser idêntico ao que o navegador mostra.                                            |
+   | `DATABASE_URL`       | A linha `DATABASE_URL` do passo 2 (papel `app_api`).                                                                                                                                                |
+   | `REDIS_URL`          | A URL `rediss://` do passo 4.                                                                                                                                                                       |
+   | `API_PROXY_SECRET`   | Gere com `openssl rand -base64 32`; o **mesmo** valor vai na Vercel (passo 8).                                                                                                                      |
+   | `MAIL_RELAY_SECRET`  | Outro valor, gerado do mesmo jeito (**diferente** do `API_PROXY_SECRET`); o **mesmo** vai na Vercel (passo 8). Protege o repasse de e-mail.                                                         |
+   | `MFA_ENCRYPTION_KEY` | Mais um valor de `openssl rand -base64 32`, só no Render. Cifra as chaves da verificação em duas etapas; vazio = recurso indisponível. **Não troque depois**: quem já ligou teria de ligar de novo. |
+   | `VAPID_PUBLIC_KEY`   | A chave pública do passo 5 (ou deixe vazio).                                                                                                                                                        |
 
 4. Crie. O primeiro build leva alguns minutos. Quando terminar, copie a URL do serviço (algo como
    `https://presenca-api.onrender.com`).
@@ -150,8 +152,14 @@ Crie também **`API_PROXY_SECRET`** com o **mesmo valor** usado no Render (gere 
 a API só enxerga um IP da Cloudflare do Render, igual para todos, e o limite de tentativas por IP
 passa a valer para todo mundo junto.
 
-Crie ainda **`SMTP_URL`** e **`MAIL_FROM`** (os do passo 6): o site é quem envia os e-mails da API
-(`MAIL_TRANSPORT=relay` no Render). Faça um novo deploy depois de criar as variáveis.
+Crie ainda **`SMTP_URL`** e **`MAIL_FROM`** (os do passo 6) e **`MAIL_RELAY_SECRET`** (o mesmo do
+Render): o site é quem envia os e-mails da API (`MAIL_TRANSPORT=relay` no Render), e só aceita
+pedidos com esse segredo. Faça um novo deploy depois de criar as variáveis.
+
+> Instalações antigas usavam o `API_PROXY_SECRET` também para o e-mail; sem `MAIL_RELAY_SECRET`,
+> os dois lados continuam assim. Para separar: gere um valor novo, crie `MAIL_RELAY_SECRET` na
+> Vercel e no Render no mesmo momento e faça um novo deploy na Vercel. Nos 1 a 2 minutos em que
+> só um lado tem a variável, os e-mails da API (confirmação, link de acesso, nova senha) falham.
 
 Se o build do site falhar por falta dos pacotes internos, use como _Build Command_:
 `cd ../.. && pnpm turbo run build --filter=@presenca/web`, com _Root Directory_ `apps/web`.

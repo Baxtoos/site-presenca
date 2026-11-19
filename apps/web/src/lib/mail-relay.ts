@@ -6,7 +6,7 @@ import { z } from "zod";
  * Repasse de e-mail da API (ver RelayMailer em @presenca/emails/transport).
  *
  * O Render gratuito bloqueia a saída nas portas de SMTP; a Vercel não. A API manda a mensagem para
- * esta rota com o segredo compartilhado (API_PROXY_SECRET, o mesmo nos dois lados) e daqui ela sai
+ * esta rota com o segredo do repasse (MAIL_RELAY_SECRET, o mesmo nos dois lados) e daqui ela sai
  * por SMTP. Sem o segredo certo, nada é enviado: a rota não é um relay aberto.
  */
 const bodySchema = z.object({

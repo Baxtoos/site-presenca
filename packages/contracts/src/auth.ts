@@ -7,10 +7,10 @@ export const emailSchema = z
   .toLowerCase()
   .pipe(z.email({ error: "Informe um e-mail válido." }).max(254));
 
-/** Senha: 10 a 128 caracteres. O teto evita requisições caras de propósito (Argon2 é lento). */
+/** Senha: 12 a 128 caracteres (nova senha; o login aceita as antigas mais curtas). O teto evita requisições caras de propósito (Argon2 é lento). */
 export const passwordSchema = z
   .string()
-  .min(10, { error: "A senha precisa ter pelo menos 10 caracteres." })
+  .min(12, { error: "A senha precisa ter pelo menos 12 caracteres." })
   .max(128, { error: "A senha pode ter no máximo 128 caracteres." });
 
 export const fullNameSchema = z
@@ -137,6 +137,50 @@ export const sessionSchema = z.object({
 export const sessionsResponseSchema = z.object({ sessions: z.array(sessionSchema) });
 export type SessionsResponse = z.infer<typeof sessionsResponseSchema>;
 
+// ---- Segundo fator (TOTP) ----
+
+/** Login com segundo fator ligado: a sessão só abre depois do código (POST /v1/auth/mfa/verify). */
+export const mfaRequiredResponseSchema = z.object({ mfaRequired: z.literal(true) });
+export type MfaRequiredResponse = z.infer<typeof mfaRequiredResponseSchema>;
+
+/** Resposta das rotas que abrem sessão: o perfil, ou o pedido do segundo fator. */
+export const loginResponseSchema = z.union([meResponseSchema, mfaRequiredResponseSchema]);
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+
+/** Código do app autenticador (6 dígitos) ou de recuperação (XXXX-XXXX). */
+export const mfaCodeSchema = z
+  .string()
+  .trim()
+  .min(6, { error: "Digite o código de 6 dígitos." })
+  .max(20, { error: "Código inválido." });
+export const mfaCodeBodySchema = z.object({ code: mfaCodeSchema });
+export type MfaCodeBody = z.infer<typeof mfaCodeBodySchema>;
+
+export const mfaEnableBodySchema = z.object({
+  code: mfaCodeSchema,
+  /** Conta com senha confirma a senha para ligar o segundo fator. */
+  password: z.string().min(1).max(128).optional(),
+});
+export type MfaEnableBody = z.infer<typeof mfaEnableBodySchema>;
+
+export const mfaStatusResponseSchema = z.object({
+  /** false: o servidor não tem a chave de cifra configurada. */
+  available: z.boolean(),
+  enabled: z.boolean(),
+  recoveryCodesLeft: z.number().int().min(0),
+});
+export type MfaStatusResponse = z.infer<typeof mfaStatusResponseSchema>;
+
+export const mfaSetupResponseSchema = z.object({
+  /** Segredo em base32, para digitar no app se não der para ler o QR Code. */
+  secret: z.string(),
+  otpauthUrl: z.string(),
+});
+export type MfaSetupResponse = z.infer<typeof mfaSetupResponseSchema>;
+
+export const mfaRecoveryCodesResponseSchema = z.object({ recoveryCodes: z.array(z.string()) });
+export type MfaRecoveryCodesResponse = z.infer<typeof mfaRecoveryCodesResponseSchema>;
+
 /** Códigos de erro estáveis das rotas de autenticação (campo `code` do problem+json). */
 export const AuthErrorCode = {
   invalidCredentials: "INVALID_CREDENTIALS",
@@ -145,4 +189,7 @@ export const AuthErrorCode = {
   accountDisabled: "ACCOUNT_DISABLED",
   emailNotVerified: "EMAIL_NOT_VERIFIED",
   googleNotConfigured: "GOOGLE_NOT_CONFIGURED",
+  mfaInvalidCode: "MFA_INVALID_CODE",
+  mfaChallengeExpired: "MFA_CHALLENGE_EXPIRED",
+  mfaUnavailable: "MFA_UNAVAILABLE",
 } as const;

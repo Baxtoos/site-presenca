@@ -1,5 +1,15 @@
 import { sql } from "drizzle-orm";
-import { check, index, inet, smallint, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  check,
+  index,
+  inet,
+  smallint,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { app, bytea, createdAt, pk, updatedAt } from "./_shared";
 import { tokenPurpose, userStatus } from "./enums";
 
@@ -104,5 +114,46 @@ export const authTokens = app.table(
       // ::text: o valor novo do enum não pode ser citado na transação que o cria (migration 0009).
       sql`${t.userId} is not null or ${t.purpose}::text in ('magic_link', 'register')`,
     ),
+  ],
+);
+
+/**
+ * Segundo fator (app autenticador, TOTP). Uma linha por conta; sem linha, sem segundo fator.
+ * O segredo fica cifrado (AES-256-GCM) com a chave MFA_ENCRYPTION_KEY, que só a API conhece.
+ */
+export const userMfa = app.table(
+  "user_mfa",
+  {
+    userId: uuid()
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** iv (12 bytes) + tag (16) + segredo cifrado. */
+    secretCiphertext: bytea().notNull(),
+    /** Null enquanto a ativação não foi confirmada com um código do app. */
+    enabledAt: timestamp({ withTimezone: true }),
+    /** Último intervalo de 30 s aceito: o mesmo código não serve duas vezes. */
+    lastUsedStep: bigint({ mode: "number" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("user_mfa_secret_len_chk", sql`octet_length(${t.secretCiphertext}) between 40 and 200`),
+  ],
+);
+
+/** Códigos de recuperação do segundo fator (uso único). Só o hash SHA-256 é guardado. */
+export const mfaRecoveryCodes = app.table(
+  "mfa_recovery_codes",
+  {
+    id: pk(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    codeHash: bytea().notNull(),
+    usedAt: timestamp({ withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("mfa_recovery_codes_user_code_key").on(t.userId, t.codeHash),
+    check("mfa_recovery_codes_hash_len_chk", sql`octet_length(${t.codeHash}) = 32`),
   ],
 );

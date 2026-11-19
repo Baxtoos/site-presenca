@@ -4,6 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
+import { needsMfa } from "@/lib/mfa";
+import { withNext } from "@/lib/next-path";
 
 /**
  * Consome um token de link assim que a página abre (verificar e-mail, magic link, cadastro).
@@ -41,9 +43,14 @@ export function ConsumeToken({
     started.current = true;
     // Caminho do roteador: a barra é mascarada (lib/url-mask.ts) e window.location seria "/".
     window.history.replaceState(null, "", pathname);
-    api(endpoint, { method: "POST", body: { token } })
-      .then(() => {
-        if (redirectTo) {
+    api<unknown>(endpoint, { method: "POST", body: { token } })
+      .then((result) => {
+        if (needsMfa(result)) {
+          // Conta com segundo fator: o link prova o e-mail, mas falta o código do app.
+          router.replace(
+            withNext("/entrar/verificacao", redirectTo && redirectTo !== "/" ? redirectTo : null),
+          );
+        } else if (redirectTo) {
           router.replace(redirectTo);
           router.refresh();
         } else {

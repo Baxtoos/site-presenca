@@ -24,6 +24,11 @@ export default function PrivacidadePage() {
             OAuth do Google, instituição, curso e fuso horário.
           </li>
           <li>
+            <strong>Verificação em duas etapas (se você ligar):</strong> a chave do app
+            autenticador, guardada cifrada, e os códigos de recuperação, dos quais guardamos só um
+            resumo criptográfico (hash).
+          </li>
+          <li>
             <strong>Dados acadêmicos:</strong> semestres, matérias, horários, feriados e registros
             de presença/falta criados por você.
           </li>

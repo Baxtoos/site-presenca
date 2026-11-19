@@ -3,7 +3,13 @@ import {
   deleteMeBodySchema,
   emailBodySchema,
   loginBodySchema,
+  loginResponseSchema,
   meResponseSchema,
+  mfaCodeBodySchema,
+  mfaEnableBodySchema,
+  mfaRecoveryCodesResponseSchema,
+  mfaSetupResponseSchema,
+  mfaStatusResponseSchema,
   registerBodySchema,
   resetPasswordBodySchema,
   sessionIdParamsSchema,
@@ -67,7 +73,11 @@ export const routes = {
     auth: false,
     request: { body: tokenBodySchema },
     responses: {
-      200: { description: "Conta criada e sessão aberta", schema: meResponseSchema },
+      200: {
+        description:
+          "Conta criada e sessão aberta (ou pedido do segundo fator, se a conta já existia)",
+        schema: loginResponseSchema,
+      },
       400: { description: "Link inválido, usado ou expirado (INVALID_TOKEN)" },
     },
   },
@@ -79,7 +89,10 @@ export const routes = {
     auth: false,
     request: { body: loginBodySchema },
     responses: {
-      200: { description: "Sessão aberta (cookie __Host-sid)", schema: meResponseSchema },
+      200: {
+        description: "Sessão aberta (cookie __Host-sid) ou { mfaRequired: true }",
+        schema: loginResponseSchema,
+      },
       401: { description: "E-mail ou senha incorretos (INVALID_CREDENTIALS)" },
     },
   },
@@ -108,7 +121,7 @@ export const routes = {
     auth: false,
     request: { body: tokenBodySchema },
     responses: {
-      200: { description: "Sessão aberta", schema: meResponseSchema },
+      200: { description: "Sessão aberta ou { mfaRequired: true }", schema: loginResponseSchema },
       400: { description: "Link inválido, usado ou expirado (INVALID_TOKEN)" },
     },
   },
@@ -149,8 +162,26 @@ export const routes = {
     auth: false,
     request: { body: resetPasswordBodySchema },
     responses: {
-      200: { description: "Senha trocada e sessão aberta", schema: meResponseSchema },
+      200: {
+        description: "Senha trocada e sessão aberta (ou { mfaRequired: true })",
+        schema: loginResponseSchema,
+      },
       400: { description: "Link inválido, usado ou expirado (INVALID_TOKEN)" },
+    },
+  },
+  mfaVerify: {
+    method: "POST",
+    path: "/v1/auth/mfa/verify",
+    summary:
+      "Segundo fator do login: confere o código e abre a sessão (desafio no cookie __Host-mfa)",
+    tag: "Autenticação",
+    auth: false,
+    request: { body: mfaCodeBodySchema },
+    responses: {
+      200: { description: "Sessão aberta", schema: meResponseSchema },
+      400: {
+        description: "Código errado (MFA_INVALID_CODE) ou desafio vencido (MFA_CHALLENGE_EXPIRED)",
+      },
     },
   },
   googleStart: {
@@ -187,6 +218,69 @@ export const routes = {
     auth: true,
     request: { body: updateMeBodySchema },
     responses: { 200: { description: "Perfil atualizado", schema: meResponseSchema } },
+  },
+  mfaStatus: {
+    method: "GET",
+    path: "/v1/me/mfa",
+    summary: "Situação do segundo fator da conta",
+    tag: "Perfil",
+    auth: true,
+    responses: { 200: { description: "Situação", schema: mfaStatusResponseSchema } },
+  },
+  mfaSetup: {
+    method: "POST",
+    path: "/v1/me/mfa/setup",
+    summary: "Começa a ativação: gera o segredo do app autenticador (QR Code)",
+    tag: "Perfil",
+    auth: true,
+    responses: {
+      200: { description: "Segredo e endereço otpauth://", schema: mfaSetupResponseSchema },
+      409: { description: "O segundo fator já está ligado" },
+      503: { description: "Servidor sem chave de cifra (MFA_UNAVAILABLE)" },
+    },
+  },
+  mfaEnable: {
+    method: "POST",
+    path: "/v1/me/mfa/enable",
+    summary: "Confirma a ativação com um código do app e devolve os códigos de recuperação",
+    tag: "Perfil",
+    auth: true,
+    request: { body: mfaEnableBodySchema },
+    responses: {
+      200: {
+        description: "Ligado; códigos de recuperação (mostrados uma vez)",
+        schema: mfaRecoveryCodesResponseSchema,
+      },
+      400: { description: "Código errado (MFA_INVALID_CODE)" },
+      401: { description: "Senha incorreta (INVALID_CREDENTIALS)" },
+    },
+  },
+  mfaDisable: {
+    method: "POST",
+    path: "/v1/me/mfa/disable",
+    summary: "Desliga o segundo fator (pede um código do app ou de recuperação)",
+    tag: "Perfil",
+    auth: true,
+    request: { body: mfaCodeBodySchema },
+    responses: {
+      204: { description: "Desligado" },
+      400: { description: "Código errado (MFA_INVALID_CODE)" },
+    },
+  },
+  mfaRecoveryCodes: {
+    method: "POST",
+    path: "/v1/me/mfa/recovery-codes",
+    summary: "Gera códigos de recuperação novos (os antigos deixam de valer)",
+    tag: "Perfil",
+    auth: true,
+    request: { body: mfaCodeBodySchema },
+    responses: {
+      200: {
+        description: "Códigos novos (mostrados uma vez)",
+        schema: mfaRecoveryCodesResponseSchema,
+      },
+      400: { description: "Código errado (MFA_INVALID_CODE)" },
+    },
   },
   sessions: {
     method: "GET",

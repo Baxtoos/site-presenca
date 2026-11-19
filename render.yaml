@@ -43,6 +43,14 @@ services:
       # aluno pelo site. Sem ele, todos aparecem com um IP da Cloudflare e dividem o rate limit.
       - key: API_PROXY_SECRET
         sync: false
+      # Segredo só do repasse de e-mail (o MESMO valor na Vercel), diferente do API_PROXY_SECRET.
+      # Vazio = usa o API_PROXY_SECRET (configuração antiga).
+      - key: MAIL_RELAY_SECRET
+        sync: false
+      # Chave que cifra os segredos da verificação em duas etapas (openssl rand -base64 32).
+      # Vazia = a verificação em duas etapas fica indisponível. Trocar invalida os apps já ligados.
+      - key: MFA_ENCRYPTION_KEY
+        sync: false
       # A versão (/healthz e Sentry) vem do commit do deploy: o Render preenche RENDER_GIT_COMMIT.
       # Defina APP_VERSION só se quiser outro texto.
       # Rastreamento de erros (Sentry). Vazio = desligado. Veja docs/deploy-gratuito.md.

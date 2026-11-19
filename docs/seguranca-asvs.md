@@ -18,7 +18,7 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
 | CSRF                         |    ✅    | Escritas só com `Origin` do app; cookie SameSite=Lax                                 |
 | Validação de entrada         |    ✅    | Zod em todo corpo, parâmetro e consulta; limite de corpo de 64 KB                    |
 | Cache de respostas da API    |    🔧    | `Cache-Control: no-store` em todas as respostas                                      |
-| CSP do site                  |    🔧    | Política restritiva criada (com `'unsafe-inline'` em scripts, ver ⚠️ 1)              |
+| CSP do site                  |    🔧    | Política restritiva com nonce por página, sem `'unsafe-inline'` em scripts (🔧 7)    |
 | SSRF no push                 |    🔧    | Só serviços de push dos navegadores (API e worker)                                   |
 | Política de privacidade/LGPD |    🔧    | Operadores, transferência internacional, retenção, backups, base legal e contato     |
 | Rota de repasse de e-mail    |    ✅    | Segredo comparado em tempo constante, validação, sem segredo nada sai                |
@@ -26,7 +26,7 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
 | Backups                      |    ✅    | Papel só leitura, criptografados (AES-256), restauração testada, 30 dias             |
 | Enumeração de contas         |    🔧    | Cadastro responde sempre "confira seu e-mail"; a conta nasce no link (ver 🔧 5)      |
 | Reautenticação               |    🔧    | Conta sem senha confirma a exclusão por link enviado ao e-mail (ver 🔧 6)            |
-| MFA                          |    ⚠️    | Não há segundo fator (ver ⚠️ 2)                                                      |
+| MFA                          |    🔧    | Segundo fator opcional por app autenticador, com códigos de recuperação (🔧 7)       |
 
 ## O que já estava bem feito
 
@@ -79,20 +79,32 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
    também sabe. Agora recebe um link por e-mail (15 min, uso único, só vale para a conta logada) e
    confirma num clique na página aberta pelo link; abrir o link sozinho não exclui nada.
 
+7. **Melhorias opcionais da revisão, feitas depois:**
+   - **CSP sem `'unsafe-inline'` em scripts (V3.4.3):** cada página sai com um nonce novo
+     (`apps/web/src/proxy.ts` e `lib/csp.ts`), que o Next põe nos próprios scripts e o layout põe
+     nos dois scripts inline do app (tema e máscara da barra); `'strict-dynamic'` libera só o que
+     esses scripts carregam. Um script injetado não sabe o nonce e não roda. As páginas passaram a
+     ser sempre dinâmicas, como o nonce exige. Um teste no navegador confere que nada do app é
+     bloqueado e que o nonce muda a cada página.
+   - **Segundo fator opcional (V6.3.3 / V6.6):** app autenticador (TOTP, RFC 6238) ligado na página
+     Conta, com confirmação da senha e de um código. O segredo fica cifrado (AES-256-GCM, chave
+     `MFA_ENCRYPTION_KEY` só na API, id da conta como dado associado); o mesmo código não serve duas
+     vezes; 10 códigos de recuperação de uso único (só o hash no banco). Com o segundo fator ligado,
+     senha, link por e-mail, Google e nova senha só abrem a sessão depois do código; o desafio
+     dura 5 minutos e acaba em 5 erros. Desligar ou gerar códigos novos pede um código.
+   - **Segredo próprio do repasse de e-mail:** `MAIL_RELAY_SECRET`, separado do `API_PROXY_SECRET`
+     (a API recusa os dois iguais). Vazar um não compromete o outro.
+   - **Senha mínima de 12 caracteres (ASVS 4.0.3, V2.1.1)** no cadastro e na nova senha; o login
+     continua aceitando senhas antigas mais curtas.
+
 ## Recomendações (riscos aceitos por enquanto)
 
-1. **`'unsafe-inline'` em scripts na CSP:** necessário para os scripts inline do Next e a máscara
-   da barra de endereço. Remover exige nonce por requisição em todas as páginas (renderização sempre
-   dinâmica). O React já escapa o conteúdo; o risco residual é baixo.
-2. **Sem segundo fator (MFA):** para um app de controle de faltas, a combinação senha forte +
-   senha vazada recusada + limite de tentativas + avisos de sessão é proporcional. Se o app passar
-   a guardar dados mais sensíveis, adicionar TOTP ou passkeys.
-3. **Segredo compartilhado:** `API_PROXY_SECRET` protege o IP real **e** a rota de repasse de
-   e-mail. Se vazar, alguém poderia mandar e-mails pela conta Gmail do app. Troque o valor (na
-   Vercel e no Render, juntos) se houver qualquer suspeita; um segredo separado para o e-mail é uma
-   melhoria simples para depois.
-4. **Senha mínima de 10 caracteres:** atende o ASVS 5.0 (mínimo 8, com checagem de senha vazada);
-   o ASVS 4.0.3 pedia 12. Subir para 12 é trivial se quiser seguir a versão mais rígida.
+1. **Estilos com `'unsafe-inline'` na CSP:** necessário para os atributos `style` do React. Não
+   executa código; o risco é só de injeção de CSS, que o React já evita ao escapar o conteúdo.
+2. **Segundo fator em conta sem senha:** quem entra só por link ou Google liga o segundo fator sem
+   confirmar senha (não há senha). Quem roubasse a sessão poderia ligá-lo e trancar o dono fora;
+   aí só o administrador destrava (apagando a linha da conta em `app.user_mfa`). Risco baixo;
+   pode virar confirmação por e-mail, como na exclusão de conta.
 
 ## Como repetir
 

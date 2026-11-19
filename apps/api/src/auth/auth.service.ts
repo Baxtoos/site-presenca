@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import {
   type AcceptedResponse,
+  type LoginResponse,
   AuthErrorCode,
   type LoginBody,
   type MeResponse,
@@ -32,6 +33,7 @@ import { DbService } from "../database/db.service";
 import { MAILER, type Mailer } from "../mail/mailer";
 import { AuthRepository, type TokenPurpose } from "./auth.repository";
 import type { GoogleProfile } from "./google.provider";
+import { MfaService } from "./mfa.service";
 import { PasswordService } from "./password.service";
 import { SessionService } from "./session.service";
 import { generateToken, hashToken } from "./tokens";
@@ -75,6 +77,7 @@ export class AuthService {
     private readonly db: DbService,
     private readonly repo: AuthRepository,
     private readonly passwords: PasswordService,
+    private readonly mfa: MfaService,
     private readonly sessions: SessionService,
     private readonly tasks: BackgroundTasks,
     @Inject(MAILER) private readonly mailer: Mailer,
@@ -133,7 +136,7 @@ export class AuthService {
     token: string,
     request: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     const pending = await this.repo.consumeRegistration(hashToken(token));
     if (!pending) throw invalidToken();
     await this.sessions.revokePresented(request);
@@ -143,7 +146,7 @@ export class AuthService {
       if (!existing) throw invalidToken();
       if (existing.status !== "active") throw accountDisabled();
       await this.db.asUser(existing.userId, (tx) => this.markEmailVerified(tx, existing.userId));
-      return this.openSession(existing.userId, request, reply);
+      return this.completeLogin(existing.userId, request, reply);
     };
     if (await this.repo.findUserByEmail(pending.email)) return enterExisting();
 
@@ -174,7 +177,11 @@ export class AuthService {
     }
   }
 
-  async login(body: LoginBody, request: FastifyRequest, reply: FastifyReply): Promise<MeResponse> {
+  async login(
+    body: LoginBody,
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<LoginResponse> {
     const credentials = await this.repo.findUserByEmail(body.email);
     // Sempre roda o Argon2 (contra um hash falso se a conta não existir): mesmo tempo de resposta.
     const ok = await this.passwords.verify(credentials?.passwordHash ?? null, body.password);
@@ -186,7 +193,22 @@ export class AuthService {
       });
     }
     if (credentials.status !== "active") throw accountDisabled();
-    return this.openSession(credentials.userId, request, reply);
+    return this.completeLogin(credentials.userId, request, reply);
+  }
+
+  /** Segundo passo do login com segundo fator: confere o código e abre a sessão. */
+  async completeMfa(
+    code: string,
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<MeResponse> {
+    const userId = await this.mfa.completeChallenge(request, reply, code);
+    const user = await this.db.asUser(userId, (tx) =>
+      tx.query.users.findFirst({ columns: { status: true } }),
+    );
+    if (user?.status !== "active") throw accountDisabled();
+    await this.sessions.revokePresented(request);
+    return this.openSession(userId, request, reply);
   }
 
   async logout(userId: string, sessionId: string, reply: FastifyReply): Promise<void> {
@@ -214,7 +236,7 @@ export class AuthService {
     token: string,
     request: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     const consumed = await this.repo.consumeToken(hashToken(token), "magic_link");
     if (!consumed) throw invalidToken();
 
@@ -226,7 +248,7 @@ export class AuthService {
     if (existing) {
       // Clicar no link prova a posse do e-mail.
       await this.db.asUser(existing.userId, (tx) => this.markEmailVerified(tx, existing.userId));
-      return this.openSession(existing.userId, request, reply);
+      return this.completeLogin(existing.userId, request, reply);
     }
     return this.createPasswordlessAccount(
       { email: consumed.email, fullName: nameFromEmail(consumed.email) },
@@ -277,7 +299,7 @@ export class AuthService {
     body: ResetPasswordBody,
     request: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     // Valida a senha antes de consumir o link: uma senha recusada não queima o link.
     await this.rejectBreachedPassword(body.password);
     const passwordHash = await this.passwords.hash(body.password);
@@ -289,23 +311,20 @@ export class AuthService {
     if (credentials.status !== "active") throw accountDisabled();
     const userId = consumed.userId;
 
-    const { token, user } = await this.db.asUser(userId, async (tx) => {
-      const [user] = await tx
+    await this.db.asUser(userId, async (tx) => {
+      await tx
         .update(schema.users)
         .set({
           passwordHash,
           emailVerifiedAt: sql`coalesce(${schema.users.emailVerifiedAt}, now())`,
         })
-        .where(eq(schema.users.id, userId))
-        .returning();
+        .where(eq(schema.users.id, userId));
       // Trocar a senha encerra todas as sessões (inclusive de quem a tenha roubado).
       await this.sessions.revokeAllInTx(tx, userId);
-      const token = await this.sessions.createInTx(tx, userId, request);
-      return { token, user: user! };
     });
-    this.sessions.setCookie(reply, token);
     this.logger.log(`senha redefinida ${userId}; todas as sessões anteriores encerradas`);
-    return toMe(user);
+    // Com segundo fator, o link do e-mail troca a senha mas não basta para entrar.
+    return this.completeLogin(userId, request, reply);
   }
 
   // ---------------------------------------------------------------- Google
@@ -314,7 +333,7 @@ export class AuthService {
     profile: GoogleProfile,
     request: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<void> {
+  ): Promise<"session" | "mfa"> {
     if (!profile.emailVerified) throw new GoogleLoginError("google_email_nao_verificado");
 
     let userId = await this.repo.findAccount("google", profile.sub);
@@ -346,7 +365,7 @@ export class AuthService {
           request,
           reply,
         );
-        return;
+        return "session";
       }
     }
 
@@ -356,7 +375,8 @@ export class AuthService {
     );
     if (status?.status !== "active") throw new GoogleLoginError("conta_desativada");
     await this.sessions.revokePresented(request);
-    await this.openSession(confirmedUserId, request, reply);
+    const result = await this.completeLogin(confirmedUserId, request, reply);
+    return "mfaRequired" in result ? "mfa" : "session";
   }
 
   // ---------------------------------------------------------------- exclusão de conta sem senha
@@ -388,6 +408,19 @@ export class AuthService {
   }
 
   // ---------------------------------------------------------------- internos
+
+  /** Abre a sessão, ou, com segundo fator ligado, manda o desafio do código. */
+  private async completeLogin(
+    userId: string,
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): Promise<LoginResponse> {
+    if (await this.mfa.isEnabled(userId)) {
+      await this.mfa.startChallenge(userId, reply);
+      return { mfaRequired: true };
+    }
+    return this.openSession(userId, request, reply);
+  }
 
   private async openSession(
     userId: string,

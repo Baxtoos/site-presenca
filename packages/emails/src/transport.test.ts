@@ -32,7 +32,7 @@ describe("RelayMailer", () => {
   });
 
   it("createMailer exige endereço e segredo", () => {
-    expect(() => createMailer({ transport: "relay", from: "a@b.c" })).toThrow(/API_PROXY_SECRET/);
+    expect(() => createMailer({ transport: "relay", from: "a@b.c" })).toThrow(/MAIL_RELAY_SECRET/);
     expect(
       createMailer({ transport: "relay", from: "a@b.c", relayUrl: "https://x", relaySecret: "s" }),
     ).toBeInstanceOf(RelayMailer);

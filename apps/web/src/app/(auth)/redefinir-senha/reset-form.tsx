@@ -1,10 +1,12 @@
 "use client";
 
+import type { LoginResponse } from "@presenca/contracts";
 import { usePathname, useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { Alert, Button, Field, TextLink } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
+import { afterLogin } from "@/lib/mfa";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
@@ -31,8 +33,11 @@ export function ResetPasswordForm({ token }: { token: string }) {
     setError(undefined);
     setFieldError(undefined);
     try {
-      await api("/v1/auth/password/reset", { method: "POST", body: { token, password } });
-      router.replace("/");
+      const result = await api<LoginResponse>("/v1/auth/password/reset", {
+        method: "POST",
+        body: { token, password },
+      });
+      router.replace(afterLogin(result, null));
       router.refresh();
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;
@@ -56,9 +61,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
         label="Nova senha"
         type="password"
         autoComplete="new-password"
-        minLength={10}
+        minLength={12}
         required
-        hint="Pelo menos 10 caracteres."
+        hint="Pelo menos 12 caracteres."
         error={fieldError}
       />
       <Field

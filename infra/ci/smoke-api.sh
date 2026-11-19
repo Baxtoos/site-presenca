@@ -47,7 +47,7 @@ done
 TABLES=$(docker exec "$PG" psql -U postgres -d presenca -tAc \
   "select count(*) from pg_class where relnamespace = 'app'::regnamespace and relkind = 'r' and relforcerowsecurity")
 echo "Tabelas com RLS forçado: $TABLES"
-[ "$TABLES" -eq 17 ] || { echo "esperado 17"; exit 1; }
+[ "$TABLES" -eq 19 ] || { echo "esperado 19"; exit 1; }
 
 step "Subindo a API com o papel app_api"
 docker run -d --name "$API" --network "$NET" \
@@ -76,14 +76,36 @@ fi
 echo "openapi.json desligado em produção: ok"
 
 step "Cadastro de verdade pela imagem (Argon2 nativo no Alpine + funções do banco + sessão)"
+# 1. O pedido de cadastro responde 202 e guarda o cadastro pendente com o hash Argon2.
 REGISTER=$(docker exec "$API" wget -S -qO- \
   --header "Content-Type: application/json" --header "Origin: https://app.exemplo" \
   --post-data '{"email":"smoke@exemplo.com","password":"senha-do-ensaio-de-deploy","fullName":"Ensaio"}' \
   http://127.0.0.1:4000/v1/auth/register 2>&1) || { echo "$REGISTER"; docker logs "$API"; exit 1; }
-echo "$REGISTER" | grep -q '"emailVerified":false' || { echo "$REGISTER"; exit 1; }
-echo "$REGISTER" | grep -qi 'set-cookie: __Host-sid=.*HttpOnly.*Secure' || { echo "cookie de sessão ausente ou inseguro"; echo "$REGISTER"; exit 1; }
-HASH=$(docker exec "$PG" psql -U postgres -d presenca -tAc "select left(password_hash, 13) from app.users where email = 'smoke@exemplo.com'")
-echo "Conta criada; hash de senha: $HASH…"
-[ "$HASH" = '$argon2id$v=1' ] || { echo "hash inesperado"; exit 1; }
+echo "$REGISTER" | grep -q '"status":"accepted"' || { echo "$REGISTER"; exit 1; }
+HASH=""
+for _ in $(seq 1 20); do
+  HASH=$(docker exec "$PG" psql -U postgres -d presenca -tAc \
+    "select pending_password_hash from app.auth_tokens where email = 'smoke@exemplo.com' and purpose = 'register' and used_at is null")
+  [ -n "$HASH" ] && break
+  sleep 0.5
+done
+echo "Cadastro pendente; hash de senha: ${HASH:0:13}…"
+[ "${HASH:0:13}" = '$argon2id$v=1' ] || { echo "hash inesperado"; docker logs "$API"; exit 1; }
+
+# 2. O e-mail não sai daqui (SMTP falso): o ensaio emite um link próprio para o mesmo cadastro,
+#    com um token conhecido, e confirma por ele (como o aluno faria pelo e-mail).
+TOKEN="ensaio-de-deploy-token-conhecido-0123456789"
+TOKEN_HEX=$(printf '%s' "$TOKEN" | sha256sum | cut -d' ' -f1)
+docker exec "$PG" psql -U postgres -d presenca -tAc \
+  "select app.auth_issue_registration('smoke@exemplo.com', 'Ensaio', '$HASH', decode('$TOKEN_HEX', 'hex'), 3600)" >/dev/null
+CONFIRM=$(docker exec "$API" wget -S -qO- \
+  --header "Content-Type: application/json" --header "Origin: https://app.exemplo" \
+  --post-data "{\"token\":\"$TOKEN\"}" \
+  http://127.0.0.1:4000/v1/auth/register/confirm 2>&1) || { echo "$CONFIRM"; docker logs "$API"; exit 1; }
+echo "$CONFIRM" | grep -q '"emailVerified":true' || { echo "$CONFIRM"; exit 1; }
+echo "$CONFIRM" | grep -qi 'set-cookie: __Host-sid=.*HttpOnly.*Secure' || { echo "cookie de sessão ausente ou inseguro"; echo "$CONFIRM"; exit 1; }
+STORED=$(docker exec "$PG" psql -U postgres -d presenca -tAc "select left(password_hash, 13) from app.users where email = 'smoke@exemplo.com'")
+echo "Conta criada pelo link; hash de senha: $STORED…"
+[ "$STORED" = '$argon2id$v=1' ] || { echo "hash inesperado"; exit 1; }
 
 printf '\n✔ Ensaio de deploy da API passou.\n'

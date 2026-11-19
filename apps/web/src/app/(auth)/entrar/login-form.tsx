@@ -1,11 +1,12 @@
 "use client";
 
-import type { MeResponse } from "@presenca/contracts";
+import type { LoginResponse } from "@presenca/contracts";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Alert, Button, Field, TextLink } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
+import { afterLogin } from "@/lib/mfa";
 
 export function LoginForm({ next = null }: { next?: string | null }) {
   const router = useRouter();
@@ -20,11 +21,11 @@ export function LoginForm({ next = null }: { next?: string | null }) {
     setError(undefined);
     setFields({});
     try {
-      await api<MeResponse>("/v1/auth/login", {
+      const result = await api<LoginResponse>("/v1/auth/login", {
         method: "POST",
         body: { email: formText(form, "email"), password: formText(form, "senha") },
       });
-      router.replace(next ?? "/");
+      router.replace(afterLogin(result, next));
       router.refresh();
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;

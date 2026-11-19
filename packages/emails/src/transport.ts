@@ -78,7 +78,7 @@ export class ResendMailer implements Mailer {
  *
  * O Render gratuito bloqueia a saída nas portas de SMTP (25, 465 e 587); HTTPS passa. A API
  * manda a mensagem para a rota interna do app (na Vercel, onde SMTP funciona) com o segredo
- * compartilhado API_PROXY_SECRET, e a rota envia com SMTP_URL e MAIL_FROM.
+ * do repasse (MAIL_RELAY_SECRET), e a rota envia com SMTP_URL e MAIL_FROM.
  */
 export class RelayMailer implements Mailer {
   constructor(
@@ -142,7 +142,7 @@ export function createMailer(config: {
       return new ResendMailer(config.resendApiKey, config.from);
     case "relay":
       if (!config.relayUrl || !config.relaySecret)
-        throw new Error("MAIL_TRANSPORT=relay precisa do endereço do app e de API_PROXY_SECRET");
+        throw new Error("MAIL_TRANSPORT=relay precisa do endereço do app e de MAIL_RELAY_SECRET");
       return new RelayMailer(config.relayUrl, config.relaySecret);
     case "log":
       return new LogMailer(config.log);

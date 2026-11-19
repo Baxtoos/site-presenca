@@ -46,6 +46,24 @@ describe("loadEnv da API", () => {
     expect(env.MAIL_TRANSPORT).toBe("relay");
   });
 
+  it("aceita um segredo próprio para o repasse de e-mail, diferente do API_PROXY_SECRET", () => {
+    const env = loadEnv({
+      ...production,
+      MAIL_TRANSPORT: "relay",
+      API_PROXY_SECRET: "s".repeat(32),
+      MAIL_RELAY_SECRET: "m".repeat(32),
+    });
+    expect(env.MAIL_RELAY_SECRET).toBe("m".repeat(32));
+    expect(() =>
+      loadEnv({
+        ...production,
+        MAIL_TRANSPORT: "relay",
+        API_PROXY_SECRET: "s".repeat(32),
+        MAIL_RELAY_SECRET: "s".repeat(32),
+      }),
+    ).toThrow(/diferente do API_PROXY_SECRET/);
+  });
+
   it.each([
     ["1", 1],
     ["10.0.0.0/8, 127.0.0.1", ["10.0.0.0/8", "127.0.0.1"]],
@@ -66,7 +84,7 @@ describe("loadEnv da API", () => {
   it.each([
     ["smtp sem SMTP_URL", { MAIL_TRANSPORT: "smtp" }, /SMTP_URL/],
     ["resend sem chave", { MAIL_TRANSPORT: "resend" }, /RESEND_API_KEY/],
-    ["relay sem segredo", { MAIL_TRANSPORT: "relay" }, /API_PROXY_SECRET/],
+    ["relay sem segredo", { MAIL_TRANSPORT: "relay" }, /MAIL_RELAY_SECRET/],
     ["Google pela metade", { GOOGLE_CLIENT_ID: "id" }, /GOOGLE_CLIENT_SECRET/],
   ])("recusa configuração incompleta: %s", (_label, extra, error) => {
     expect(() => loadEnv({ ...base, ...extra })).toThrow(error);

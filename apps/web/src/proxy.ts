@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { contentSecurityPolicy, generateNonce } from "@/lib/csp";
 
 /**
  * Repassa à API o IP real do aluno (ver apps/api/src/common/client-ip.ts).
@@ -14,21 +15,38 @@ const PROXY_SECRET_HEADER = "x-presenca-proxy-secret";
 const SESSION_COOKIE = "__Host-sid";
 
 /**
+ * Páginas: cada resposta ganha um nonce novo e a CSP com ele (ver lib/csp.ts). O Next lê a CSP da
+ * requisição e marca os próprios scripts; o layout lê `x-nonce` para os scripts inline do app.
+ *
  * Quem abre "/" sem sessão vê a apresentação do app (a barra continua em "/"). Com cookie, segue
  * para o Início; se o cookie estiver vencido, a área logada manda para /entrar como sempre.
- * O cabeçalho avisa o service worker para não guardar esta página como cópia do Início.
+ * O cabeçalho x-presenca-publica avisa o service worker para não guardar a apresentação como
+ * cópia do Início.
  */
-function landing(request: NextRequest) {
-  const response = NextResponse.rewrite(new URL("/apresentacao", request.url));
-  response.headers.set("x-presenca-publica", "1");
+function page(request: NextRequest) {
+  const nonce = generateNonce();
+  const policy = contentSecurityPolicy(nonce, {
+    sentry: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
+    dev: process.env.NODE_ENV === "development",
+  });
+  const headers = new Headers(request.headers);
+  headers.set("x-nonce", nonce);
+  headers.set("content-security-policy", policy);
+
+  const landing = request.nextUrl.pathname === "/" && !request.cookies.has(SESSION_COOKIE);
+  const response = landing
+    ? NextResponse.rewrite(new URL("/apresentacao", request.url), { request: { headers } })
+    : NextResponse.next({ request: { headers } });
+  if (landing) response.headers.set("x-presenca-publica", "1");
+  // Em desenvolvimento a política fica de fora (o Next dev injeta scripts próprios), como antes.
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Content-Security-Policy", policy);
+  }
   return response;
 }
 
-export function proxy(request: NextRequest) {
-  if (request.nextUrl.pathname === "/") {
-    return request.cookies.has(SESSION_COOKIE) ? NextResponse.next() : landing(request);
-  }
-
+/** Chamadas à API (reescritas para o Render em next.config.ts): repassa o IP real. */
+function api(request: NextRequest) {
   const headers = new Headers(request.headers);
   // Valores vindos do navegador nunca passam adiante.
   headers.delete(CLIENT_IP_HEADER);
@@ -45,7 +63,14 @@ export function proxy(request: NextRequest) {
   return NextResponse.next({ request: { headers } });
 }
 
+export function proxy(request: NextRequest) {
+  return request.nextUrl.pathname.startsWith("/api/") ? api(request) : page(request);
+}
+
 export const config = {
-  // As chamadas à API (reescritas para o Render em next.config.ts) e a página inicial.
-  matcher: ["/", "/api/:path*"],
+  matcher: [
+    "/api/:path*",
+    // Páginas: tudo menos arquivos estáticos, o service worker (CSP própria) e a rota interna.
+    "/((?!api/|_next/static|_next/image|icons/|sw\\.js|manifest\\.webmanifest|icon\\.svg|apple-icon\\.png|favicon\\.ico|interno/).*)",
+  ],
 };

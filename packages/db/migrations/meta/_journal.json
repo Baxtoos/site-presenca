@@ -71,6 +71,13 @@
       "when": 1795090920500,
       "tag": "0009_cadastro_e_exclusao",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795093869949,
+      "tag": "0010_segundo_fator",
+      "breakpoints": true
     }
   ]
 }

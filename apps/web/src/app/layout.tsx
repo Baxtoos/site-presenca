@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { THEME_COLOR, THEME_SCRIPT } from "@/lib/theme";
 import { URL_MASK_SCRIPT } from "@/lib/url-mask";
@@ -23,14 +24,17 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Nonce desta resposta (src/proxy.ts): sem ele a CSP bloqueia os scripts inline abaixo.
+  // Ler o cabeçalho deixa todas as páginas dinâmicas, o que o nonce exige.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     // data-theme é posto pelo script de tema antes da hidratação (ver lib/theme.ts).
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {/* Precisa rodar antes do Next hidratar (ver lib/url-mask.ts). */}
-        <script dangerouslySetInnerHTML={{ __html: URL_MASK_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: URL_MASK_SCRIPT }} />
       </head>
       <body className="min-h-dvh antialiased">{children}</body>
     </html>

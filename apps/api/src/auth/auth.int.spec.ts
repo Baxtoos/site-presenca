@@ -205,7 +205,7 @@ describe("cadastro com confirmação por e-mail", () => {
     });
     expect(res.statusCode).toBe(422);
     expect(problem(res).errors).toEqual([
-      { path: "password", message: "A senha precisa ter pelo menos 10 caracteres." },
+      { path: "password", message: "A senha precisa ter pelo menos 12 caracteres." },
     ]);
   });
 });

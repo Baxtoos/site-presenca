@@ -82,9 +82,9 @@ export function RegisterForm({ next = null }: { next?: string | null }) {
         label="Senha"
         type="password"
         autoComplete="new-password"
-        minLength={10}
+        minLength={12}
         required
-        hint="Pelo menos 10 caracteres. Uma frase curta funciona bem."
+        hint="Pelo menos 12 caracteres. Uma frase curta funciona bem."
         error={fields.password}
       />
       <Button type="submit" loading={pending}>

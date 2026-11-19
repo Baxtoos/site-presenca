@@ -12,6 +12,9 @@ import {
 } from "@nestjs/common";
 import {
   type AcceptedResponse,
+  type LoginResponse,
+  type MfaCodeBody,
+  mfaCodeBodySchema,
   type EmailBody,
   emailBodySchema,
   type LoginBody,
@@ -48,6 +51,8 @@ const LIMITS = {
   tokenPerIp: { bucket: "token", by: "ip", limit: 20, windowSeconds: 10 * 60 },
   resendPerUser: { bucket: "verify-resend", by: "user", limit: 3, windowSeconds: 15 * 60 },
   googlePerIp: { bucket: "google", by: "ip", limit: 20, windowSeconds: 10 * 60 },
+  // Código do segundo fator: além disso, 5 erros encerram o desafio (MfaService).
+  mfaPerIp: { bucket: "mfa", by: "ip", limit: 20, windowSeconds: 10 * 60 },
 } as const;
 
 @Controller("v1/auth")
@@ -76,7 +81,7 @@ export class AuthController {
     @Body(new ZodPipe(tokenBodySchema)) body: TokenBody,
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     return this.auth.confirmRegistration(body.token, request, reply);
   }
 
@@ -88,7 +93,7 @@ export class AuthController {
     @Body(new ZodPipe(loginBodySchema)) body: LoginBody,
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     return this.auth.login(body, request, reply);
   }
 
@@ -114,7 +119,7 @@ export class AuthController {
     @Body(new ZodPipe(tokenBodySchema)) body: TokenBody,
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     return this.auth.consumeMagicLink(body.token, request, reply);
   }
 
@@ -149,8 +154,20 @@ export class AuthController {
     @Body(new ZodPipe(resetPasswordBodySchema)) body: ResetPasswordBody,
     @Req() request: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
-  ): Promise<MeResponse> {
+  ): Promise<LoginResponse> {
     return this.auth.resetPassword(body, request, reply);
+  }
+
+  @Public()
+  @Post("mfa/verify")
+  @HttpCode(200)
+  @RateLimit(LIMITS.mfaPerIp)
+  verifyMfa(
+    @Body(new ZodPipe(mfaCodeBodySchema)) body: MfaCodeBody,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<MeResponse> {
+    return this.auth.completeMfa(body.code, request, reply);
   }
 
   // ---------------------------------------------------------------- Google (redirecionamentos)
@@ -205,8 +222,9 @@ export class AuthController {
 
     try {
       const profile = await this.google.exchange(query.code, verifier);
-      await this.auth.loginWithGoogle(profile, request, reply);
-      return reply.redirect(`${this.env.WEB_ORIGIN}/`, 302);
+      const result = await this.auth.loginWithGoogle(profile, request, reply);
+      const path = result === "mfa" ? "/entrar/verificacao" : "/";
+      return reply.redirect(`${this.env.WEB_ORIGIN}${path}`, 302);
     } catch (error) {
       if (error instanceof GoogleLoginError) return this.redirectToApp(reply, error.code);
       this.logger.error(error instanceof Error ? error : String(error));

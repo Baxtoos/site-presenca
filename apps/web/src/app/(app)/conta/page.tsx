@@ -1,5 +1,6 @@
-import { notificationPreferencesSchema } from "@presenca/contracts";
+import { mfaStatusResponseSchema, notificationPreferencesSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
+import { MfaPanel } from "@/components/mfa-panel";
 import { NotificationSettings } from "@/components/notifications/settings";
 import { ThemePicker } from "@/components/theme-picker";
 import { apiGet, getMe } from "@/lib/api-server";
@@ -11,9 +12,10 @@ import { UserIcon } from "@/components/icons";
 export const metadata: Metadata = { title: "Conta · Monitor de Presenças" };
 
 export default async function AccountPage() {
-  const [me, prefs] = await Promise.all([
+  const [me, prefs, mfa] = await Promise.all([
     getMe(),
     apiGet("/v1/notification-preferences", notificationPreferencesSchema),
+    apiGet("/v1/me/mfa", mfaStatusResponseSchema),
   ]);
   return (
     <>
@@ -28,6 +30,7 @@ export default async function AccountPage() {
       />
       <NotificationSettings initial={prefs} />
       <ThemePicker />
+      {me ? <MfaPanel initial={mfa} hasPassword={me.hasPassword} /> : null}
       <SessionsPanel />
       {me ? <LgpdPanel email={me.email} hasPassword={me.hasPassword} /> : null}
       <section

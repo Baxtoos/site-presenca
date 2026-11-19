@@ -8,6 +8,7 @@
 // Uso (contra um ambiente de TESTE, nunca contra a produção gratuita):
 //   API com limites folgados:  RATE_LIMIT_FACTOR=1000 NODE_ENV=test node apps/api/dist/main.js
 //   k6 run -e API_URL=http://localhost:4000 -e WEB_ORIGIN=http://localhost:3000 infra/load/k6-turma.js
+// (o cadastro é confirmado pelo link do e-mail, lido no Mailpit: -e MAILPIT_URL=http://localhost:8025)
 // Perfis: -e PERFIL=rapido (1 min, até 20 alunos) | padrao (4 min, até 60) | pico (5 min, até 150)
 import { check, group, sleep } from "k6";
 import http from "k6/http";
@@ -15,6 +16,8 @@ import { Trend } from "k6/metrics";
 
 const API_URL = (__ENV.API_URL || "http://localhost:4000").replace(/\/$/, "");
 const WEB_ORIGIN = (__ENV.WEB_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
+// O cadastro só termina pelo link do e-mail: o teste lê o link no Mailpit (MAIL_TRANSPORT=smtp).
+const MAILPIT_URL = (__ENV.MAILPIT_URL || "http://localhost:8025").replace(/\/$/, "");
 
 const PERFIS = {
   rapido: [
@@ -95,8 +98,30 @@ function criarAluno() {
     JSON.stringify({ email, password: `senha-de-carga-${__VU}-segura`, fullName: `Aluno ${__VU}` }),
     write("cadastro"),
   );
-  if (!check(reg, { "cadastro 201": (r) => r.status === 201 })) return null;
-  session = reg.cookies["__Host-sid"]?.[0]?.value ?? "";
+  if (!check(reg, { "cadastro 202": (r) => r.status === 202 })) return null;
+
+  // Link de confirmação: espera o e-mail chegar no Mailpit e usa o token dele.
+  let token = null;
+  for (let i = 0; i < 30 && !token; i++) {
+    const query = encodeURIComponent(`to:"${email}"`);
+    const found = http.get(`${MAILPIT_URL}/api/v1/search?query=${query}`, {
+      tags: { name: "mailpit" },
+    });
+    const id = found.status === 200 ? found.json("messages.0.ID") : null;
+    if (id) {
+      const text = http.get(`${MAILPIT_URL}/api/v1/message/${id}`, { tags: { name: "mailpit" } });
+      token = /token=([A-Za-z0-9_-]{43})/.exec(text.json("Text") || "")?.[1] ?? null;
+    }
+    if (!token) sleep(0.5);
+  }
+  if (!check(token, { "e-mail de confirmação": (t) => t !== null })) return null;
+  const conf = http.post(
+    `${API_URL}/v1/auth/register/confirm`,
+    JSON.stringify({ token }),
+    write("confirmar cadastro"),
+  );
+  if (!check(conf, { "confirmação 200": (r) => r.status === 200 })) return null;
+  session = conf.cookies["__Host-sid"]?.[0]?.value ?? "";
 
   const sem = http.post(
     `${API_URL}/v1/semesters`,

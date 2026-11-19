@@ -1,3 +1,4 @@
+import { DEV_MFA_KEY } from "../config/env";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { startTestDb, type TestDb } from "@presenca/db/testing";
 import { GenericContainer } from "testcontainers";
@@ -68,6 +69,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
       DATABASE_URL: db.urls.app_api,
       REDIS_URL: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
       VAPID_PUBLIC_KEY: TEST_VAPID_PUBLIC_KEY,
+      MFA_ENCRYPTION_KEY: DEV_MFA_KEY,
     },
     override: (builder) =>
       builder
