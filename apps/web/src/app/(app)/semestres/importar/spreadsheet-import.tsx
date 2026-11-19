@@ -1,14 +1,15 @@
 "use client";
 
-import type { SemesterImportBody, SemesterImportResult } from "@presenca/contracts";
-import { useRouter } from "next/navigation";
+import type { SemesterImportBody } from "@presenca/contracts";
 import { type ChangeEvent, useState } from "react";
 import { Alert, Button, Field } from "@/components/ui";
-import { api, ApiError } from "@/lib/api-client";
 import { formatDate, plural, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } from "@/lib/format";
+import { readTables, type Table } from "@/lib/own-spreadsheet";
 import { readSpreadsheet } from "@/lib/spreadsheet-import";
+import { OwnSpreadsheetImport } from "./own-spreadsheet-import";
+import { useImportSubmit } from "./use-import-submit";
 
-/** A planilha do app tem poucas centenas de KB; isto barra arquivo errado antes de ler. */
+/** Planilhas de presença têm poucas centenas de KB; isto barra arquivo errado antes de ler. */
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 type Ready = {
@@ -18,6 +19,8 @@ type Ready = {
   warnings: string[];
 };
 
+type Own = { fileName: string; tables: Table[]; id: number };
+
 type Subject = SemesterImportBody["subjects"][number];
 
 function ruleText(s: Subject): string {
@@ -26,47 +29,89 @@ function ruleText(s: Subject): string {
   return `limite manual de ${plural(s.manualMaxUnits ?? 0, "falta", "faltas")}`;
 }
 
+/** Planilha modelo para quem quer passar os registros a limpo antes de importar. */
+async function downloadTemplate() {
+  const { Workbook } = await import("exceljs");
+  const wb = new Workbook();
+  const sheet = wb.addWorksheet("Presenças");
+  sheet.columns = [
+    { header: "Data", key: "data", width: 12 },
+    { header: "Matéria", key: "materia", width: 28 },
+    { header: "Situação", key: "situacao", width: 14 },
+    { header: "Tempos", key: "tempos", width: 9 },
+    { header: "Motivo", key: "motivo", width: 18 },
+    { header: "Observação", key: "obs", width: 40 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+  const help = wb.addWorksheet("Como preencher");
+  help.getColumn(1).width = 100;
+  [
+    "Uma linha por aula na aba Presenças. Só a Data é obrigatória.",
+    "Data: dd/mm/aaaa (ex.: 02/03/2026).",
+    "Matéria: o nome da matéria (igual em todas as linhas dela).",
+    "Situação: P (presença), F (falta), Atestado ou Cancelada. Em branco = falta.",
+    "Tempos: quantos tempos você faltou, se foi só parte da aula (ex.: 1 de 2). Pode deixar em branco.",
+    "Motivo e Observação: opcionais; vão para as anotações da aula.",
+    "Depois, em Semestres → Importar planilha, escolha este arquivo.",
+  ].forEach((line) => help.addRow([line]));
+  const buffer = await wb.xlsx.writeBuffer();
+  const url = URL.createObjectURL(
+    new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "modelo-presencas.xlsx";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
 /**
  * O navegador lê a planilha (nada é enviado até o aluno confirmar), mostra o que vai ser criado e
- * manda tudo de uma vez para a API, que valida de novo e grava numa transação só.
+ * manda tudo de uma vez para a API, que valida de novo e grava numa transação só. Planilha
+ * exportada pelo app entra direto; qualquer outra vai para a leitura guiada (OwnSpreadsheetImport).
  */
 export function SpreadsheetImport() {
-  const router = useRouter();
   const [reading, setReading] = useState(false);
   const [ready, setReady] = useState<Ready>();
-  const [error, setError] = useState<string>();
-  const [fields, setFields] = useState<Record<string, string>>({});
-  const [pending, setPending] = useState(false);
-  // Uma chave por versão do que vai ser enviado: repetir após falha de rede não duplica, e editar
-  // o nome ou as datas gera uma chave nova (a API recusaria a mesma chave com outro conteúdo).
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [own, setOwn] = useState<Own>();
+  const [readError, setReadError] = useState<string>();
+  const { pending, error, fields, submit } = useImportSubmit();
 
   async function onFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     setReady(undefined);
-    setError(undefined);
-    setFields({});
+    setOwn(undefined);
+    setReadError(undefined);
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setError("O arquivo é grande demais para ser uma planilha do app (máximo de 5 MB).");
+      setReadError("O arquivo é grande demais (máximo de 5 MB).");
       return;
     }
     setReading(true);
     try {
-      const result = await readSpreadsheet(await file.arrayBuffer());
-      if (result.ok) {
+      const buffer = await file.arrayBuffer();
+      const isCsv = /\.(csv|txt)$/i.test(file.name);
+      const result = isCsv ? null : await readSpreadsheet(buffer);
+      if (result?.ok) {
         setReady({
           fileName: file.name,
           source: result.source,
           body: result.body,
           warnings: result.warnings,
         });
-        setIdempotencyKey(crypto.randomUUID());
+      } else if (!result || result.foreign) {
+        setOwn({
+          fileName: file.name,
+          tables: await readTables(buffer, file.name),
+          id: Date.now(),
+        });
       } else {
-        setError(result.error);
+        setReadError(result.error);
       }
     } catch {
-      setError("Não consegui ler o arquivo. Confira se é a planilha .xlsx exportada pelo app.");
+      setReadError("Não consegui ler o arquivo. Ele precisa ser uma planilha .xlsx ou .csv.");
     } finally {
       setReading(false);
     }
@@ -75,37 +120,6 @@ export function SpreadsheetImport() {
   function editSemester(patch: Partial<SemesterImportBody["semester"]>) {
     if (!ready) return;
     setReady({ ...ready, body: { ...ready.body, semester: { ...ready.body.semester, ...patch } } });
-    setIdempotencyKey(crypto.randomUUID());
-  }
-
-  async function doImport() {
-    if (!ready) return;
-    setPending(true);
-    setError(undefined);
-    setFields({});
-    try {
-      const result = await api<SemesterImportResult>("/v1/imports/semester", {
-        method: "POST",
-        idempotencyKey,
-        body: ready.body,
-      });
-      router.push(`/semestres/${result.semesterId}`);
-      router.refresh();
-    } catch (e) {
-      if (e instanceof ApiError) {
-        const byField = e.fieldErrors;
-        setFields({
-          label: byField["semester.label"] ?? "",
-          startsOn: byField["semester.startsOn"] ?? "",
-          endsOn: byField["semester.endsOn"] ?? "",
-        });
-        const others = Object.entries(byField).filter(([path]) => !path.startsWith("semester."));
-        setError(others[0]?.[1] ?? (Object.keys(byField).length === 0 ? e.message : undefined));
-      } else {
-        setError("Não foi possível importar.");
-      }
-      setPending(false);
-    }
   }
 
   const body = ready?.body;
@@ -125,9 +139,10 @@ export function SpreadsheetImport() {
           1. Escolha a planilha
         </h2>
         <p className="text-sm text-muted">
-          Use o arquivo baixado em{" "}
-          <strong>Semestres → (o semestre) → Exportar Excel (.xlsx)</strong>, neste app ou em outra
-          conta. Ele é lido aqui no seu aparelho; nada é enviado até você confirmar.
+          Pode ser a planilha exportada pelo app (em{" "}
+          <strong>Semestres → (o semestre) → Exportar Excel</strong>) ou a planilha que você mesmo
+          fazia, em .xlsx ou .csv (do Google Planilhas: Arquivo → Fazer download). Ela é lida aqui
+          no seu aparelho; nada é enviado até você confirmar.
         </p>
         <label
           htmlFor="planilha"
@@ -137,24 +152,39 @@ export function SpreadsheetImport() {
             <span className="font-medium">
               {reading
                 ? "Lendo a planilha…"
-                : ready
-                  ? `${ready.fileName} · trocar arquivo`
-                  : "Escolher arquivo .xlsx"}
+                : (ready ?? own)
+                  ? `${(ready ?? own)!.fileName} · trocar arquivo`
+                  : "Escolher arquivo .xlsx ou .csv"}
             </span>
-            <span className="text-xs text-muted">Planilha exportada pelo Monitor de Presenças</span>
+            <span className="text-xs text-muted">Planilha do app ou sua própria planilha</span>
           </span>
           <input
             id="planilha"
             name="planilha"
             type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
             className="sr-only"
             disabled={reading || pending}
             onChange={(e) => void onFile(e)}
           />
         </label>
-        {error && !ready ? <Alert tone="error">{error}</Alert> : null}
+        {readError ? <Alert tone="error">{readError}</Alert> : null}
+        <p className="text-xs text-muted">
+          Sua planilha está bagunçada?{" "}
+          <button
+            type="button"
+            className="font-medium text-accent hover:underline"
+            onClick={() => void downloadTemplate()}
+          >
+            Baixe a planilha modelo
+          </button>
+          , copie seus registros para ela e importe.
+        </p>
       </section>
+
+      {own ? (
+        <OwnSpreadsheetImport key={own.id} fileName={own.fileName} tables={own.tables} />
+      ) : null}
 
       {ready && body && counts ? (
         <section className="card grid gap-5 p-5 sm:p-6" aria-labelledby="previa">
@@ -264,7 +294,7 @@ export function SpreadsheetImport() {
 
           {error ? <Alert tone="error">{error}</Alert> : null}
 
-          <Button type="button" loading={pending} onClick={() => void doImport()}>
+          <Button type="button" loading={pending} onClick={() => void submit(ready.body)}>
             Importar semestre
           </Button>
         </section>

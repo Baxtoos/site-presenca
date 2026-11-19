@@ -131,7 +131,11 @@ describe("readSpreadsheet", () => {
     const other = new ExcelJS.Workbook();
     other.addWorksheet("Planilha1").getCell("A1").value = "qualquer coisa";
     const r = await readSpreadsheet(toArrayBuffer(await other.xlsx.writeBuffer()));
-    expect(r).toEqual({ ok: false, error: expect.stringMatching(/não parece ter sido exportada/) });
+    expect(r).toEqual({
+      ok: false,
+      foreign: true,
+      error: expect.stringMatching(/não parece ter sido exportada/),
+    });
 
     const notXlsx = await readSpreadsheet(new TextEncoder().encode("a,b,c\n1,2,3").buffer);
     expect(notXlsx).toEqual({

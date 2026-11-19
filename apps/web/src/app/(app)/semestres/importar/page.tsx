@@ -11,7 +11,7 @@ export default function ImportSpreadsheetPage() {
       <PageHeader
         icon={<SemesterIcon size={26} />}
         title="Importar planilha"
-        description="Recrie um semestre a partir da planilha .xlsx exportada pelo app: matérias, regras, grade e faltas, já configurados."
+        description="Traga para o app a planilha exportada por ele ou a que você fazia sozinho: matérias, grade, presenças e faltas, já configuradas e sem perder nenhum registro."
         back={{ href: "/semestres", label: "Semestres" }}
       />
       <SpreadsheetImport />

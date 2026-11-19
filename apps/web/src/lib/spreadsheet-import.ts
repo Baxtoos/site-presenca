@@ -20,7 +20,8 @@ import type { Workbook, Worksheet } from "exceljs";
  */
 export type SpreadsheetReading =
   | { ok: true; source: "completa" | "abas"; body: SemesterImportBody; warnings: string[] }
-  | { ok: false; error: string };
+  /** `foreign`: não é planilha do app (a tela oferece ler como planilha própria). */
+  | { ok: false; error: string; foreign?: boolean };
 
 const NOT_OURS =
   "Esta planilha não parece ter sido exportada pelo Monitor de Presenças. Use o arquivo baixado no botão Exportar Excel (.xlsx), na página do semestre.";
@@ -132,7 +133,7 @@ interface DraftSubject {
 function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
   const resumo = workbook.getWorksheet("Resumo");
   if (!resumo || cellText(resumo.getCell("A4")) !== "Matéria")
-    return { ok: false, error: NOT_OURS };
+    return { ok: false, error: NOT_OURS, foreign: true };
   const warnings: string[] = [
     "Planilha exportada antes da importação existir: ela não guarda as presenças nem os feriados, só as faltas. Confira as datas e os tempos de cada aula depois de importar.",
   ];

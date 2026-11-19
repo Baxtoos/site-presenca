@@ -138,6 +138,16 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
   - Planilha antiga (sem `Dados`): reconstrói pelas abas visíveis. Regras e cor saem do Resumo e da
     Grade, as faltas do Historico; as datas do semestre são estimadas pelo nome (`2026.1` → fev–jul,
     `.2` → ago–dez, sempre cobrindo as faltas). Presenças e feriados não existem nelas, e a tela avisa.
+  - Planilha que o aluno fazia sozinho (.xlsx ou .csv, `apps/web/src/lib/own-spreadsheet.ts`):
+    leitura guiada. Reconhece três formatos por aba: uma linha por aula (colunas achadas pelo
+    nome: Data, Matéria, Situação, Tempos, Motivo, Observação; sem matéria, a aba é a matéria; sem
+    situação, cada linha é uma falta), matérias nas linhas × datas nas colunas, e datas nas linhas
+    × matérias nas colunas. Datas com ou sem ano ("02/03", "2 de março"). O aluno confere as
+    colunas, o significado de cada marcação ("P", "F", "atestado"; números = tempos de falta; "x"
+    é ambíguo e exige escolha), as regras, os tempos por aula e os dias e horário de cada matéria
+    (dias sugeridos pelos registros; dia que aparece uma vez vira aula avulsa). Duas linhas da
+    mesma aula avulsa no mesmo dia viram uma (o banco guarda uma por dia); motivo e observação vão
+    para a anotação da aula. Há uma planilha modelo para baixar na própria tela.
   - A API valida tudo de novo (`SpreadsheetImportService`): data dentro do semestre e não no futuro,
     horário no dia da semana certo, parcial menor que a aula, sem aula repetida. O erro aponta o
     registro (`attendance.N.campo`, "Registro N (dd/mm/aaaa): ..."), e nada é gravado.
