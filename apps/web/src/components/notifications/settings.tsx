@@ -158,8 +158,10 @@ export function NotificationSettings({ initial }: { initial: NotificationPrefere
       toast.push({
         tone: "success",
         message: prefs.pushEnabled
-          ? "Aviso de teste enviado. Ele chega neste aparelho em alguns segundos."
+          ? "Aviso de teste enviado. Já está nos Avisos; no aparelho pode levar alguns minutos."
           : "Aviso de teste enviado para a central.",
+        // Mais tempo na tela: a pessoa precisa ler que o push não é imediato.
+        duration: prefs.pushEnabled ? 9_000 : undefined,
       });
     } catch (e) {
       toast.push({
@@ -284,6 +286,12 @@ export function NotificationSettings({ initial }: { initial: NotificationPrefere
               )}
             </div>
           )}
+          {prefs.vapidPublicKey && device !== "ios" && device !== "unsupported" ? (
+            <p className="text-xs text-muted">
+              Os avisos no celular e por e-mail são enviados a cada poucos minutos. O sino dos
+              Avisos mostra tudo na hora.
+            </p>
+          ) : null}
         </div>
       </fieldset>
 
