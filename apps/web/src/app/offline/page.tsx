@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WifiOffIcon } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Sem conexão · Monitor de Presenças" };
 
@@ -9,8 +10,11 @@ export const metadata: Metadata = { title: "Sem conexão · Monitor de Presença
 export default function OfflinePage() {
   return (
     <main className="mx-auto grid min-h-dvh max-w-md place-content-center gap-4 px-6 text-center">
-      <span className="text-6xl" aria-hidden>
-        📡
+      <span
+        className="mx-auto grid size-14 place-items-center rounded-2xl border border-line bg-surface-2 text-ink shadow-sm"
+        aria-hidden
+      >
+        <WifiOffIcon size={30} />
       </span>
       <h1 className="text-3xl font-bold tracking-tight">Sem conexão</h1>
       <p className="text-muted">

@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { SubjectCalendar } from "@/components/attendance/subject-calendar";
-import { BookIcon, SettingsIcon } from "@/components/icons";
+import { BookIcon, ChevronRightIcon, SettingsIcon } from "@/components/icons";
 import { RiskBadge } from "@/components/subject-card";
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
@@ -86,6 +86,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
     <>
       <PageHeader
         back={{ href: `/semestres/${subject.semesterId}`, label: "← Semestre" }}
+        iconTile={false}
         icon={
           <span
             className={`grid size-12 place-items-center rounded-xl text-white shadow-sm ${subject.color ? SUBJECT_COLOR_CLASS[subject.color] : "bg-muted"}`}
@@ -150,9 +151,10 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
 
       <details className="group card p-5 sm:p-6">
         <summary className="cursor-pointer list-none font-semibold marker:hidden">
-          <span className="inline-block transition-transform group-open:rotate-90" aria-hidden>
-            ›
-          </span>{" "}
+          <ChevronRightIcon
+            size={16}
+            className="inline-block align-[-3px] transition-transform group-open:rotate-90"
+          />{" "}
           Histórico e aula extra
         </summary>
         <div className="mt-4 grid gap-4">

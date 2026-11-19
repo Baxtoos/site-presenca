@@ -5,6 +5,7 @@ import { EditSubjectForm } from "@/components/subject-form";
 import { PageHeader } from "@/components/ui";
 import { apiGet, getMe } from "@/lib/api-server";
 import { DeleteSubject, ScheduleManager } from "../subject-client";
+import { SettingsIcon } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Editar matéria · Monitor de Presenças" };
 
@@ -17,7 +18,7 @@ export default async function EditSubjectPage({ params }: { params: Promise<{ id
     <>
       <PageHeader
         back={{ href: `/materias/${subject.id}`, label: `← ${subject.name}` }}
-        icon="⚙️"
+        icon={<SettingsIcon size={26} />}
         title="Editar matéria"
         description={`Horários, regras de falta, compartilhamento e exclusão de ${subject.name}.`}
       />

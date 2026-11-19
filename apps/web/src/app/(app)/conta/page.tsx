@@ -5,6 +5,7 @@ import { apiGet, getMe } from "@/lib/api-server";
 import { LogoutButton, SessionsPanel } from "../home-client";
 import { LgpdPanel } from "./lgpd-panel";
 import { PageHeader } from "@/components/ui";
+import { UserIcon } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Conta · Monitor de Presenças" };
 
@@ -16,7 +17,7 @@ export default async function AccountPage() {
   return (
     <>
       <PageHeader
-        icon="👤"
+        icon={<UserIcon size={26} />}
         title="Conta"
         description={
           <span className="[overflow-wrap:anywhere]">

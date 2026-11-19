@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MyTemplates } from "@/components/sharing/my-templates";
 import { apiGet } from "@/lib/api-server";
 import { PageHeader } from "@/components/ui";
+import { ShareIcon } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Compartilhar grade · Monitor de Presenças" };
 
@@ -12,7 +13,7 @@ export default async function SharePage() {
   return (
     <>
       <PageHeader
-        icon="🔗"
+        icon={<ShareIcon size={26} />}
         title="Compartilhar grade"
         description={
           <>

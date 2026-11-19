@@ -4,7 +4,7 @@ import {
   subjectsResponseSchema,
 } from "@presenca/contracts";
 import type { Metadata } from "next";
-import { PlusIcon } from "@/components/icons";
+import { CalendarIcon, PlusIcon } from "@/components/icons";
 import { SubjectCard } from "@/components/subject-card";
 import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { SharePanel } from "@/components/sharing/share-panel";
@@ -28,7 +28,7 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
     <>
       <PageHeader
         back={{ href: "/semestres", label: "← Semestres" }}
-        icon="🗓️"
+        icon={<CalendarIcon size={26} />}
         title={
           <>
             {semester.label}

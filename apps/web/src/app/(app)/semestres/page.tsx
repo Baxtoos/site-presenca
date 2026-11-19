@@ -1,7 +1,7 @@
 import { semestersResponseSchema } from "@presenca/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRightIcon } from "@/components/icons";
+import { ChevronRightIcon, SemesterIcon } from "@/components/icons";
 import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
 import { formatDate, plural } from "@/lib/format";
@@ -17,7 +17,7 @@ export default async function SemestersPage() {
   return (
     <>
       <PageHeader
-        icon="🎓"
+        icon={<SemesterIcon size={26} />}
         title="Semestres"
         description="O semestre atual é o que aparece no início e na barra lateral."
       >

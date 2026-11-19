@@ -133,3 +133,57 @@ export const BookIcon = (p: IconProps) => (
     <path d="M4 19.5A2 2 0 0 0 6 21.5h13V18M9 7h6" />
   </Svg>
 );
+
+export const SunIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
+  </Svg>
+);
+
+export const MoonIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11" />
+  </Svg>
+);
+
+export const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="16.5" rx="2.5" />
+    <path d="M3 9.5h18M8 2.5v4M16 2.5v4M7.5 13.5h.01M12 13.5h.01M16.5 13.5h.01M7.5 17h.01M12 17h.01" />
+  </Svg>
+);
+
+export const ClockIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </Svg>
+);
+
+export const CompassIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m15.5 8.5-2 5-5 2 2-5z" />
+  </Svg>
+);
+
+export const WifiOffIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4.2-2.6M14.8 10.4A10 10 0 0 1 19 13M2 9.5a15 15 0 0 1 4.6-2.9M11 5.1A15 15 0 0 1 22 9.5M12 20h.01" />
+  </Svg>
+);
+
+export const UsersIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
+  </Svg>
+);
+
+export const LibraryIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4.5h4v15H4zM10 4.5h4v15h-4z" />
+    <path d="m16.2 5.4 3.8-1 3 14.6-3.8 1z" />
+  </Svg>
+);

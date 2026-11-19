@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { CompassIcon } from "@/components/icons";
 
 /** 404, inclusive para semestre ou matéria de outra pessoa (a API não revela que existe). */
 export default function NotFound() {
   return (
     <main className="mx-auto grid min-h-dvh max-w-md content-center gap-4 px-4 text-center">
-      <p className="text-6xl" aria-hidden>
-        🧭
-      </p>
+      <div
+        className="mx-auto grid size-14 place-items-center rounded-2xl border border-line bg-surface-2 text-ink shadow-sm"
+        aria-hidden
+      >
+        <CompassIcon size={30} />
+      </div>
       <p className="text-sm font-medium text-muted">Erro 404</p>
       <h1 className="text-3xl font-bold tracking-tight">Página não encontrada</h1>
       <p className="text-sm text-muted">O endereço pode ter mudado, ou isto foi apagado.</p>

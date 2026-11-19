@@ -3,7 +3,7 @@ import { addDays } from "@presenca/engine";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TodayPanel } from "@/components/attendance/today-panel";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
+import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, TodayIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
 import { formatDate, WEEKDAYS } from "@/lib/format";
@@ -33,7 +33,7 @@ export default async function DayPage({
   return (
     <>
       <PageHeader
-        icon={day.isToday ? "📅" : "🕰️"}
+        icon={day.isToday ? <TodayIcon size={26} /> : <ClockIcon size={26} />}
         eyebrow={day.isToday ? "Hoje" : "Registrar dia passado"}
         title={`${WEEKDAYS[day.weekday]}, ${formatDate(day.date)}`}
         description="Marque cada aula com um toque. Dá para voltar dias para registrar o que esqueceu."

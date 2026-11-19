@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BellIcon, BookIcon, TodayIcon, UsersIcon } from "@/components/icons";
 
 /**
  * Telas de entrada: formulário limpo à esquerda e, no computador, uma apresentação do app à
@@ -39,9 +40,12 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       >
         <div className="mx-auto grid w-full max-w-md gap-8 px-10">
           <div className="grid gap-3">
-            <p className="text-5xl" aria-hidden>
-              🎒
-            </p>
+            <div
+              className="grid size-12 place-items-center rounded-xl border border-line bg-surface text-ink shadow-sm"
+              aria-hidden
+            >
+              <BookIcon size={26} />
+            </div>
             <h2 className="text-3xl font-bold tracking-tight text-balance">
               Saiba quanto você ainda pode faltar.
             </h2>
@@ -83,14 +87,19 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </div>
 
           <ul className="grid gap-2.5 text-sm">
-            {[
-              ["📅", "Calendário para marcar presença e falta com um toque"],
-              ["🔔", "Aviso por e-mail e no celular perto do limite"],
-              ["🤝", "Compartilhe a grade com a turma por um código"],
-            ].map(([icon, text]) => (
+            {(
+              [
+                [TodayIcon, "Calendário para marcar presença e falta com um toque"],
+                [BellIcon, "Aviso por e-mail e no celular perto do limite"],
+                [UsersIcon, "Compartilhe a grade com a turma por um código"],
+              ] as const
+            ).map(([Icon, text]) => (
               <li key={text} className="flex items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface text-base shadow-sm">
-                  {icon}
+                <span
+                  className="grid size-8 shrink-0 place-items-center rounded-md border border-line bg-surface text-muted shadow-sm"
+                  aria-hidden
+                >
+                  <Icon size={17} />
                 </span>
                 {text}
               </li>

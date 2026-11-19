@@ -6,7 +6,7 @@ import {
 } from "@presenca/contracts";
 import type { Metadata } from "next";
 import { TodayPanel } from "@/components/attendance/today-panel";
-import { PlusIcon } from "@/components/icons";
+import { LibraryIcon, MoonIcon, PlusIcon, SemesterIcon, SunIcon } from "@/components/icons";
 import { SubjectCard } from "@/components/subject-card";
 import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { apiGet, getMe } from "@/lib/api-server";
@@ -54,7 +54,7 @@ export default async function Home() {
   return (
     <>
       <PageHeader
-        icon={hour < 18 ? "☀️" : "🌙"}
+        icon={hour < 18 ? <SunIcon size={26} /> : <MoonIcon size={26} />}
         eyebrow={current ? `${greeting} · Semestre ${current.label}` : "Bem-vinda(o)"}
         title={`Olá, ${firstName}`}
         description={
@@ -78,8 +78,11 @@ export default async function Home() {
 
       {!current ? (
         <section className="card grid gap-4 p-6 sm:p-8">
-          <div className="text-4xl" aria-hidden>
-            🎓
+          <div
+            className="grid size-12 place-items-center rounded-xl border border-line bg-surface-2 shadow-sm"
+            aria-hidden
+          >
+            <SemesterIcon size={26} />
           </div>
           <div className="grid gap-1.5">
             <h2 className="text-xl font-semibold tracking-tight">Comece pelo seu semestre</h2>
@@ -97,8 +100,11 @@ export default async function Home() {
         </section>
       ) : subjects.length === 0 ? (
         <section className="card grid gap-4 p-6 sm:p-8">
-          <div className="text-4xl" aria-hidden>
-            📚
+          <div
+            className="grid size-12 place-items-center rounded-xl border border-line bg-surface-2 shadow-sm"
+            aria-hidden
+          >
+            <LibraryIcon size={26} />
           </div>
           <h2 className="text-xl font-semibold tracking-tight">
             Nenhuma matéria em {current.label}

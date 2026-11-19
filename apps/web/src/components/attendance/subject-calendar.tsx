@@ -10,6 +10,7 @@ import type {
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useToast } from "@/components/toast";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { Button } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import {
@@ -298,7 +299,7 @@ export function SubjectCalendar({
             aria-label="Mês anterior"
             className="grid size-11 place-items-center rounded-lg border border-line bg-surface text-lg hover:bg-surface-2 disabled:opacity-40"
           >
-            ‹
+            <ChevronLeftIcon size={18} />
           </button>
           <button
             type="button"
@@ -307,7 +308,7 @@ export function SubjectCalendar({
             aria-label="Próximo mês"
             className="grid size-11 place-items-center rounded-lg border border-line bg-surface text-lg hover:bg-surface-2 disabled:opacity-40"
           >
-            ›
+            <ChevronRightIcon size={18} />
           </button>
         </div>
       </div>

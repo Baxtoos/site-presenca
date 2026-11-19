@@ -82,6 +82,7 @@ export function Alert({
  */
 export function PageHeader({
   icon,
+  iconTile = true,
   eyebrow,
   title,
   description,
@@ -89,7 +90,10 @@ export function PageHeader({
   back,
   children,
 }: {
+  /** Ícone da página (um dos de components/icons). Vai numa peça quadrada, como no Notion. */
   icon?: ReactNode;
+  /** false: o ícone já vem com a própria moldura (ex.: a cor da matéria). */
+  iconTile?: boolean;
   eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
@@ -110,9 +114,16 @@ export function PageHeader({
         </Link>
       ) : null}
       {icon ? (
-        <div className="text-5xl leading-none" aria-hidden>
-          {icon}
-        </div>
+        iconTile ? (
+          <div
+            className="grid size-12 place-items-center rounded-xl border border-line bg-surface-2 text-ink shadow-sm"
+            aria-hidden
+          >
+            {icon}
+          </div>
+        ) : (
+          <div aria-hidden>{icon}</div>
+        )
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid min-w-0 gap-1">
