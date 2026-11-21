@@ -18,6 +18,13 @@
  * É só cosmético: links (<a href>) e as chamadas à API continuam com os caminhos reais.
  */
 export const URL_MASK_SCRIPT = `(function () {
+  // Retrato do SUAP vindo do favorito (#suap=...): guardado antes de a URL ser mascarada, e
+  // sobrevive ao login se a pessoa ainda não estava logada (lib/suap-collector.ts).
+  try {
+    if (location.hash.indexOf("#suap=") === 0) {
+      sessionStorage.setItem("presenca:suap", location.hash.slice(6));
+    }
+  } catch (e) {}
   var KEY = "presenca:url";
   var h = window.history;
   var push = h.pushState.bind(h);

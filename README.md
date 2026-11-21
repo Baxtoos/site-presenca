@@ -156,6 +156,30 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
     (`ThresholdAlerts.sync`). Limite de 10 importações por hora, até 3.000 registros, corpo de até
     2 MB só nessa rota.
 
+## SUAP (IFSP e outros institutos)
+
+- **Por que um favorito:** a API do SUAP do IFSP não expõe boletim, faltas nem aulas para estudantes
+  (só `/api/eu/`, a identificação do "Login com SUAP"), e as páginas do site exigem o login com
+  reCAPTCHA. Por isso o Monitor não entra no SUAP nem guarda senha: o aluno usa o favorito
+  **"Enviar para o Monitor"** (`apps/web/src/lib/suap-collector.ts`) na sessão que ele mesmo abriu.
+- **O que o favorito lê** (mesma origem, com a sessão do aluno): o boletim do período
+  (`/edu/aluno/<matrícula>/boletins/?ano_periodo=2026_2`, fragmento htmx) e, de cada turma,
+  `/edu/sala_virtual/<diário>/?tab=aulas` (data, nº de aulas, faltas, abono) e `?tab=dados_gerais`
+  (professor, local e a grade de horários). Se a aba vier vazia (o SUAP preenche por script), abre a
+  turma num quadro escondido (o SUAP manda `X-Frame-Options: SAMEORIGIN`) e espera o conteúdo.
+- **Transporte:** o retrato vai no fragmento da URL (`/semestres/importar#suap=...`), que não sai do
+  navegador; o script da página (`lib/url-mask.ts`) guarda no `sessionStorage` antes de mascarar a
+  URL, o que também sobrevive ao login. A tela mostra as disciplinas e deixa escolher entre criar um
+  semestre ou atualizar um existente.
+- **Sincronização** (`POST /v1/imports/suap`, `SuapSyncService`, com `Idempotency-Key`): cria o que
+  falta (semestre "2026.2", disciplinas com a sigla no código, regra de 75%, abono descontando,
+  horários juntando os tempos seguidos) e, nas aulas já lançadas, **vale o SUAP**: cria ou corrige o
+  registro (presença, falta, parcial, abonada). O que o aluno marcou em dias que o SUAP ainda não tem
+  fica. Aulas futuras já lançadas não viram registro (ficam na grade) e estendem o fim do semestre.
+  Semestre novo põe os marcos de aviso em dia em silêncio; atualização avisa normalmente.
+- **Teste:** `e2e/tests/suap.spec.ts` finge ser o `suap.ifsp.edu.br` com páginas reais anonimizadas
+  (`e2e/fixtures/suap/`) e roda o favorito de verdade, do clique à atualização.
+
 ## Hospedagem gratuita (sem cartão)
 
 Guia passo a passo em [`docs/deploy-gratuito.md`](docs/deploy-gratuito.md): site na Vercel, API no

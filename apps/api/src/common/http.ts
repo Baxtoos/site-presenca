@@ -36,8 +36,11 @@ export function createFastifyAdapter(env: Env, logger: Logger): FastifyAdapter {
  * Configuração HTTP comum à aplicação real e aos testes.
  * Precisa rodar antes de `app.init()`.
  */
-/** Única rota com corpo grande (ver sharing/spreadsheet-import.controller.ts). */
-const LARGE_BODY_PATH = "/v1/imports/semester";
+/** Rotas com corpo grande: planilha de semestre inteiro e retrato do SUAP (ver sharing/). */
+const LARGE_BODY_LIMITS: Record<string, number> = {
+  "/v1/imports/semester": 2 * 1024 * 1024,
+  "/v1/imports/suap": 1024 * 1024,
+};
 
 export async function configureApp(
   app: NestFastifyApplication,
@@ -46,10 +49,11 @@ export async function configureApp(
 ): Promise<void> {
   const fastify = app.getHttpAdapter().getInstance();
 
-  // A importação de planilha manda um semestre inteiro (até 3.000 registros): limite de corpo
-  // maior só nessa rota; todas as outras continuam com 64 KiB.
+  // A planilha e o SUAP mandam um semestre inteiro: limite de corpo maior só nessas rotas;
+  // todas as outras continuam com 64 KiB.
   fastify.addHook("onRoute", (route) => {
-    if (route.url === LARGE_BODY_PATH) route.bodyLimit = 2 * 1024 * 1024;
+    const limit = LARGE_BODY_LIMITS[route.url];
+    if (limit) route.bodyLimit = limit;
   });
 
   // Cabeçalhos de segurança. A API só responde JSON; nenhuma página é servida.

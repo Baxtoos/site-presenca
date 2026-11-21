@@ -1,5 +1,6 @@
 import { semesterImportBodySchema, semesterImportResultSchema } from "./imports";
 import type { RouteDef } from "./route-types";
+import { suapSyncBodySchema, suapSyncResultSchema } from "./suap";
 import {
   createTemplateBodySchema,
   importTemplateBodySchema,
@@ -28,6 +29,21 @@ export const sharingRoutes = {
     responses: {
       201: { description: "Semestre criado", schema: semesterImportResultSchema },
       422: { description: "Dados inválidos (com o campo e a linha do problema)" },
+    },
+  },
+  syncSuap: {
+    method: "POST",
+    path: "/v1/imports/suap",
+    summary:
+      "Cria ou atualiza um semestre com o retrato do SUAP (matérias, horários e faltas por aula)",
+    tag: "Compartilhamento",
+    auth: true,
+    idempotent: true,
+    request: { body: suapSyncBodySchema },
+    responses: {
+      200: { description: "Semestre atualizado ou criado", schema: suapSyncResultSchema },
+      404: { description: "Semestre não encontrado" },
+      422: { description: "Dados inválidos" },
     },
   },
   createTemplate: {

@@ -28,6 +28,9 @@ export default async function SemestersPage() {
           <ButtonLink href="/semestres/importar" variant="secondary">
             Importar planilha (.xlsx)
           </ButtonLink>
+          <ButtonLink href="/semestres/suap" variant="secondary">
+            Conectar ao SUAP
+          </ButtonLink>
           <ButtonLink href="/compartilhar" variant="ghost">
             Seus códigos compartilhados
           </ButtonLink>
