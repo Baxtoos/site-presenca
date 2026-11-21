@@ -2,6 +2,7 @@ import { mfaStatusResponseSchema, notificationPreferencesSchema } from "@presenc
 import type { Metadata } from "next";
 import { FeedbackForm } from "@/components/feedback-form";
 import { MfaPanel } from "@/components/mfa-panel";
+import { ProfileForm } from "@/components/profile-form";
 import { NotificationSettings } from "@/components/notifications/settings";
 import { ThemePicker } from "@/components/theme-picker";
 import { apiGet, getMe } from "@/lib/api-server";
@@ -29,6 +30,7 @@ export default async function AccountPage() {
           </span>
         }
       />
+      {me ? <ProfileForm initial={me} /> : null}
       <NotificationSettings initial={prefs} />
       <ThemePicker />
       {me ? <MfaPanel initial={mfa} hasPassword={me.hasPassword} email={me.email} /> : null}
