@@ -23,6 +23,12 @@ interface ActionEmailProps {
  * Visual do app (inspirado no Notion): página quase branca, cartão branco de borda fina,
  * tinta grafite, azul só no botão. Sem imagens: nada a bloquear, nada a baixar.
  */
+/**
+ * `bgcolor` (atributo antigo de tabela): leitores como o Outlook ignoram o CSS e só pintam a célula
+ * com ele. O React repassa o atributo, mas os tipos dele não o conhecem.
+ */
+const legacyBg = (color: string) => ({ bgcolor: color }) as Record<string, string>;
+
 const C = {
   page: "#F7F7F5",
   card: "#FFFFFF",
@@ -146,23 +152,47 @@ function ActionEmail(props: ActionEmailProps) {
                             </tbody>
                           </table>
                         ) : null}
-                        <p style={{ margin: "22px 0 8px" }}>
-                          <a
-                            href={props.actionUrl}
-                            style={{
-                              display: "inline-block",
-                              backgroundColor: C.accent,
-                              color: "#FFFFFF",
-                              padding: "10px 18px",
-                              borderRadius: 6,
-                              textDecoration: "none",
-                              fontWeight: 600,
-                              fontSize: 15,
-                            }}
-                          >
-                            {props.actionLabel}
-                          </a>
-                        </p>
+                        {/*
+                          Botão "à prova de balas": a célula da tabela tem a cor e o link ocupa a
+                          área toda. Só com padding no <a>, alguns leitores (Outlook, apps de
+                          celular) ignoram o espaçamento e só o texto fica clicável.
+                        */}
+                        <table
+                          role="presentation"
+                          cellPadding={0}
+                          cellSpacing={0}
+                          style={{ margin: "22px 0 8px", borderCollapse: "separate" }}
+                        >
+                          <tbody>
+                            <tr>
+                              <td
+                                align="center"
+                                {...legacyBg(C.accent)}
+                                style={{ backgroundColor: C.accent, borderRadius: 6 }}
+                              >
+                                <a
+                                  href={props.actionUrl}
+                                  target="_blank"
+                                  rel="noopener"
+                                  style={{
+                                    display: "inline-block",
+                                    backgroundColor: C.accent,
+                                    border: `1px solid ${C.accent}`,
+                                    color: "#FFFFFF",
+                                    padding: "12px 22px",
+                                    borderRadius: 6,
+                                    textDecoration: "none",
+                                    fontWeight: 600,
+                                    fontSize: 15,
+                                    lineHeight: "20px",
+                                  }}
+                                >
+                                  {props.actionLabel}
+                                </a>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                         {props.secondary ? (
                           <p style={{ margin: "12px 0 0", fontSize: 14 }}>
                             <a
@@ -182,7 +212,8 @@ function ActionEmail(props: ActionEmailProps) {
                             color: C.muted,
                           }}
                         >
-                          Se o botão não funcionar, copie este endereço no navegador:
+                          Se o botão não funcionar, toque no endereço abaixo ou copie e cole no
+                          navegador:
                         </p>
                         <p
                           style={{
@@ -192,7 +223,15 @@ function ActionEmail(props: ActionEmailProps) {
                             wordBreak: "break-all",
                           }}
                         >
-                          {props.actionUrl}
+                          {/* Também clicável: nem todo leitor transforma endereço em link sozinho. */}
+                          <a
+                            href={props.actionUrl}
+                            target="_blank"
+                            rel="noopener"
+                            style={{ color: C.accent, textDecoration: "underline" }}
+                          >
+                            {props.actionUrl}
+                          </a>
                         </p>
                         <p style={{ margin: 0, fontSize: 13, color: C.muted }}>{props.footnote}</p>
                       </td>

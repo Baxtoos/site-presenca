@@ -129,8 +129,8 @@ export class AttendanceService {
       throw fieldError(
         "unitsMissed",
         scheduled === 1
-          ? "Aula de 1 tempo não tem falta parcial: marque falta total."
-          : `Numa aula de ${scheduled} tempos, a falta parcial vai de 1 a ${scheduled - 1}.`,
+          ? "Com 1 aula só no dia, não há falta parcial: marque falta total."
+          : `Num dia de ${scheduled} aulas, a falta parcial vai de 1 a ${scheduled - 1}.`,
       );
     }
 
@@ -207,13 +207,13 @@ export class AttendanceService {
         body.unitsMissed ?? (current.status === "partial" ? current.unitsMissed : undefined);
       if (status === "partial") {
         if (partialMissed === undefined)
-          throw fieldError("unitsMissed", "Informe quantos tempos você perdeu.");
+          throw fieldError("unitsMissed", "Informe quantas aulas você perdeu.");
         if (partialMissed >= current.unitsScheduled) {
           throw fieldError(
             "unitsMissed",
             current.unitsScheduled === 1
-              ? "Aula de 1 tempo não tem falta parcial: marque falta total."
-              : `Numa aula de ${current.unitsScheduled} tempos, a falta parcial vai de 1 a ${current.unitsScheduled - 1}.`,
+              ? "Com 1 aula só no dia, não há falta parcial: marque falta total."
+              : `Num dia de ${current.unitsScheduled} aulas, a falta parcial vai de 1 a ${current.unitsScheduled - 1}.`,
           );
         }
       }

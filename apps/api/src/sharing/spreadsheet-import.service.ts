@@ -177,7 +177,7 @@ export class SpreadsheetImportService {
       if (a.status === "partial" && (a.unitsMissed ?? 0) >= scheduled) {
         throw invalid(
           `attendance.${i}.unitsMissed`,
-          `${where}: falta parcial precisa ser menor que os ${scheduled} tempos da aula.`,
+          `${where}: falta parcial precisa ser menor que as ${scheduled} aulas do dia.`,
         );
       }
       const occurrence = `${a.subjectIndex}|${a.classDate}|${scheduleId ?? "extra"}`;

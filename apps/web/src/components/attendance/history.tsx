@@ -137,7 +137,7 @@ export function AttendanceHistory({
                   <span className="text-xs text-muted">
                     {[
                       r.scheduleId ? null : "aula extra",
-                      plural(r.unitsScheduled, "tempo", "tempos"),
+                      plural(r.unitsScheduled, "aula", "aulas"),
                       r.isExcused ? "abonada" : null,
                       r.reason ? REASON_LABEL[r.reason] : null,
                     ]
@@ -283,7 +283,7 @@ export function ExtraClassForm({
           />
         </label>
         <label className="grid min-w-0 gap-1.5 font-medium">
-          Tempos de chamada
+          Aulas no dia
           <select
             value={units}
             onChange={(e) => {
@@ -319,7 +319,7 @@ export function ExtraClassForm({
       </div>
       {status === "partial" && units > 1 ? (
         <label className="grid max-w-xs min-w-0 gap-1.5 font-medium">
-          Tempos perdidos
+          Aulas perdidas
           <select
             value={missed}
             onChange={(e) => setMissed(Number(e.target.value))}

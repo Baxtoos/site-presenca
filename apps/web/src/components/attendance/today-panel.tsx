@@ -64,7 +64,7 @@ function successMessage(mark: Mark, subject: string) {
     case "absent":
       return `Falta registrada em ${subject}.`;
     case "partial":
-      return `Falta de ${plural(mark.unitsMissed ?? 1, "tempo", "tempos")} em ${subject}.`;
+      return `Falta de ${plural(mark.unitsMissed ?? 1, "aula", "aulas")} em ${subject}.`;
     case "cancelled":
       return `Aula de ${subject} marcada como cancelada.`;
   }
@@ -315,7 +315,7 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                   <p className="truncate text-xs text-muted">
                     {[
                       c.startsAt ? `${c.startsAt}–${c.endsAt}` : "Aula extra",
-                      plural(c.units, "tempo", "tempos"),
+                      plural(c.units, "aula", "aulas"),
                       c.room,
                     ]
                       .filter(Boolean)
@@ -377,7 +377,7 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                     <div
                       className="flex flex-wrap items-center gap-2 text-sm"
                       role="group"
-                      aria-label="Quantos tempos perdeu?"
+                      aria-label="Quantas aulas perdeu?"
                     >
                       <span className="text-muted">Perdi</span>
                       {Array.from({ length: c.units - 1 }, (_, i) => i + 1).map((n) => (
@@ -391,7 +391,7 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                           {n}
                         </button>
                       ))}
-                      <span className="text-muted">de {c.units} tempos</span>
+                      <span className="text-muted">de {c.units} aulas</span>
                     </div>
                   ) : null}
                 </>

@@ -233,7 +233,7 @@ export class ExcelExportService {
       "Matéria",
       "Professor",
       "Carga / aulas",
-      "Total tempos",
+      "Total aulas",
       "Presença mín.",
       "Faltas contab.",
       "Faltas abon.",
@@ -243,7 +243,7 @@ export class ExcelExportService {
       "Consumo",
       "Status",
       "Minutos totais (aux)",
-      "Minutos/tempo (aux)",
+      "Minutos/aula (aux)",
     ];
     const headerRow = resumo.getRow(4);
     headers.forEach((h, i) => {
@@ -429,7 +429,7 @@ export class ExcelExportService {
       "Data",
       "Dia da semana",
       "Matéria",
-      "Tempos perdidos",
+      "Aulas perdidas",
       "Horas perdidas",
       "Tipo",
       "Motivo",

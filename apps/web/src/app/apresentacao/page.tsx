@@ -119,7 +119,7 @@ export default function LandingPage() {
                 </span>
                 <div className="grid gap-0.5">
                   <p className="font-semibold">Física II: 75% do limite de faltas</p>
-                  <p className="text-muted">Ainda pode faltar 4 tempos (cerca de 2 aulas).</p>
+                  <p className="text-muted">Ainda pode faltar 4 aulas (cerca de 2 dias).</p>
                 </div>
               </div>
             </div>

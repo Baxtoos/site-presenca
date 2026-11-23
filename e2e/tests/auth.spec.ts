@@ -32,6 +32,11 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
   // Cadastro: a conta só nasce no link do e-mail, que já entra e confirma o e-mail.
   await page.getByRole("link", { name: "Criar conta grátis" }).first().click();
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
+  // Também dá para criar a conta com o Google direto do cadastro.
+  await expect(page.getByRole("link", { name: "Criar conta com Google" })).toHaveAttribute(
+    "href",
+    "/api/v1/auth/google",
+  );
   await signUp(page, { name: "Ana E2E", email, password });
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
   expect(await realPath(page)).not.toMatch(/token=/);

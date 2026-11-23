@@ -32,7 +32,7 @@ const COLUMN_FIELDS: { key: keyof ListColumns; label: string; required?: boolean
   { key: "date", label: "Data", required: true },
   { key: "subject", label: "Matéria" },
   { key: "status", label: "Situação (P, F...)" },
-  { key: "units", label: "Tempos" },
+  { key: "units", label: "Aulas" },
   { key: "reason", label: "Motivo" },
   { key: "note", label: "Observação" },
 ];
@@ -223,7 +223,7 @@ export function OwnSpreadsheetImport({ fileName, tables }: { fileName: string; t
                       <span className="font-normal text-muted">
                         · {plural(t.count, "vez", "vezes")}
                         {units && (choice === "absent" || choice === "excused")
-                          ? ` · ${plural(units, "tempo", "tempos")}`
+                          ? ` · ${plural(units, "aula", "aulas")}`
                           : ""}
                       </span>
                     </label>
@@ -338,7 +338,7 @@ export function OwnSpreadsheetImport({ fileName, tables }: { fileName: string; t
                           )}
                           <Field
                             id={`${id}-tempos`}
-                            label="Tempos por aula"
+                            label="Aulas por dia"
                             type="number"
                             min={1}
                             max={6}

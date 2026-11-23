@@ -38,7 +38,7 @@ async function downloadTemplate() {
     { header: "Data", key: "data", width: 12 },
     { header: "Matéria", key: "materia", width: 28 },
     { header: "Situação", key: "situacao", width: 14 },
-    { header: "Tempos", key: "tempos", width: 9 },
+    { header: "Aulas", key: "aulas", width: 9 },
     { header: "Motivo", key: "motivo", width: 18 },
     { header: "Observação", key: "obs", width: 40 },
   ];
@@ -50,7 +50,7 @@ async function downloadTemplate() {
     "Data: dd/mm/aaaa (ex.: 02/03/2026).",
     "Matéria: o nome da matéria (igual em todas as linhas dela).",
     "Situação: P (presença), F (falta), Atestado ou Cancelada. Em branco = falta.",
-    "Tempos: quantos tempos você faltou, se foi só parte da aula (ex.: 1 de 2). Pode deixar em branco.",
+    "Aulas: quantas aulas você faltou, se foi só parte do dia (ex.: 1 de 2). Pode deixar em branco.",
     "Motivo e Observação: opcionais; vão para as anotações da aula.",
     "Depois, em Semestres → Importar planilha, escolha este arquivo.",
   ].forEach((line) => help.addRow([line]));

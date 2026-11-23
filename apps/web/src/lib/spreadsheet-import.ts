@@ -135,7 +135,7 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
   if (!resumo || cellText(resumo.getCell("A4")) !== "Matéria")
     return { ok: false, error: NOT_OURS, foreign: true };
   const warnings: string[] = [
-    "Planilha exportada antes da importação existir: ela não guarda as presenças nem os feriados, só as faltas. Confira as datas e os tempos de cada aula depois de importar.",
+    "Planilha exportada antes da importação existir: ela não guarda as presenças nem os feriados, só as faltas. Confira as datas e as aulas de cada dia depois de importar.",
   ];
 
   const title = cellText(resumo.getCell("A1"));

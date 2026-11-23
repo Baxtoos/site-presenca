@@ -95,7 +95,7 @@ export function RecordEditor({
       ) : null}
       {status === "partial" ? (
         <label className="grid min-w-0 gap-1.5 font-medium" htmlFor={`${id}-tempos`}>
-          Tempos perdidos (de {record.unitsScheduled})
+          Aulas perdidas (de {record.unitsScheduled})
           <select
             id={`${id}-tempos`}
             value={unitsMissed}

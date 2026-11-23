@@ -118,7 +118,7 @@ describe("marcos de alerta", () => {
       kind: "threshold",
       subjectId: c.subject.id,
       title: "Física I: 50% do limite de faltas",
-      body: "Você tem 5 de 10 faltas. Ainda pode faltar 5 tempos.",
+      body: "Você tem 5 de 10 faltas. Ainda pode faltar 5 aulas.",
       url: `/materias/${c.subject.id}`,
       readAt: null,
     });
@@ -251,7 +251,7 @@ describe("marcos de alerta", () => {
     await miss(c, 6); // 120% → cruza 75, 90 e 100 de uma vez
     const top = (await inbox(c)).items[0]!;
     expect(top.title).toBe("Física I: limite de faltas atingido");
-    expect(top.body).toContain("passou do limite em 2 tempos (12 de 10)");
+    expect(top.body).toContain("passou do limite em 2 aulas (12 de 10)");
   });
 
   it("e-mail não confirmado: o e-mail fica pulado (com o motivo), a central recebe igual", async () => {

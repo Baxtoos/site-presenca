@@ -105,8 +105,8 @@ export const scheduleBodySchema = z
     units: z
       .number()
       .int()
-      .min(1, { error: "De 1 a 6 tempos." })
-      .max(6, { error: "De 1 a 6 tempos." }),
+      .min(1, { error: "De 1 a 6 aulas." })
+      .max(6, { error: "De 1 a 6 aulas." }),
     room: optionalText(40),
     building: optionalText(40),
     professor: optionalText(120),
@@ -148,8 +148,8 @@ const subjectBase = {
   unitsPerClass: z
     .number()
     .int()
-    .min(1, { error: "De 1 a 6 tempos." })
-    .max(6, { error: "De 1 a 6 tempos." }),
+    .min(1, { error: "De 1 a 6 aulas." })
+    .max(6, { error: "De 1 a 6 aulas." }),
   excusedPolicy: z.enum(["track_only", "deduct"]).default("track_only"),
 };
 

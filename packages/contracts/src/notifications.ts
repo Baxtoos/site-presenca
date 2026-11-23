@@ -50,7 +50,8 @@ export interface NotificationContent {
   url: string;
 }
 
-const units = (n: number) => `${n} ${n === 1 ? "tempo" : "tempos"}`;
+const units = (n: number) => `${n} ${n === 1 ? "aula" : "aulas"}`;
+const days = (n: number) => `${n} ${n === 1 ? "dia" : "dias"}`;
 const classes = (n: number) => `${n} ${n === 1 ? "aula" : "aulas"}`;
 
 /**
@@ -81,9 +82,7 @@ export function notificationContent(
       return {
         title: `${d.subjectName}: ${d.thresholdPct}% do limite de faltas`,
         body: `Você tem ${d.absentUnits} de ${d.maxUnits} faltas. Ainda pode faltar ${units(d.remainingUnits)}${
-          d.remainingClasses !== d.remainingUnits
-            ? ` (cerca de ${classes(d.remainingClasses)})`
-            : ""
+          d.remainingClasses !== d.remainingUnits ? ` (cerca de ${days(d.remainingClasses)})` : ""
         }.`,
         url,
       };

@@ -76,7 +76,7 @@ export function ScheduleManager({
             <li key={s.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <span>
                 <strong>{WEEKDAYS[s.weekday]}</strong>, {s.startsAt}–{s.endsAt} · {s.units}{" "}
-                {s.units === 1 ? "tempo" : "tempos"}
+                {s.units === 1 ? "aula" : "aulas"}
                 {s.room ? ` · ${s.room}` : ""}
               </span>
               <Button
@@ -119,7 +119,7 @@ export function ScheduleManager({
         />
         <Field id="fim" label="Fim" type="time" defaultValue="20:40" error={fields.endsAt} />
         <label className="grid min-w-0 gap-1.5 text-sm font-medium">
-          Tempos
+          Aulas
           <select
             name="tempos"
             defaultValue={String(defaultUnits)}

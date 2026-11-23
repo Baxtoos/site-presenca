@@ -12,7 +12,7 @@ test("sem internet: a marcação fica guardada, pode ser trocada e é enviada qu
   });
   await page.getByRole("link", { name: "Hoje", exact: true }).click();
   const aula = page.getByTestId("aula").filter({ hasText: "Química" });
-  await expect(aula).toContainText("Ainda pode faltar 18 tempos");
+  await expect(aula).toContainText("Ainda pode faltar 18 aulas");
 
   await context.setOffline(true);
   await aula.getByRole("button", { name: "Faltei", exact: true }).click();
@@ -34,7 +34,7 @@ test("sem internet: a marcação fica guardada, pode ser trocada e é enviada qu
   await expect(aviso).toHaveCount(0);
   await expect(aula).toContainText("Faltei 1 de 2");
   await expect(aula).not.toContainText("não enviado");
-  await expect(aula).toContainText("Ainda pode faltar 17 tempos");
+  await expect(aula).toContainText("Ainda pode faltar 17 aulas");
 
   // Gravou uma vez só, com o último status escolhido.
   await aula.getByRole("link", { name: "Química" }).click();
@@ -92,7 +92,7 @@ test("app instalado: abre sem internet as páginas já visitadas e mostra o avis
   await context.setOffline(false);
   await page.goto("/hoje");
   await expect(page.getByTestId("aula").filter({ hasText: "Biologia" })).toContainText(
-    "Ainda pode faltar 16 tempos",
+    "Ainda pode faltar 16 aulas",
   );
   await expect(page.getByTestId("aviso-offline")).toHaveCount(0);
 });

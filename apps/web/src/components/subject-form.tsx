@@ -164,18 +164,18 @@ function Preview({ draft }: { draft: Draft }) {
       <p className="text-xs font-semibold uppercase tracking-wider text-accent">Com essas regras</p>
       <p className="text-base">
         Você pode faltar até{" "}
-        <strong className="text-lg tabular-nums">{plural(result.F, "tempo", "tempos")}</strong>
+        <strong className="text-lg tabular-nums">{plural(result.F, "aula", "aulas")}</strong>
         {result.upc > 1 ? (
           <>
             {" "}
-            ({plural(classes, "encontro", "encontros")} de {result.upc} tempos)
+            ({plural(classes, "dia", "dias")} de {result.upc} aulas)
           </>
         ) : null}
         .
       </p>
       {result.T !== null ? (
         <p className="text-muted">
-          O semestre tem {plural(result.T, "tempo", "tempos")} de chamada
+          O semestre tem {plural(result.T, "aula", "aulas")} de chamada
           {draft.mode !== "manual"
             ? `; para passar, precisa de ${bpToPercent(percentToBp(draft.minPercent))} de presença`
             : ""}
@@ -308,7 +308,7 @@ function SubjectFields({
               id="duracao-tempo"
               label="Cada chamada vale (min)"
               inputMode="numeric"
-              hint="Duração de 1 tempo de aula"
+              hint="Duração de 1 aula"
               error={errors.unitMinutes}
               {...text("unitMinutes")}
             />
@@ -318,7 +318,7 @@ function SubjectFields({
         {draft.mode === "class_count" ? (
           <Field
             id="total-aulas"
-            label="Total de aulas no semestre"
+            label="Total de dias de aula no semestre"
             inputMode="numeric"
             error={errors.totalClasses}
             {...text("totalClasses")}
@@ -329,14 +329,14 @@ function SubjectFields({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               id="limite-manual"
-              label="Máximo de faltas (tempos)"
+              label="Máximo de faltas (aulas)"
               inputMode="numeric"
               error={errors.manualMaxUnits}
               {...text("manualMaxUnits")}
             />
             <Field
               id="total-aulas"
-              label="Total de aulas (opcional)"
+              label="Total de dias de aula (opcional)"
               inputMode="numeric"
               hint="Permite calcular sua presença final"
               error={errors.totalClasses}
@@ -358,7 +358,7 @@ function SubjectFields({
           ) : null}
           <Select
             id="tempos-encontro"
-            label="Tempos de chamada por aula"
+            label="Aulas por dia"
             value={draft.unitsPerClass}
             onChange={(v) => set("unitsPerClass", v)}
           >
@@ -449,7 +449,7 @@ export function ScheduleRows({
           />
           <Select
             id={`tempos-${row.key}`}
-            label="Tempos"
+            label="Aulas"
             value={row.units}
             onChange={(v) => update(row.key, { units: v })}
           >

@@ -143,8 +143,8 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
     nome: Data, Matéria, Situação, Tempos, Motivo, Observação; sem matéria, a aba é a matéria; sem
     situação, cada linha é uma falta), matérias nas linhas × datas nas colunas, e datas nas linhas
     × matérias nas colunas. Datas com ou sem ano ("02/03", "2 de março"). O aluno confere as
-    colunas, o significado de cada marcação ("P", "F", "atestado"; números = tempos de falta; "x"
-    é ambíguo e exige escolha), as regras, os tempos por aula e os dias e horário de cada matéria
+    colunas, o significado de cada marcação ("P", "F", "atestado"; números = aulas de falta; "x"
+    é ambíguo e exige escolha), as regras, as aulas por dia e os dias e horário de cada matéria
     (dias sugeridos pelos registros; dia que aparece uma vez vira aula avulsa). Duas linhas da
     mesma aula avulsa no mesmo dia viram uma (o banco guarda uma por dia); motivo e observação vão
     para a anotação da aula. Há uma planilha modelo para baixar na própria tela.
@@ -173,7 +173,7 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
   semestre ou atualizar um existente.
 - **Sincronização** (`POST /v1/imports/suap`, `SuapSyncService`, com `Idempotency-Key`): cria o que
   falta (semestre "2026.2", disciplinas com a sigla no código, regra de 75%, abono descontando,
-  horários juntando os tempos seguidos) e, nas aulas já lançadas, **vale o SUAP**: cria ou corrige o
+  horários juntando as aulas seguidas) e, nas aulas já lançadas, **vale o SUAP**: cria ou corrige o
   registro (presença, falta, parcial, abonada). O que o aluno marcou em dias que o SUAP ainda não tem
   fica. Aulas futuras já lançadas não viram registro (ficam na grade) e estendem o fim do semestre.
   Semestre novo põe os marcos de aviso em dia em silêncio; atualização avisa normalmente.
@@ -274,8 +274,12 @@ Tudo dentro da API, sem serviço externo de identidade.
 
 ## Motor de cálculo e matérias
 
+- **Vocabulário (desde 23/11/2026):** na tela, cada chamada de 50 min é uma **aula** e o conjunto de
+  aulas seguidas do mesmo dia é um **dia** ("ainda pode faltar 18 aulas (9 dias)"), como no SUAP. No
+  código e no banco os nomes continuam `units` (aulas) e `classes`/`unitsPerClass` (dias).
+
 - **Motor** (`packages/engine`): converte as regras de cada matéria (por carga horária, por número
-  de aulas ou limite fixo) em tempos de chamada e calcula limite, saldo, semáforo e presença. Conta
+  de aulas ou limite fixo) em aulas de chamada e calcula limite, saldo, semáforo e presença. Conta
   só com inteiros e arredonda o limite sempre para baixo, a favor do aluno. Testes por propriedades
   (fast-check) conferem, em milhares de casos aleatórios, que o limite é exatamente o piso da conta
   exata. O calendário (`classOccurrences`, `planSkips`) alimenta o "Posso faltar?".

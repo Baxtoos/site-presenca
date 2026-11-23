@@ -47,7 +47,7 @@ export const attendanceRoutes = {
   updateAttendance: {
     method: "PATCH",
     path: "/v1/attendance/:id",
-    summary: "Corrige um registro (status, tempos perdidos, atestado, motivo, observação)",
+    summary: "Corrige um registro (status, aulas perdidas, atestado, motivo, observação)",
     tag: "Presença",
     auth: true,
     ifMatch: true,

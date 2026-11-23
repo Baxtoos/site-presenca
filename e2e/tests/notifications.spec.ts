@@ -27,7 +27,7 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
     .click();
   await page.getByRole("link", { name: "Editar matéria" }).click();
   await page.getByRole("radio", { name: /Limite fixo/ }).click();
-  await page.getByLabel("Máximo de faltas (tempos)").fill("4");
+  await page.getByLabel("Máximo de faltas (aulas)").fill("4");
   await page.getByRole("button", { name: "Salvar alterações" }).click();
   await expect(page.getByText("Matéria atualizada.")).toBeVisible();
   await page.getByRole("link", { name: "← Química" }).click();
@@ -48,12 +48,12 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
   const aviso = page.getByTestId("aviso").first();
   await expect(aviso).toContainText("Química: 50% do limite de faltas");
   await expect(aviso).toContainText(
-    "Você tem 2 de 4 faltas. Ainda pode faltar 2 tempos (cerca de 1 aula).",
+    "Você tem 2 de 4 faltas. Ainda pode faltar 2 aulas (cerca de 1 dia).",
   );
 
   // E-mail entregue pelo worker, com o mesmo texto.
   const alert = await waitForEmail(email, "Química: 50% do limite de faltas", startedAt);
-  expect(alert.text).toContain("Ainda pode faltar 2 tempos");
+  expect(alert.text).toContain("Ainda pode faltar 2 aulas");
   expect(alert.text).toContain("/materias/");
 
   // Abrir o aviso marca como lido e leva à matéria.

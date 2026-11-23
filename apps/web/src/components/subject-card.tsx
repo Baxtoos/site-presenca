@@ -29,12 +29,12 @@ export function RiskLine({
   short?: boolean;
   className?: string;
 }) {
-  const left = plural(s.remainingUnits, "tempo", "tempos");
+  const left = plural(s.remainingUnits, "aula", "aulas");
   const meetings =
-    !short && unitsPerClass > 1 ? ` (${plural(s.remainingClasses, "encontro", "encontros")})` : "";
+    !short && unitsPerClass > 1 ? ` (${plural(s.remainingClasses, "dia", "dias")})` : "";
   let content: ReactNode;
   if (s.risk === "failed" || s.exceededBy > 0) {
-    content = `Reprovado por falta: passou do limite em ${plural(s.exceededBy, "tempo", "tempos")}.`;
+    content = `Reprovado por falta: passou do limite em ${plural(s.exceededBy, "aula", "aulas")}.`;
   } else if (s.risk === "limit") {
     content = "Limite atingido: mais uma falta reprova.";
   } else if (s.risk === "critical") {

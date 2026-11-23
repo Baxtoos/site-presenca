@@ -29,8 +29,8 @@ export function SubjectPreviewCard({ className = "" }: { className?: string }) {
         </div>
       </div>
       <p className="text-sm">
-        Ainda pode faltar <strong>14 tempos</strong>
-        <span className="text-muted"> (7 encontros)</span>.
+        Ainda pode faltar <strong>14 aulas</strong>
+        <span className="text-muted"> (7 dias)</span>.
       </p>
     </div>
   );

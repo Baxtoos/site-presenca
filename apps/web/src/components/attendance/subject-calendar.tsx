@@ -84,7 +84,7 @@ function successMessage(mark: Mark): string {
     case "absent":
       return "Falta registrada.";
     case "partial":
-      return `Falta de ${plural(mark.unitsMissed ?? 1, "tempo", "tempos")} registrada.`;
+      return `Falta de ${plural(mark.unitsMissed ?? 1, "aula", "aulas")} registrada.`;
     case "cancelled":
       return "Aula marcada como cancelada.";
   }
@@ -401,7 +401,7 @@ export function SubjectCalendar({
                   <span className="text-muted">
                     {[
                       c.startsAt ? `${c.startsAt}–${c.endsAt}` : "Aula extra",
-                      plural(c.units, "tempo", "tempos"),
+                      plural(c.units, "aula", "aulas"),
                       c.room,
                     ]
                       .filter(Boolean)
@@ -464,7 +464,7 @@ export function SubjectCalendar({
                       <div
                         className="flex flex-wrap items-center gap-2 text-sm"
                         role="group"
-                        aria-label="Quantos tempos perdeu?"
+                        aria-label="Quantas aulas perdeu?"
                       >
                         <span className="text-muted">Perdi</span>
                         {Array.from({ length: c.units - 1 }, (_, i) => i + 1).map((n) => (
@@ -480,7 +480,7 @@ export function SubjectCalendar({
                             {n}
                           </button>
                         ))}
-                        <span className="text-muted">de {c.units} tempos</span>
+                        <span className="text-muted">de {c.units} aulas</span>
                       </div>
                     ) : null}
                   </>

@@ -25,8 +25,8 @@ export const noteSchema = z
 export const unitsMissedSchema = z
   .number()
   .int()
-  .min(1, { error: "Informe quantos tempos você perdeu." })
-  .max(5, { error: "No máximo 5 tempos perdidos em uma aula parcial." });
+  .min(1, { error: "Informe quantas aulas você perdeu." })
+  .max(5, { error: "No máximo 5 aulas perdidas numa falta parcial." });
 
 /** Regras que dependem só do corpo; as que dependem do banco (tempos da aula) ficam na API. */
 export function refineAttendance(
@@ -37,14 +37,14 @@ export function refineAttendance(
     ctx.addIssue({
       code: "custom",
       path: ["unitsMissed"],
-      message: "Informe quantos tempos você perdeu.",
+      message: "Informe quantas aulas você perdeu.",
     });
   }
   if (body.status && body.status !== "partial" && body.unitsMissed !== undefined) {
     ctx.addIssue({
       code: "custom",
       path: ["unitsMissed"],
-      message: "Tempos perdidos só se aplicam à falta parcial.",
+      message: "Aulas perdidas só se aplicam à falta parcial.",
     });
   }
   if (body.isExcused && body.status && body.status !== "absent" && body.status !== "partial") {
@@ -67,8 +67,8 @@ export const createAttendanceBodySchema = z
     unitsScheduled: z
       .number()
       .int()
-      .min(1, { error: "De 1 a 6 tempos." })
-      .max(6, { error: "De 1 a 6 tempos." })
+      .min(1, { error: "De 1 a 6 aulas." })
+      .max(6, { error: "De 1 a 6 aulas." })
       .optional(),
     unitsMissed: unitsMissedSchema.optional(),
     isExcused: z.boolean().default(false),

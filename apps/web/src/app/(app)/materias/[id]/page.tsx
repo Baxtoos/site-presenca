@@ -47,8 +47,8 @@ function CanISkip({ sim }: { sim: SimulateResponse }) {
           {next.allowed ? (
             <>
               <strong className="text-ok">Sim.</strong> Faltando a próxima aula (
-              {formatDayLabel(sim.nextClass.date)}, {plural(sim.nextClass.units, "tempo", "tempos")}
-              ), você fica com {plural(next.remainingUnits, "tempo", "tempos")} de folga
+              {formatDayLabel(sim.nextClass.date)}, {plural(sim.nextClass.units, "aula", "aulas")}
+              ), você fica com {plural(next.remainingUnits, "aula", "aulas")} de folga
               {next.risk !== "safe" ? ` e entra em "${RISK_LABEL[next.risk]}"` : ""}.
             </>
           ) : (
@@ -114,7 +114,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
             value={
               s.exceededBy > 0
                 ? `passou ${s.exceededBy}`
-                : plural(s.remainingUnits, "tempo", "tempos")
+                : plural(s.remainingUnits, "aula", "aulas")
             }
           />
           <Stat label="Limite usado" value={`${s.consumptionPct}%`} />

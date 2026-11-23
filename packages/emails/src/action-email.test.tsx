@@ -20,6 +20,20 @@ describe("e-mails de autenticação", () => {
     expect(msg.text).toContain(`Escolher nova senha: ${URL_WITH_TOKEN}`);
   });
 
+  it("o botão ocupa a célula colorida e o endereço de reserva também é link", () => {
+    const msg = verifyEmailMessage({
+      name: "Ana",
+      url: "https://app.exemplo/cadastro/confirmar?token=t",
+    });
+    const links = msg.html.match(
+      /<a [^>]*href="https:\/\/app\.exemplo\/cadastro\/confirmar\?token=t"/g,
+    );
+    // Botão + endereço de reserva clicável.
+    expect(links).toHaveLength(2);
+    expect(msg.html).toMatch(/<td[^>]*bgcolor="#0B6BCB"[^>]*>\s*<a /);
+    expect(msg.html).toContain('target="_blank"');
+  });
+
   it("escapam o nome do usuário", () => {
     const msg = verifyEmailMessage({ name: "<b>Ana</b>", url: "https://app.exemplo/v" });
     expect(msg.html).toContain("Olá, &lt;b&gt;Ana&lt;/b&gt;.");
@@ -40,12 +54,12 @@ describe("aviso do app", () => {
     const email = noticeMessage({
       name: "Ana <script>",
       title: "Cálculo II: 75% do limite de faltas",
-      body: "Você tem 14 de 18 faltas. Ainda pode faltar 4 tempos.",
+      body: "Você tem 14 de 18 faltas. Ainda pode faltar 4 aulas.",
       url: "https://app.exemplo/materias/1",
       settingsUrl: "https://app.exemplo/conta",
     });
     expect(email.subject).toBe("Cálculo II: 75% do limite de faltas");
-    expect(email.html).toContain("Ainda pode faltar 4 tempos");
+    expect(email.html).toContain("Ainda pode faltar 4 aulas");
     expect(email.html).toContain('href="https://app.exemplo/materias/1"');
     expect(email.html).not.toContain("<script>");
     expect(email.text).toContain("https://app.exemplo/conta");

@@ -31,11 +31,11 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   await page.getByLabel("Professor(a)").fill("Prof. Andrade");
   const preview = page.getByTestId("previa");
   // Padrão: 60 h, hora-relógio, chamada de 50 min, 75%, 2 tempos por aula.
-  await expect(preview).toContainText("18 tempos (9 encontros de 2 tempos)");
+  await expect(preview).toContainText("18 aulas (9 dias de 2 aulas)");
   await page.getByLabel("Presença mínima (%)").fill("85");
-  await expect(preview).toContainText("10 tempos (5 encontros de 2 tempos)");
+  await expect(preview).toContainText("10 aulas (5 dias de 2 aulas)");
   await page.getByLabel("Presença mínima (%)").fill("75");
-  await expect(preview).toContainText("18 tempos");
+  await expect(preview).toContainText("18 aulas");
 
   await page.getByRole("button", { name: "Adicionar horário" }).click();
   await page.getByRole("button", { name: "Adicionar horário" }).click();
@@ -46,7 +46,7 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   const card = page.getByRole("main").getByRole("link", { name: /Cálculo II/ });
   await expect(card).toContainText("0 de 18 faltas");
   // Sem selo de risco: matéria tranquila mostra só quanto ainda pode faltar, sem alerta.
-  await expect(card).toContainText("Ainda pode faltar 18 tempos (9 encontros).");
+  await expect(card).toContainText("Ainda pode faltar 18 aulas (9 dias).");
   await expect(card.locator('[data-risk="safe"] svg')).toHaveCount(0);
   await expect(card).toContainText("Seg · Qua");
 
@@ -70,5 +70,5 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   await expect(page.getByRole("heading", { name: "Suas matérias" })).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Suas matérias" }).getByRole("link", { name: /Cálculo II/ }),
-  ).toContainText("Ainda pode faltar 18 tempos");
+  ).toContainText("Ainda pode faltar 18 aulas");
 });
