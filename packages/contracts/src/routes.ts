@@ -23,6 +23,7 @@ import { academicRoutes } from "./academic-routes";
 import { attendanceRoutes } from "./attendance-routes";
 import { notificationRoutes } from "./notification-routes";
 import { sharingRoutes } from "./sharing-routes";
+import { taskRoutes } from "./task-routes";
 import { healthResponseSchema, readinessResponseSchema } from "./health";
 
 export type { HttpMethod, RouteDef, RouteResponse } from "./route-types";
@@ -375,6 +376,7 @@ export const routes = {
 
   // ---- Compartilhamento de grades ----
   ...sharingRoutes,
+  ...taskRoutes,
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteName = keyof typeof routes;

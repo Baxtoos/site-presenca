@@ -155,6 +155,108 @@ describe("integridade entre donos (FKs compostas)", () => {
   });
 });
 
+describe("tarefas (FKs compostas e restrições)", () => {
+  it("não liga tarefa à matéria de outra pessoa, mesmo sabendo o id", async () => {
+    await expect(
+      inTx(api(), { userId: bob.userId }, (c) =>
+        c.query(
+          `insert into tasks (user_id, subject_id, title, due_at) values ($1, $2, 'Intrusa', now())`,
+          [bob.userId, alice.subjectId],
+        ),
+      ),
+    ).rejects.toThrow(/foreign key/);
+  });
+
+  it("apagar a matéria mantém a tarefa, só sem matéria", async () => {
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      const subject = (
+        await c.query<{ id: string }>(
+          `insert into subjects (user_id, semester_id, name, counting_mode, total_classes)
+           values ($1, $2, 'Temporária', 'class_count', 10) returning id`,
+          [alice.userId, alice.semesterId],
+        )
+      ).rows[0]!.id;
+      const task = (
+        await c.query<{ id: string }>(
+          `insert into tasks (user_id, subject_id, title, due_at)
+           values ($1, $2, 'Relatório', now() + interval '3 days') returning id`,
+          [alice.userId, subject],
+        )
+      ).rows[0]!.id;
+      await c.query("delete from subjects where id = $1", [subject]);
+      const after = (await c.query("select subject_id, user_id from tasks where id = $1", [task]))
+        .rows[0];
+      expect(after).toEqual({ subject_id: null, user_id: alice.userId });
+    });
+  });
+
+  it("apagar a tarefa mantém o aviso no histórico, sem a tarefa", async () => {
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      const task = (
+        await c.query<{ id: string }>(
+          `insert into tasks (user_id, title, due_at) values ($1, 'Seminário', now()) returning id`,
+          [alice.userId],
+        )
+      ).rows[0]!.id;
+      const log = (
+        await c.query<{ id: string }>(
+          `insert into notification_logs (user_id, task_id, kind, channel, dedupe_key, status)
+           values ($1, $2, 'system', 'in_app', $3, 'sent') returning id`,
+          [alice.userId, task, `teste-tarefa:${task}`],
+        )
+      ).rows[0]!.id;
+      await c.query("delete from tasks where id = $1", [task]);
+      const after = (
+        await c.query("select task_id, user_id from notification_logs where id = $1", [log])
+      ).rows[0];
+      expect(after).toEqual({ task_id: null, user_id: alice.userId });
+    });
+  });
+
+  it("aviso não aponta para a tarefa de outra pessoa", async () => {
+    await expect(
+      inTx(api(), { userId: bob.userId }, (c) =>
+        c.query(
+          `insert into notification_logs (user_id, task_id, kind, channel, dedupe_key)
+           values ($1, $2, 'system', 'in_app', 'intruso')`,
+          [bob.userId, alice.taskId],
+        ),
+      ),
+    ).rejects.toThrow(/foreign key/);
+  });
+
+  it.each([
+    ["título vazio", "title", "'   '"],
+    ["antecedência fora das opções", "remind_before_minutes", "45"],
+    ["concluída sem data de conclusão", "status", "'completed'"],
+  ])("recusa %s", async (_name, column, value) => {
+    await expect(
+      inTx(api(), { userId: alice.userId }, (c) =>
+        c.query(`update tasks set ${column} = ${value} where id = $1`, [alice.taskId]),
+      ),
+    ).rejects.toThrow(/violates check constraint/);
+  });
+
+  it("toda edição incrementa version e atualiza updated_at", async () => {
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      const before = (
+        await c.query<{ version: number }>("select version from tasks where id = $1", [
+          alice.taskId,
+        ])
+      ).rows[0]!.version;
+      await c.query("update tasks set status = 'completed', resolved_at = now() where id = $1", [
+        alice.taskId,
+      ]);
+      const after = (
+        await c.query<{ version: number }>("select version from tasks where id = $1", [
+          alice.taskId,
+        ])
+      ).rows[0]!.version;
+      expect(after).toBe(before + 1);
+    });
+  });
+});
+
 describe("restrições de dados", () => {
   const insertLog = (status: string, scheduled: number, missed: number, excused = false) =>
     inTx(api(), { userId: alice.userId }, (c) =>
@@ -332,7 +434,8 @@ describe("auditoria e versão", () => {
 describe("papéis", () => {
   it("o worker lê notificações de todos, mas dos registros de presença só o necessário para o lembrete", async () => {
     const worker = db.pools.app_worker;
-    expect(await count(worker, "select 1 from notification_logs")).toBe(2);
+    // Os de todos os usuários (o semeado de cada um, mais os criados por outros testes).
+    expect(await count(worker, "select 1 from notification_logs")).toBeGreaterThanOrEqual(2);
     // Lembrete de chamada: saber QUAIS aulas têm registro, sem ver o conteúdo deles.
     expect(
       await count(
@@ -352,6 +455,28 @@ describe("papéis", () => {
     await expect(worker.query("update semesters set label = 'x'")).rejects.toThrow(
       /permission denied/,
     );
+  });
+
+  it("o worker lê das tarefas só o necessário para o aviso e não escreve nelas", async () => {
+    const worker = db.pools.app_worker;
+    expect(
+      await count(
+        worker,
+        "select id, user_id, subject_id, title, due_at, remind_before_minutes, status from tasks",
+      ),
+    ).toBeGreaterThanOrEqual(2);
+    for (const column of ["*", "notes", "resolved_at"]) {
+      await expect(worker.query(`select ${column} from tasks`)).rejects.toThrow(
+        /permission denied/,
+      );
+    }
+    for (const sql of [
+      "update tasks set title = 'x'",
+      "delete from tasks",
+      `insert into tasks (user_id, title, due_at) values ('${alice.userId}', 'x', now())`,
+    ]) {
+      await expect(worker.query(sql)).rejects.toThrow(/permission denied/);
+    }
   });
 
   it("o worker lê o e-mail, mas não o hash de senha", async () => {

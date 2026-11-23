@@ -78,6 +78,20 @@
       "when": 1795095395739,
       "tag": "0010_segundo_fator",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795474638617,
+      "tag": "0011_tarefas",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795474639289,
+      "tag": "0012_tarefas_seguranca",
+      "breakpoints": true
     }
   ]
 }

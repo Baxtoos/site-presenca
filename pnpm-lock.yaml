@@ -391,6 +391,9 @@ importers:
       '@presenca/emails':
         specifier: workspace:*
         version: link:../../packages/emails
+      '@presenca/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@presenca/observability':
         specifier: workspace:*
         version: link:../../packages/observability

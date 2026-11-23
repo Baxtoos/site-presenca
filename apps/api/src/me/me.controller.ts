@@ -95,6 +95,10 @@ export class MeController {
         .select()
         .from(schema.attendanceLogs)
         .orderBy(asc(schema.attendanceLogs.classDate), asc(schema.attendanceLogs.createdAt));
+      const tasks = await tx
+        .select()
+        .from(schema.tasks)
+        .orderBy(asc(schema.tasks.dueAt), asc(schema.tasks.id));
       const auditEvents = await tx
         .select()
         .from(schema.attendanceLogEvents)
@@ -167,6 +171,7 @@ export class MeController {
         schedules,
         calendarExceptions,
         attendanceLogs,
+        tasks,
         auditEvents,
         sharedTemplates,
         templateImports,

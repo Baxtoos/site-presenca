@@ -1,12 +1,18 @@
 import { z } from "zod";
 import { timeSchema } from "./academic";
+import { remindLabel } from "./tasks";
 
 // ---------------------------------------------------------------- conteúdo dos avisos
 
 export const THRESHOLD_PCTS = [50, 75, 90, 100] as const;
 export const thresholdPctSchema = z.union(THRESHOLD_PCTS.map((p) => z.literal(p)));
 
-export const notificationKindSchema = z.enum(["threshold", "checkin_reminder", "system"]);
+export const notificationKindSchema = z.enum([
+  "threshold",
+  "checkin_reminder",
+  "system",
+  "task_due",
+]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
 /** Dados guardados em `notification_logs.payload`. O texto é montado na hora de mostrar/enviar. */
@@ -19,6 +25,18 @@ export const thresholdPayloadSchema = z.object({
   remainingClasses: z.number().int(),
 });
 export type ThresholdPayload = z.infer<typeof thresholdPayloadSchema>;
+
+/** Aviso de entrega próxima: o prazo já vem formatado no fuso do aluno. */
+export const taskDuePayloadSchema = z.object({
+  taskId: z.uuid(),
+  title: z.string(),
+  subjectName: z.string().nullable(),
+  dueAt: z.iso.datetime({ offset: true }),
+  /** "sex., 28/11 às 23:59" no fuso da conta. */
+  dueLabel: z.string(),
+  remindBeforeMinutes: z.number().int(),
+});
+export type TaskDuePayload = z.infer<typeof taskDuePayloadSchema>;
 
 /** Uma aula sem registro, para marcar direto pela notificação (botões Fui / Faltei). */
 export const pendingClassSchema = z.object({
@@ -106,6 +124,17 @@ export function notificationContent(
             body: `${classes(count)} dos últimos 7 dias ${count === 1 ? "ficou" : "ficaram"} sem registro.`,
             url: "/hoje",
           };
+    }
+  }
+  if (kind === "task_due") {
+    const p = taskDuePayloadSchema.safeParse(payload);
+    if (p.success) {
+      const d = p.data;
+      return {
+        title: `Entrega em ${remindLabel(d.remindBeforeMinutes)}: ${d.title}`,
+        body: `${d.subjectName ? `${d.subjectName} · ` : ""}prazo ${d.dueLabel}. Já entregou? Marque no app.`,
+        url: "/tarefas",
+      };
     }
   }
   if (kind === "system") {

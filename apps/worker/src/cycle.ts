@@ -4,6 +4,7 @@ import { type CleanupStats, cleanupExpired } from "./cleanup";
 import { type DeliveryStats, processOutbox } from "./delivery";
 import type { PushSender } from "./push";
 import { enqueueReminders } from "./reminders";
+import { enqueueTaskReminders } from "./task-reminders";
 
 export interface CycleDeps {
   pool: Pool;
@@ -30,7 +31,8 @@ export async function runCycle(
   options: { cleanup: boolean },
 ): Promise<CycleResult> {
   const now = deps.now ?? (() => new Date());
-  const reminders = await enqueueReminders(deps.pool, now());
+  const reminders =
+    (await enqueueReminders(deps.pool, now())) + (await enqueueTaskReminders(deps.pool, now()));
   const delivery = await processOutbox(deps);
   const cleanup = options.cleanup ? await cleanupExpired(deps.pool) : null;
   return { reminders, delivery, cleanup };

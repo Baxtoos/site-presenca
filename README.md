@@ -218,7 +218,7 @@ As senhas em `.env.example` e `infra/postgres/init` servem só para desenvolvime
 
 ## Banco de dados
 
-- **Schema:** `packages/db/src/schema` (Drizzle), 19 tabelas no schema `app`.
+- **Schema:** `packages/db/src/schema` (Drizzle), 20 tabelas no schema `app`.
 - **Migrations:** `packages/db/migrations`. A `0001_tables` é gerada pelo Drizzle; `0000_foundation`
   (UUID v7, funções de trigger) e `0002_security` (FKs compostas, view `subject_totals`, triggers,
   RLS forçado e permissões de cada papel) são escritas à mão. Depois: `0003_auth` (funções de
@@ -313,6 +313,38 @@ Tudo dentro da API, sem serviço externo de identidade.
 - **Posso faltar?** (`GET /v1/subjects/:id/simulate`): a próxima aula, o efeito de faltar nela e
   quantas das próximas aulas ainda dá para faltar, já descontando feriados e o que foi registrado.
 - Cada mudança gera um evento de auditoria (`attendance_log_events`) com o `requestId`.
+
+## Tarefas e entregas
+
+- **Tabela `tasks`** (migrations `0011_tarefas` e `0012_tarefas_seguranca`): título, observações,
+  matéria opcional, prazo (`due_at`, `timestamptz`), antecedência do aviso
+  (`remind_before_minutes`: 60, 180, 720, 1440 ou 2880; padrão 24 h) e status `pending`,
+  `completed` ou `not_completed`. O banco confere as listas, o tamanho dos textos e que
+  `resolved_at` só existe fora de `pending`.
+- **Isolamento:** RLS com `ENABLE` + `FORCE` (o `app_api` só vê `user_id = app.current_user_id()`).
+  FKs compostas `(subject_id, user_id)` e `(task_id, user_id)`: não dá para ligar uma tarefa à
+  matéria de outra conta, nem um aviso à tarefa de outra conta. Apagar a matéria deixa a tarefa sem
+  matéria; apagar a tarefa mantém o histórico de avisos (`task_id` vira nulo). O `app_api` não tem
+  `TRUNCATE`/`REFERENCES`/`TRIGGER`; o `app_worker` lê só as colunas do aviso (sem observações) e
+  não escreve.
+- **Prazo no fuso da conta:** o aluno digita data e hora ("2026-11-30T23:59"); a API converte com
+  `users.timezone` e devolve `dueAt` (UTC) e `dueLocal`, mais `overdue` (pendente com prazo passado).
+- **API:** `GET /v1/tasks` (filtros `status` e `subjectId`, ordem `due_asc`/`due_desc`, cursor),
+  `POST /v1/tasks` (Idempotency-Key obrigatória), `GET|PATCH|DELETE /v1/tasks/:id` (ETag;
+  `If-Match` no PATCH e no DELETE, 412 se mudou). Erros em RFC 9457 (`TASK_INVALID` com o campo).
+  A exportação de dados (Conta) inclui as tarefas.
+- **Aviso antes do prazo:** a cada ciclo (modo `loop` ou `once`), o worker procura tarefas
+  pendentes com prazo nas próximas 48 h cuja hora do aviso (`due_at - antecedência`) já chegou e
+  grava no outbox, na mesma transação: central (`in_app`) já entregue, push `pending` (se ligado) e
+  e-mail `pending` (se ligado e confirmado), tipo `task_due` com payload tipado. O `dedupe_key`
+  (`task_due:{tarefa}:{prazo}:{antecedência}`) impede repetição; mudar o prazo ou a antecedência
+  gera um aviso novo. Marcar, mudar o prazo ou apagar cancela os envios ainda pendentes, e o worker
+  confere de novo antes de enviar (não avisa tarefa resolvida, apagada ou vencida).
+- **Web:** página `/tarefas` (abas Pendentes, Concluídas, Não concluídas e Todas; filtro por
+  matéria), pendentes agrupadas em "Vencidas: falta registrar", "Próximas 48 h", "Esta semana" e
+  "Depois", com destaque para as vencidas e as próximas. Botões **Concluída** / **Não concluída**,
+  editar e excluir. O Início mostra as entregas dos próximos 7 dias e a tela de hoje as das próximas
+  48 h. O push abre `/tarefas`.
 
 ## App instalável e modo offline
 

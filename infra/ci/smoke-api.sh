@@ -47,7 +47,7 @@ done
 TABLES=$(docker exec "$PG" psql -U postgres -d presenca -tAc \
   "select count(*) from pg_class where relnamespace = 'app'::regnamespace and relkind = 'r' and relforcerowsecurity")
 echo "Tabelas com RLS forçado: $TABLES"
-[ "$TABLES" -eq 19 ] || { echo "esperado 19"; exit 1; }
+[ "$TABLES" -eq 20 ] || { echo "esperado 20"; exit 1; }
 
 step "Subindo a API com o papel app_api"
 docker run -d --name "$API" --network "$NET" \

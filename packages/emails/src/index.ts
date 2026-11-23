@@ -8,6 +8,7 @@ export {
   mfaEnableMessage,
   noticeMessage,
   resetPasswordMessage,
+  taskDueMessage,
   verifyEmailMessage,
   type RenderedEmail,
 } from "./action-email";

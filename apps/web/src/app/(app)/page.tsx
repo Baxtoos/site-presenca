@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { TodayPanel } from "@/components/attendance/today-panel";
 import { LibraryIcon, MoonIcon, PlusIcon, SemesterIcon, SunIcon } from "@/components/icons";
 import { SubjectCard } from "@/components/subject-card";
+import { UpcomingTasks } from "@/components/tasks/upcoming-tasks";
 import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { apiGet, getMe } from "@/lib/api-server";
 import { plural, simulateHint } from "@/lib/format";
@@ -75,6 +76,7 @@ export default async function Home() {
 
       {me && !me.emailVerified ? <VerifyEmailBanner email={me.email} /> : null}
       <InstallPrompt />
+      <UpcomingTasks days={7} title="Próximas entregas" />
 
       {!current ? (
         <section className="card grid gap-4 p-6 sm:p-8">

@@ -194,3 +194,11 @@ export const MonitorIcon = (p: IconProps) => (
     <path d="M8.5 21h7M12 17v4" />
   </Svg>
 );
+
+export const TaskIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5" y="4" width="14" height="17" rx="2" />
+    <path d="M9 4V3h6v1" />
+    <path d="m9 12.5 2 2 4-4.5" />
+  </Svg>
+);

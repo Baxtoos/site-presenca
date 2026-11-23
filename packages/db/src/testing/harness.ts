@@ -114,6 +114,7 @@ export interface SeededUser {
   scheduleId: string;
   logId: string;
   templateId: string;
+  taskId: string;
 }
 
 /** Cria um usuário com pelo menos uma linha em cada tabela, agindo como a API (papel app_api). */
@@ -157,6 +158,13 @@ export async function seedUser(api: pg.Pool, email: string): Promise<SeededUser>
       `insert into subject_threshold_state (subject_id, threshold_pct, user_id) values ($1, 50, $2)`,
       [subjectId, userId],
     );
+    const taskId = (
+      await c.query<{ id: string }>(
+        `insert into tasks (user_id, subject_id, title, due_at)
+         values ($1, $2, 'Lista de exercícios', '2026-03-20 23:59-03') returning id`,
+        [userId, subjectId],
+      )
+    ).rows[0]!.id;
     await c.query("insert into notification_preferences (user_id) values ($1)", [userId]);
     await c.query(
       `insert into push_subscriptions (user_id, endpoint, p256dh, auth)
@@ -205,7 +213,7 @@ export async function seedUser(api: pg.Pool, email: string): Promise<SeededUser>
       `insert into template_imports (template_id, user_id, created_semester_id) values ($1, $2, $3)`,
       [templateId, userId, semesterId],
     );
-    return { userId, semesterId, subjectId, scheduleId, logId, templateId };
+    return { userId, semesterId, subjectId, scheduleId, logId, templateId, taskId };
   });
 }
 
@@ -230,4 +238,5 @@ export const OWNED_TABLES: ReadonlyArray<readonly [table: string, ownerColumn: s
   ["idempotency_keys", "user_id"],
   ["user_mfa", "user_id"],
   ["mfa_recovery_codes", "user_id"],
+  ["tasks", "user_id"],
 ];

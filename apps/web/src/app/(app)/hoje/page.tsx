@@ -3,6 +3,7 @@ import { addDays } from "@presenca/engine";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TodayPanel } from "@/components/attendance/today-panel";
+import { UpcomingTasks } from "@/components/tasks/upcoming-tasks";
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, TodayIcon } from "@/components/icons";
 import { PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
@@ -67,6 +68,8 @@ export default async function DayPage({
       ) : null}
 
       <TodayPanel data={day} />
+
+      {day.isToday ? <UpcomingTasks days={2} title="Entregas próximas" /> : null}
     </>
   );
 }

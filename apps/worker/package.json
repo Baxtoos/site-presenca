@@ -19,6 +19,7 @@
     "@presenca/contracts": "workspace:*",
     "@presenca/db": "workspace:*",
     "@presenca/emails": "workspace:*",
+    "@presenca/engine": "workspace:*",
     "@presenca/observability": "workspace:*",
     "pg": "catalog:",
     "web-push": "catalog:",

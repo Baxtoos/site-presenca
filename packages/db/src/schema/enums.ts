@@ -40,6 +40,7 @@ export const notificationKind = app.enum("notification_kind", [
   "threshold",
   "checkin_reminder",
   "system",
+  "task_due",
 ]);
 export const notificationChannel = app.enum("notification_channel", ["email", "push", "in_app"]);
 export const notificationStatus = app.enum("notification_status", [
@@ -49,3 +50,6 @@ export const notificationStatus = app.enum("notification_status", [
   "failed",
   "skipped",
 ]);
+
+/** Tarefas e entregas: pendente até o aluno marcar se concluiu ou não. */
+export const taskStatus = app.enum("task_status", ["pending", "completed", "not_completed"]);

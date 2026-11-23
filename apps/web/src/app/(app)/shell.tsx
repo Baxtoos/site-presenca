@@ -8,6 +8,7 @@ import {
   HomeIcon,
   SemesterIcon,
   ShareIcon,
+  TaskIcon,
   TodayIcon,
   UserIcon,
 } from "@/components/icons";
@@ -25,6 +26,7 @@ type NavItem = {
 const PRIMARY: NavItem[] = [
   { href: "/", label: "Início", icon: HomeIcon, exact: true },
   { href: "/hoje", label: "Hoje", icon: TodayIcon },
+  { href: "/tarefas", label: "Tarefas", icon: TaskIcon },
   { href: "/semestres", label: "Semestres", icon: SemesterIcon },
 ];
 const SECONDARY: NavItem[] = [

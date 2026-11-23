@@ -80,6 +80,8 @@ export const notificationLogs = app.table(
       .references(() => users.id, { onDelete: "cascade" }),
     /** FK composta (subject_id, user_id) criada na migration de segurança. */
     subjectId: uuid(),
+    /** Tarefa do aviso task_due. FK composta (task_id, user_id) na migration de segurança. */
+    taskId: uuid(),
     kind: notificationKind().notNull(),
     channel: notificationChannel().notNull(),
     thresholdPct: smallint(),
@@ -97,6 +99,9 @@ export const notificationLogs = app.table(
   (t) => [
     unique("notification_logs_dedupe_key").on(t.dedupeKey, t.channel),
     index("notification_logs_user_idx").on(t.userId, t.createdAt.desc()),
+    index("notification_logs_task_pending_idx")
+      .on(t.taskId)
+      .where(sql`${t.status} in ('pending', 'failed')`),
     index("notification_logs_due_idx")
       .on(t.scheduledFor)
       .where(sql`${t.status} in ('pending', 'failed')`),

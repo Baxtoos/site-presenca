@@ -1,5 +1,10 @@
-import { checkinPayloadSchema, notificationContent } from "@presenca/contracts";
-import { noticeMessage } from "@presenca/emails";
+import {
+  checkinPayloadSchema,
+  notificationContent,
+  remindLabel,
+  taskDuePayloadSchema,
+} from "@presenca/contracts";
+import { noticeMessage, taskDueMessage } from "@presenca/emails";
 import type { Mailer } from "@presenca/emails/transport";
 import type { Pool } from "pg";
 import {
@@ -12,6 +17,7 @@ import {
   postpone,
 } from "./outbox";
 import type { PushSender } from "./push";
+import { taskStillDue } from "./task-reminders";
 import { inQuietWindow, localParts, quietWindowEnd, retryDelayMs } from "./time";
 
 export interface DeliveryDeps {
@@ -93,6 +99,15 @@ export async function processOutbox(deps: DeliveryDeps, batchSize = 20): Promise
         }
       }
 
+      if (item.kind === "task_due") {
+        const reason = await taskStillDue(deps.pool, item.taskId, item.dedupeKey, now());
+        if (reason) {
+          await markSkipped(deps.pool, item.id, reason);
+          stats.skipped++;
+          continue;
+        }
+      }
+
       let outcome: Outcome;
       try {
         outcome =
@@ -131,6 +146,22 @@ function content(item: OutboxItem) {
 async function sendEmail(deps: DeliveryDeps, item: OutboxItem, to: Recipient): Promise<Outcome> {
   if (!to.emailEnabled) return { kind: "skipped", reason: "e-mail desligado nas preferências" };
   if (!to.emailVerified) return { kind: "skipped", reason: "e-mail não confirmado" };
+  const task =
+    item.kind === "task_due" ? taskDuePayloadSchema.safeParse(item.payload).data : undefined;
+  const firstName = to.fullName.split(" ")[0] ?? to.fullName;
+  if (task) {
+    const message = taskDueMessage({
+      name: firstName,
+      title: task.title,
+      subjectName: task.subjectName,
+      dueLabel: task.dueLabel,
+      remindLabel: remindLabel(task.remindBeforeMinutes),
+      url: `${deps.appUrl}/tarefas`,
+      settingsUrl: `${deps.appUrl}/conta`,
+    });
+    await deps.mailer.send({ to: to.email, ...message }, { idempotencyKey: item.id });
+    return { kind: "sent" };
+  }
   const c = content(item);
   const message = noticeMessage({
     name: to.fullName.split(" ")[0] ?? to.fullName,
@@ -163,7 +194,13 @@ async function sendPush(deps: DeliveryDeps, item: OutboxItem, to: Recipient): Pr
       : undefined;
   const message = {
     ...c,
-    tag: item.kind === "threshold" ? item.dedupeKey : item.kind,
+    // Um aviso por marco; por tarefa (o novo substitui o anterior); os lembretes se sobrepõem.
+    tag:
+      item.kind === "threshold"
+        ? item.dedupeKey
+        : item.kind === "task_due" && item.taskId
+          ? `task:${item.taskId}`
+          : item.kind,
     ...(classes?.length ? { classes } : {}),
   };
   let delivered = 0;

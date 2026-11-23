@@ -10,7 +10,7 @@
  * Ao sair da conta, o app apaga o cache de páginas (ver lib/offline-cache.ts).
  */
 
-const VERSION = "v3"; // v3: ícones novos (os de /icons têm sempre o mesmo nome)
+const VERSION = "v4"; // v4: avisos de tarefa (renotify); v3: ícones novos
 const STATIC_CACHE = `presenca-static-${VERSION}`;
 const PAGES_CACHE = "presenca-pages";
 const OFFLINE_URL = "/offline";
@@ -137,7 +137,8 @@ self.addEventListener("fetch", (event) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Notificações (Web Push). O worker manda { title, body, url, tag } cifrado com VAPID; o lembrete
+// Notificações (Web Push). O worker manda { title, body, url, tag } cifrado com VAPID (aviso de
+// tarefa: tag "task:<id>", url /tarefas); o lembrete
 // do dia pode trazer `classes` (aulas sem registro) para marcar pelos botões, sem abrir o app.
 
 self.addEventListener("push", (event) => {
@@ -163,6 +164,8 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       tag: data.tag,
+      // Aviso novo da mesma tarefa (prazo mudou) substitui o anterior e toca de novo.
+      renotify: typeof data.tag === "string" && data.tag.startsWith("task:"),
       lang: "pt-BR",
       actions,
       data: { url: data.url, classes },

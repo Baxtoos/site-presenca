@@ -5,5 +5,6 @@ export * from "./academic";
 export * from "./attendance";
 export * from "./sharing";
 export * from "./notifications";
+export * from "./tasks";
 export * from "./reliability";
 export * from "./views";

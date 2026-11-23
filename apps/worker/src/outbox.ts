@@ -6,7 +6,8 @@ export interface OutboxItem {
   id: string;
   userId: string;
   subjectId: string | null;
-  kind: "threshold" | "checkin_reminder" | "system";
+  taskId: string | null;
+  kind: "threshold" | "checkin_reminder" | "system" | "task_due";
   channel: "email" | "push";
   dedupeKey: string;
   attempts: number;
@@ -39,7 +40,8 @@ export async function claim(pool: Pool, limit: number): Promise<OutboxItem[]> {
             scheduled_for = now() + interval '${LEASE}'
        from due
       where n.id = due.id
-  returning n.id, n.user_id as "userId", n.subject_id as "subjectId", n.kind, n.channel,
+  returning n.id, n.user_id as "userId", n.subject_id as "subjectId", n.task_id as "taskId",
+            n.kind, n.channel,
             n.dedupe_key as "dedupeKey", n.attempts, n.payload`,
     [limit, MAX_ATTEMPTS],
   );

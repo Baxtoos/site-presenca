@@ -4,6 +4,7 @@ import {
   magicLinkMessage,
   noticeMessage,
   resetPasswordMessage,
+  taskDueMessage,
   verifyEmailMessage,
 } from "./action-email";
 
@@ -83,5 +84,23 @@ describe("visual dos e-mails", () => {
     });
     expect(msg.html).toContain('href="https://app.exemplo/esqueci-senha"');
     expect(msg.text).toContain("Esqueci a senha: https://app.exemplo/esqueci-senha");
+  });
+
+  it("aviso de entrega traz tarefa, matéria, prazo e o link das tarefas", () => {
+    const msg = taskDueMessage({
+      name: "Ana",
+      title: "Lista <3>",
+      subjectName: "Cálculo II",
+      dueLabel: "sex., 28/11 às 23:59",
+      remindLabel: "24 h",
+      url: "https://app.exemplo/tarefas",
+      settingsUrl: "https://app.exemplo/conta",
+    });
+    expect(msg.subject).toBe("Entrega em 24 h: Lista <3>");
+    expect(msg.html).toContain("Lista &lt;3&gt;");
+    expect(msg.html).toContain("Matéria: Cálculo II");
+    expect(msg.html).toContain("Prazo: sex., 28/11 às 23:59");
+    expect(msg.html).toContain('href="https://app.exemplo/tarefas"');
+    expect(msg.text).toContain("Ver minhas tarefas: https://app.exemplo/tarefas");
   });
 });

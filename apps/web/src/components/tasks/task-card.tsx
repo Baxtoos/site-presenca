@@ -1,0 +1,188 @@
+"use client";
+
+import { remindLabel, type Task } from "@presenca/contracts";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { CheckCircleIcon } from "@/components/icons";
+import { useToast } from "@/components/toast";
+import { Button } from "@/components/ui";
+import { api, ApiError } from "@/lib/api-client";
+import { SUBJECT_COLOR_CLASS } from "@/lib/format";
+import { dueLabel, dueRelative, STATUS_LABEL } from "@/lib/tasks";
+
+/**
+ * Uma tarefa: prazo, matéria e, enquanto pendente, os botões para registrar se foi entregue.
+ * Vencida e pendente ganha destaque; resolvida pode ser corrigida (volta para pendente ou troca).
+ */
+export function TaskCard({ task, now }: { task: Task; now: string }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, setPending] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const soon =
+    task.status === "pending" &&
+    !task.overdue &&
+    new Date(task.dueAt).getTime() - new Date(now).getTime() <= 48 * 3_600_000;
+
+  async function run(label: string, action: () => Promise<unknown>, success: string) {
+    setPending(label);
+    try {
+      await action();
+      toast.push({ tone: "success", message: success });
+      router.refresh();
+    } catch (e) {
+      const stale = e instanceof ApiError && e.problem.status === 412;
+      toast.push({
+        tone: "error",
+        message: stale
+          ? "Esta tarefa mudou em outro lugar. A lista foi atualizada; tente de novo."
+          : e instanceof ApiError
+            ? e.message
+            : "Não foi possível salvar.",
+      });
+      router.refresh();
+    } finally {
+      setPending(null);
+      setConfirmDelete(false);
+    }
+  }
+
+  const setStatus = (status: Task["status"], message: string) =>
+    run(
+      status,
+      () =>
+        api(`/v1/tasks/${task.id}`, { method: "PATCH", ifMatch: task.version, body: { status } }),
+      message,
+    );
+
+  const tone = task.overdue
+    ? "border-fail/50 bg-fail-soft/40"
+    : soon
+      ? "border-warn/50 bg-warn-soft/30"
+      : "border-line";
+
+  return (
+    <li
+      className={`relative grid gap-2 rounded-xl border p-3 pl-4 text-sm ${tone}`}
+      data-testid="tarefa"
+      data-status={task.status}
+    >
+      <span
+        className={`absolute inset-y-0 left-0 w-1.5 rounded-l-xl ${task.subject?.color ? SUBJECT_COLOR_CLASS[task.subject.color] : "bg-line-strong"}`}
+        aria-hidden
+      />
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="grid min-w-0 gap-0.5">
+          <strong className="break-words text-[15px]">{task.title}</strong>
+          <span className="text-xs text-muted">
+            {task.subject ? `${task.subject.name} · ` : ""}prazo {dueLabel(task)}
+          </span>
+        </div>
+        {task.status === "pending" ? (
+          <span
+            className={`shrink-0 text-xs font-medium ${task.overdue ? "text-fail" : soon ? "text-warn" : "text-muted"}`}
+          >
+            {dueRelative(task, new Date(now))}
+          </span>
+        ) : (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 text-xs font-medium ${task.status === "completed" ? "text-ok" : "text-fail"}`}
+          >
+            {task.status === "completed" ? <CheckCircleIcon size={14} /> : null}
+            {STATUS_LABEL[task.status]}
+          </span>
+        )}
+      </div>
+      {task.notes ? <p className="whitespace-pre-wrap text-muted">{task.notes}</p> : null}
+      {task.overdue ? (
+        <p className="font-medium text-fail">O prazo passou. Você entregou?</p>
+      ) : task.status === "pending" ? (
+        <p className="text-xs text-muted">
+          Aviso {remindLabel(task.remindBeforeMinutes)} antes do prazo.
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {task.status === "pending" ? (
+          <>
+            <Button
+              type="button"
+              variant={task.overdue ? "primary" : "secondary"}
+              loading={pending === "completed"}
+              disabled={pending !== null}
+              onClick={() => void setStatus("completed", "Tarefa marcada como concluída.")}
+            >
+              Concluída
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              loading={pending === "not_completed"}
+              disabled={pending !== null}
+              onClick={() => void setStatus("not_completed", "Tarefa marcada como não concluída.")}
+            >
+              Não concluída
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              loading={pending === "pending"}
+              disabled={pending !== null}
+              onClick={() => void setStatus("pending", "Tarefa voltou para pendente.")}
+            >
+              Voltar para pendente
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={pending !== null}
+              onClick={() =>
+                void setStatus(
+                  task.status === "completed" ? "not_completed" : "completed",
+                  "Tarefa corrigida.",
+                )
+              }
+            >
+              {task.status === "completed" ? "Mudar para não concluída" : "Mudar para concluída"}
+            </Button>
+          </>
+        )}
+        <Link
+          href={`/tarefas/${task.id}/editar`}
+          className="ml-auto min-h-9 rounded-md px-2 py-2 text-sm font-medium text-accent hover:bg-accent-soft"
+        >
+          Editar
+        </Link>
+        {confirmDelete ? (
+          <Button
+            type="button"
+            variant="danger"
+            loading={pending === "delete"}
+            onClick={() =>
+              void run(
+                "delete",
+                () => api(`/v1/tasks/${task.id}`, { method: "DELETE", ifMatch: task.version }),
+                "Tarefa apagada.",
+              )
+            }
+          >
+            Confirmar exclusão
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending !== null}
+            onClick={() => setConfirmDelete(true)}
+          >
+            Excluir
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}

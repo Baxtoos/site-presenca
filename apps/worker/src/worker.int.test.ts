@@ -9,6 +9,7 @@ import { processOutbox } from "./delivery";
 import { OutboxListener } from "./listener";
 import type { PushMessage, PushOutcome, PushSender, PushTarget } from "./push";
 import { enqueueReminders } from "./reminders";
+import { enqueueTaskReminders } from "./task-reminders";
 import { MAX_ATTEMPTS } from "./time";
 
 let db: TestDb;
@@ -554,5 +555,153 @@ describe("ciclo único (modo once)", () => {
     expect(second.cleanup).toBeNull();
     expect(second.delivery.sent).toBe(0);
     expect(mail.sent).toHaveLength(sentBefore);
+  });
+});
+
+describe("aviso de tarefa (task_due)", () => {
+  // Quarta, 18/11/2026 12:00 em São Paulo.
+  const NOW = new Date("2026-11-18T15:00:00Z");
+  const hours = (h: number) => new Date(NOW.getTime() + h * 3_600_000);
+
+  async function task(
+    s: Student,
+    opts: { title?: string; dueAt: Date; remind?: number; withSubject?: boolean },
+  ): Promise<string> {
+    return inTx(db.pools.app_api, { userId: s.userId }, async (c) => {
+      const { rows } = await c.query<{ id: string }>(
+        `insert into tasks (user_id, subject_id, title, due_at, remind_before_minutes)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [
+          s.userId,
+          opts.withSubject === false ? null : s.subjectId,
+          opts.title ?? "Lista 3",
+          opts.dueAt,
+          opts.remind ?? 1440,
+        ],
+      );
+      return rows[0]!.id;
+    });
+  }
+
+  const logsOf = async (taskId: string) =>
+    (
+      await db.admin.query<{
+        channel: string;
+        status: string;
+        dedupe_key: string;
+        payload: unknown;
+      }>(
+        `select channel, status, dedupe_key, payload from app.notification_logs
+          where task_id = $1`,
+        [taskId],
+      )
+    ).rows.sort(
+      (a, b) => a.channel.localeCompare(b.channel) || a.dedupe_key.localeCompare(b.dedupe_key),
+    );
+
+  it("entra na janela: sino, push e e-mail juntos (não é um ou outro)", async () => {
+    const s = await student({
+      prefs: { push_enabled: true },
+      pushEndpoints: ["https://push.exemplo/tarefa-1"],
+    });
+    const id = await task(s, { dueAt: hours(10) }); // prazo em 10 h, aviso 24 h antes: já na janela
+    expect(await enqueueTaskReminders(worker, NOW)).toBeGreaterThanOrEqual(1);
+
+    const logs = await logsOf(id);
+    expect(logs.map((l) => [l.channel, l.status])).toEqual([
+      ["email", "pending"],
+      ["in_app", "sent"],
+      ["push", "pending"],
+    ]);
+    const key = `task_due:${id}:${Math.floor(hours(10).getTime() / 1000)}:1440`;
+    expect(logs.every((l) => l.dedupe_key === key)).toBe(true);
+    expect(logs[0]!.payload).toMatchObject({
+      taskId: id,
+      title: "Lista 3",
+      subjectName: "Física I",
+      // 01:00 UTC de quinta = 22:00 de quarta em São Paulo.
+      dueLabel: "qua., 18/11 às 22:00",
+      remindBeforeMinutes: 1440,
+    });
+
+    await processOutbox(deps(NOW));
+    const sent = mail.lastTo(s.email)!;
+    expect(sent.subject).toBe("Entrega em 24 h: Lista 3");
+    expect(sent.text).toContain("Prazo: qua., 18/11 às 22:00");
+    expect(sent.text).toContain("Matéria: Física I");
+    expect(sent.text).toContain("https://app.exemplo/tarefas");
+    const pushed = push.sent.find((p) => p.endpoint === "https://push.exemplo/tarefa-1")!;
+    expect(pushed.message).toMatchObject({
+      title: "Entrega em 24 h: Lista 3",
+      url: "/tarefas",
+      tag: `task:${id}`,
+    });
+  });
+
+  it("antes da janela nada; dentro dela, uma vez só, mesmo com ciclos repetidos", async () => {
+    const s = await student();
+    const id = await task(s, { dueAt: hours(30) }); // aviso 24 h antes: janela abre em 6 h
+    await enqueueTaskReminders(worker, NOW);
+    expect(await logsOf(id)).toEqual([]);
+
+    await enqueueTaskReminders(worker, hours(7));
+    await enqueueTaskReminders(worker, hours(8));
+    await runCycle(deps(hours(9)), { cleanup: false });
+    const logs = await logsOf(id);
+    expect(logs.map((l) => l.channel)).toEqual(["email", "in_app"]);
+    expect(mail.sent.filter((m) => m.to === s.email)).toHaveLength(1);
+  });
+
+  it("worker pontual atrasado ainda avisa antes do prazo; depois do prazo, nada", async () => {
+    const s = await student();
+    // Janela de 3 h abriu há 2 h e o worker não rodou: ainda dá tempo.
+    const late = await task(s, { title: "Atrasado", dueAt: hours(1), remind: 180 });
+    // Prazo já passou sem aviso: não manda mais.
+    const gone = await task(s, { title: "Passou", dueAt: hours(-1), remind: 180 });
+    await enqueueTaskReminders(worker, NOW);
+    expect((await logsOf(late)).length).toBeGreaterThan(0);
+    expect(await logsOf(gone)).toEqual([]);
+  });
+
+  it("respeita as preferências: sem push e e-mail desligado → só o sino; e-mail não confirmado → sem e-mail", async () => {
+    const quiet = await student({ prefs: { email_enabled: false, push_enabled: false } });
+    const q = await task(quiet, { dueAt: hours(5) });
+    const unverified = await student({ verified: false, prefs: { push_enabled: true } });
+    const u = await task(unverified, { dueAt: hours(5) });
+    await enqueueTaskReminders(worker, NOW);
+    expect((await logsOf(q)).map((l) => l.channel)).toEqual(["in_app"]);
+    expect((await logsOf(u)).map((l) => l.channel)).toEqual(["in_app", "push"]);
+  });
+
+  it("aluno marcou ou mudou o prazo depois do aviso entrar na fila: o envio é pulado", async () => {
+    const s = await student();
+    const done = await task(s, { title: "Concluída", dueAt: hours(5) });
+    const moved = await task(s, { title: "Adiada", dueAt: hours(6) });
+    await enqueueTaskReminders(worker, NOW);
+    await inTx(db.pools.app_api, { userId: s.userId }, async (c) => {
+      await c.query(`update tasks set status = 'completed', resolved_at = now() where id = $1`, [
+        done,
+      ]);
+      await c.query(`update tasks set due_at = $2 where id = $1`, [moved, hours(40)]);
+    });
+    await processOutbox(deps(NOW));
+    const reasons = async (id: string) =>
+      (
+        await db.admin.query<{ status: string; last_error: string | null }>(
+          `select status, last_error from app.notification_logs where task_id = $1 and channel = 'email'`,
+          [id],
+        )
+      ).rows;
+    expect(await reasons(done)).toEqual([
+      { status: "skipped", last_error: "tarefa já marcada pelo aluno" },
+    ]);
+    expect(await reasons(moved)).toEqual([
+      { status: "skipped", last_error: "prazo ou antecedência mudaram" },
+    ]);
+    expect(mail.lastTo(s.email)).toBeUndefined();
+
+    // O prazo novo gera outro aviso (outra chave) quando entrar na janela.
+    await enqueueTaskReminders(worker, hours(20));
+    expect((await logsOf(moved)).filter((l) => l.channel === "in_app")).toHaveLength(2);
   });
 });

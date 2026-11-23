@@ -438,3 +438,38 @@ export function noticeMessage(params: {
     footnote: `Você recebe este e-mail porque os avisos por e-mail estão ligados. Para mudar, abra ${params.settingsUrl}.`,
   });
 }
+
+/**
+ * Aviso de entrega próxima: título da tarefa, matéria e prazo no fuso do aluno, com o link para a
+ * tela de tarefas (onde ele marca se entregou).
+ */
+export function taskDueMessage(params: {
+  name: string;
+  title: string;
+  subjectName: string | null;
+  /** "sex., 28/11 às 23:59", já no fuso da conta. */
+  dueLabel: string;
+  /** "24 h", "2 dias". */
+  remindLabel: string;
+  url: string;
+  settingsUrl: string;
+}): RenderedEmail {
+  const callout = [
+    params.title,
+    params.subjectName ? `Matéria: ${params.subjectName}` : null,
+    `Prazo: ${params.dueLabel}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return render(`Entrega em ${params.remindLabel}: ${params.title}`, {
+    title: `Entrega em ${params.remindLabel}`,
+    paragraphs: [
+      `Olá, ${params.name}.`,
+      "Esta tarefa vence em breve. Depois do prazo, conte no app se você entregou.",
+    ],
+    callout,
+    actionLabel: "Ver minhas tarefas",
+    actionUrl: params.url,
+    footnote: `Você recebe este e-mail porque os avisos por e-mail estão ligados. Para mudar, abra ${params.settingsUrl}.`,
+  });
+}
