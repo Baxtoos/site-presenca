@@ -93,18 +93,13 @@ export function LgpdPanel({ email, hasPassword }: { email: string; hasPassword: 
             <Field
               id="delete-account-confirm"
               label="Confirme sua senha atual para excluir a conta"
-            >
-              <input
-                id="delete-account-confirm"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="min-h-11 w-full rounded-md border border-line-strong bg-surface px-3 text-sm outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10"
-                placeholder="Sua senha"
-              />
-            </Field>
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="Sua senha"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
             <div className="flex flex-wrap items-center gap-2">
               <Button type="submit" variant="danger" loading={pending}>
                 Confirmar exclusão definitiva

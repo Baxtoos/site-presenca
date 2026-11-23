@@ -15,11 +15,13 @@ export function Field({
   error,
   hint,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & {
+}: Omit<InputHTMLAttributes<HTMLInputElement>, "children"> & {
   id: string;
   label: string;
   error?: string;
   hint?: string;
+  /** O Field já cria o <input>: passar um input dentro dele quebraria a tela (ver Conta → Excluir). */
+  children?: never;
 }) {
   const describedBy = [error ? `${id}-erro` : null, hint ? `${id}-dica` : null]
     .filter(Boolean)

@@ -188,6 +188,35 @@ test("conta sem senha exclui a conta pelo link enviado ao e-mail", async ({ page
   await waitForLink(email, "Crie sua conta", againAt);
 });
 
+test("conta com senha exclui a conta confirmando a senha", async ({ page }, testInfo) => {
+  const email = uniqueEmail(testInfo);
+  const password = "senha-da-conta-que-sai";
+  await page.goto("/cadastro");
+  await signUp(page, { name: "Eva Exclui", email, password });
+  await expect(page.getByRole("heading", { name: "Olá, Eva" })).toBeVisible();
+  await page.goto("/conta");
+  await expect(page.getByRole("heading", { name: "Conta", exact: true })).toBeVisible();
+  const lgpd = page.getByRole("region", { name: "Seus dados e privacidade (LGPD)" });
+  await lgpd.getByRole("button", { name: "Excluir minha conta" }).click();
+  const confirm = lgpd.getByLabel("Confirme sua senha atual para excluir a conta");
+
+  // Senha errada: avisa e não exclui.
+  await confirm.fill("senha-errada-123");
+  await lgpd.getByRole("button", { name: "Confirmar exclusão definitiva" }).click();
+  await expect(lgpd.getByRole("alert")).toBeVisible();
+  await expectPath(page, /^\/conta$/);
+
+  await confirm.fill(password);
+  await lgpd.getByRole("button", { name: "Confirmar exclusão definitiva" }).click();
+  await expectPath(page, /^\/entrar$/);
+
+  // A conta não existe mais: entrar com a senha antiga não funciona.
+  await page.getByLabel("E-mail").fill(email);
+  await page.getByLabel("Senha", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByText(/E-mail ou senha incorretos/)).toBeVisible();
+});
+
 test("verificação em duas etapas: ligar, entrar com o código e com um código de recuperação", async ({
   page,
 }, testInfo) => {
