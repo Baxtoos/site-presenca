@@ -205,8 +205,23 @@ describe("cadastro com confirmação por e-mail", () => {
     });
     expect(res.statusCode).toBe(422);
     expect(problem(res).errors).toEqual([
-      { path: "password", message: "A senha precisa ter pelo menos 12 caracteres." },
+      { path: "password", message: "A senha precisa ter pelo menos 8 caracteres." },
     ]);
+  });
+
+  it("aceita senha de 8 caracteres e recusa 7", async () => {
+    const seven = await browser().request("POST", "/v1/auth/register", {
+      email: uniqueEmail(),
+      password: "abc-123",
+      fullName: "Ana",
+    });
+    expect(seven.statusCode).toBe(422);
+    const eight = await browser().request("POST", "/v1/auth/register", {
+      email: uniqueEmail(),
+      password: "abc-1234",
+      fullName: "Ana",
+    });
+    expect(eight.statusCode, eight.body).toBe(202);
   });
 });
 

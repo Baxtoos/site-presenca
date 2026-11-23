@@ -7,10 +7,13 @@ export const emailSchema = z
   .toLowerCase()
   .pipe(z.email({ error: "Informe um e-mail válido." }).max(254));
 
-/** Senha: 12 a 128 caracteres (nova senha; o login aceita as antigas mais curtas). O teto evita requisições caras de propósito (Argon2 é lento). */
+/**
+ * Senha: 8 a 128 caracteres (mínimo do NIST SP 800-63B; senhas vazadas continuam recusadas). O
+ * teto evita requisições caras de propósito (Argon2 é lento).
+ */
 export const passwordSchema = z
   .string()
-  .min(12, { error: "A senha precisa ter pelo menos 12 caracteres." })
+  .min(8, { error: "A senha precisa ter pelo menos 8 caracteres." })
   .max(128, { error: "A senha pode ter no máximo 128 caracteres." });
 
 export const fullNameSchema = z

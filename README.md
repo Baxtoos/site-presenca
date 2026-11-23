@@ -247,7 +247,7 @@ Tudo dentro da API, sem serviço externo de identidade.
 - **Cadastro sem revelar quem tem conta:** `POST /v1/auth/register` responde sempre 202 ("confira
   seu e-mail"), com o mesmo custo de Argon2 nos dois casos. E-mail novo recebe um link (24 h) que
   guarda nome e hash da senha; a conta só nasce em `POST /v1/auth/register/confirm`, já com o e-mail
-  confirmado. E-mail que já tem conta recebe um aviso, sem link. Senha mínima de 12 caracteres.
+  confirmado. E-mail que já tem conta recebe um aviso, sem link. Senha mínima de 8 caracteres (NIST); senhas que aparecem em vazamentos são recusadas.
 - **Links por e-mail** (verificação, redefinição de senha, magic link, cadastro, exclusão de conta,
   ligar o segundo fator): uso único, só o hash no banco, 15 min (24 h na verificação e no
   cadastro). Um link novo invalida o anterior.

@@ -61,9 +61,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
         label="Nova senha"
         type="password"
         autoComplete="new-password"
-        minLength={12}
+        minLength={8}
         required
-        hint="Pelo menos 12 caracteres."
+        hint="Pelo menos 8 caracteres."
         error={fieldError}
       />
       <Field

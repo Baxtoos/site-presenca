@@ -96,10 +96,15 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
      só da conta logada): quem roubasse a sessão não consegue ligar e trancar o dono fora.
    - **Segredo próprio do repasse de e-mail:** `MAIL_RELAY_SECRET`, separado do `API_PROXY_SECRET`
      (a API recusa os dois iguais). Vazar um não compromete o outro.
-   - **Senha mínima de 12 caracteres (ASVS 4.0.3, V2.1.1)** no cadastro e na nova senha; o login
-     continua aceitando senhas antigas mais curtas.
+   - **Senha mínima de 8 caracteres** no cadastro e na nova senha (era 12; reduzida a pedido do
+     dono em 23/11/2026, ver riscos aceitos); o login continua aceitando senhas antigas mais curtas.
 
 ## Recomendações (riscos aceitos por enquanto)
+
+- **Senha mínima de 8 caracteres (ASVS 4.0.3 V2.1.1 pede 12).** Escolha do dono para facilitar o
+  cadastro. Compensado por: recusa de senhas que aparecem em vazamentos (Have I Been Pwned),
+  limite de tentativas de login por conta e IP, Argon2id e segundo fator opcional. Segue o mínimo
+  do NIST SP 800-63B.
 
 1. **Estilos com `'unsafe-inline'` na CSP:** necessário para os atributos `style` do React. Não
    executa código; o risco é só de injeção de CSS, que o React já evita ao escapar o conteúdo.
