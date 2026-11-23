@@ -30,8 +30,9 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
 
 ## O que já estava bem feito
 
-- **Senhas (V6/V2):** Argon2id (19 MiB, 2 iterações), mínimo de 10 e máximo de 128 caracteres, sem
-  regras de composição, recusa de senhas vazadas (Have I Been Pwned, k-anonimato). Login com conta
+- **Senhas (V6/V2):** Argon2id (19 MiB, 2 iterações), mínimo de 8 e máximo de 128 caracteres, sem
+  regras de composição. Senhas comuns são aceitas (a recusa das vazadas, pelo Have I Been Pwned com
+  k-anonimato, está desligada por escolha do dono; ver riscos aceitos). Login com conta
   inexistente roda o mesmo hash (tempo igual) e responde a mesma mensagem.
 - **Limite de tentativas:** login 5/min por IP+e-mail e 30/min por IP; e-mails 3 a cada 15 min por
   endereço; rotas de token por IP. O IP real vem da Vercel com segredo (`API_PROXY_SECRET`).
@@ -101,10 +102,10 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
 
 ## Recomendações (riscos aceitos por enquanto)
 
-- **Senha mínima de 8 caracteres (ASVS 4.0.3 V2.1.1 pede 12).** Escolha do dono para facilitar o
-  cadastro. Compensado por: recusa de senhas que aparecem em vazamentos (Have I Been Pwned),
-  limite de tentativas de login por conta e IP, Argon2id e segundo fator opcional. Segue o mínimo
-  do NIST SP 800-63B.
+- **Senha mínima de 8 caracteres (ASVS 4.0.3 V2.1.1 pede 12) e senhas comuns aceitas (V2.1.7 pede
+  recusar as vazadas).** Escolha do dono em 23/11/2026, para facilitar o cadastro. A checagem do
+  Have I Been Pwned continua no código, desligada (`HIBP_ENABLED=true` liga). Compensado por:
+  limite de tentativas de login por conta e IP, Argon2id e segundo fator opcional.
 
 1. **Estilos com `'unsafe-inline'` na CSP:** necessário para os atributos `style` do React. Não
    executa código; o risco é só de injeção de CSS, que o React já evita ao escapar o conteúdo.

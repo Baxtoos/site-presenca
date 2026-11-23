@@ -105,7 +105,10 @@ const envSchema = z
         .optional(),
     ),
 
-    /** Recusa senhas que aparecem em vazamentos (Have I Been Pwned, por k-anonimato). */
+    /**
+     * Recusa senhas que aparecem em vazamentos (Have I Been Pwned, por k-anonimato). Desligado por
+     * padrão desde 23/11/2026 (o dono preferiu aceitar senhas comuns); `true` liga de novo.
+     */
     HIBP_ENABLED: optionalBool,
 
     /**
@@ -172,7 +175,7 @@ const envSchema = z
   .transform((env) => ({
     ...env,
     OPENAPI_ENABLED: env.OPENAPI_ENABLED ?? env.NODE_ENV !== "production",
-    HIBP_ENABLED: env.HIBP_ENABLED ?? env.NODE_ENV !== "test",
+    HIBP_ENABLED: env.HIBP_ENABLED ?? false,
     /** Origem do app web, normalizada (sem barra final), para comparar com o cabeçalho Origin. */
     WEB_ORIGIN: new URL(env.WEB_ORIGIN).origin,
   }));

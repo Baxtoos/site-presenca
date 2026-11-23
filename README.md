@@ -238,8 +238,9 @@ As senhas em `.env.example` e `infra/postgres/init` servem só para desenvolvime
 
 Tudo dentro da API, sem serviço externo de identidade.
 
-- **Senhas:** Argon2id (19 MiB, 2 iterações). Senhas que aparecem em vazamentos são recusadas
-  (Have I Been Pwned por k-anonimato: só os 5 primeiros caracteres do SHA-1 saem do servidor).
+- **Senhas:** Argon2id (19 MiB, 2 iterações). Senhas comuns são aceitas (escolha do dono). A recusa
+  de senhas vazadas existe, mas vem desligada: `HIBP_ENABLED=true` liga (Have I Been Pwned por
+  k-anonimato: só os 5 primeiros caracteres do SHA-1 saem do servidor).
   Login com e-mail inexistente roda o Argon2 contra um hash falso: mesmo tempo, mesma resposta.
 - **Sessões:** token aleatório de 256 bits no cookie `__Host-sid` (`HttpOnly`, `Secure`,
   `SameSite=Lax`). O banco guarda só o SHA-256. Validade de 30 dias renovada com o uso, expira após
@@ -247,7 +248,7 @@ Tudo dentro da API, sem serviço externo de identidade.
 - **Cadastro sem revelar quem tem conta:** `POST /v1/auth/register` responde sempre 202 ("confira
   seu e-mail"), com o mesmo custo de Argon2 nos dois casos. E-mail novo recebe um link (24 h) que
   guarda nome e hash da senha; a conta só nasce em `POST /v1/auth/register/confirm`, já com o e-mail
-  confirmado. E-mail que já tem conta recebe um aviso, sem link. Senha mínima de 8 caracteres (NIST); senhas que aparecem em vazamentos são recusadas.
+  confirmado. E-mail que já tem conta recebe um aviso, sem link. Senha mínima de 8 caracteres, e senhas comuns são aceitas.
 - **Links por e-mail** (verificação, redefinição de senha, magic link, cadastro, exclusão de conta,
   ligar o segundo fator): uso único, só o hash no banco, 15 min (24 h na verificação e no
   cadastro). Um link novo invalida o anterior.

@@ -106,9 +106,10 @@ describe("loadEnv da API", () => {
     expect(loadEnv({ ...production, ...extra }).OPENAPI_ENABLED).toBe(expected);
   });
 
-  it("checagem de senhas vazadas: ligada por padrão, desligada nos testes", () => {
-    expect(loadEnv(base).HIBP_ENABLED).toBe(true);
+  it("checagem de senhas vazadas: desligada por padrão, liga com HIBP_ENABLED=true", () => {
+    expect(loadEnv(base).HIBP_ENABLED).toBe(false);
     expect(loadEnv({ ...base, NODE_ENV: "test" }).HIBP_ENABLED).toBe(false);
+    expect(loadEnv({ ...base, HIBP_ENABLED: "true" }).HIBP_ENABLED).toBe(true);
   });
 
   it("normaliza WEB_ORIGIN (sem barra final) para comparar com o cabeçalho Origin", () => {
