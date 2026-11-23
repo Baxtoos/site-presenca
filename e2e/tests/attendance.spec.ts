@@ -16,15 +16,15 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
     page.getByRole("heading", { name: new RegExp(`^${WEEKDAYS[isoWeekday(today)]}`) }),
   ).toBeVisible();
   const aula = page.getByTestId("aula").filter({ hasText: "Física I" });
-  await expect(aula).toContainText("pode faltar mais 18 tempos");
+  await expect(aula).toContainText("Ainda pode faltar 18 tempos");
 
   // Falta → aviso com Desfazer → volta ao que era.
   await aula.getByRole("button", { name: "Faltei", exact: true }).click();
   await expect(page.getByText("Falta registrada em Física I.")).toBeVisible();
-  await expect(aula).toContainText("pode faltar mais 16 tempos");
+  await expect(aula).toContainText("Ainda pode faltar 16 tempos");
   await page.getByRole("button", { name: "Desfazer" }).click();
   await expect(page.getByText("Desfeito.")).toBeVisible();
-  await expect(aula).toContainText("pode faltar mais 18 tempos");
+  await expect(aula).toContainText("Ainda pode faltar 18 tempos");
   await expect(aula.getByRole("button", { name: "Faltei", exact: true })).toHaveAttribute(
     "aria-pressed",
     "false",
@@ -33,7 +33,7 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   // Parcial de uma aula de 2 tempos: perde 1, sem perguntar.
   await aula.getByRole("button", { name: "Faltei parcial" }).click();
   await expect(aula).toContainText("Faltei 1 de 2");
-  await expect(aula).toContainText("pode faltar mais 17 tempos");
+  await expect(aula).toContainText("Ainda pode faltar 17 tempos");
 
   // Motivo e atestado.
   await aula.getByRole("button", { name: "Motivo e atestado" }).click();

@@ -1,19 +1,67 @@
 import type { Subject } from "@presenca/contracts";
 import Link from "next/link";
-import { plural, RISK_LABEL, RISK_STYLE, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } from "@/lib/format";
+import type { ReactNode } from "react";
+import { AlertIcon } from "@/components/icons";
+import { plural, RISK_STYLE, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } from "@/lib/format";
 
-export function RiskBadge({ risk }: { risk: Subject["summary"]["risk"] }) {
+type Summary = Subject["summary"];
+
+const RISK_TEXT: Record<Summary["risk"], string> = {
+  safe: "",
+  warning: "text-warn",
+  critical: "font-medium text-crit",
+  limit: "font-medium text-fail",
+  failed: "font-medium text-fail",
+};
+
+/**
+ * O aviso de risco em forma de frase (no lugar do antigo selo "Seguro/Atenção/..."): só ganha cor
+ * e ícone quando importa. `short` é a versão curta da tela Hoje.
+ */
+export function RiskLine({
+  summary: s,
+  unitsPerClass,
+  short = false,
+  className = "",
+}: {
+  summary: Summary;
+  unitsPerClass: number;
+  short?: boolean;
+  className?: string;
+}) {
+  const left = plural(s.remainingUnits, "tempo", "tempos");
+  const meetings =
+    !short && unitsPerClass > 1 ? ` (${plural(s.remainingClasses, "encontro", "encontros")})` : "";
+  let content: ReactNode;
+  if (s.risk === "failed" || s.exceededBy > 0) {
+    content = `Reprovado por falta: passou do limite em ${plural(s.exceededBy, "tempo", "tempos")}.`;
+  } else if (s.risk === "limit") {
+    content = "Limite atingido: mais uma falta reprova.";
+  } else if (s.risk === "critical") {
+    content = `Cuidado: só pode faltar mais ${left}${meetings}.`;
+  } else if (s.risk === "warning") {
+    content = `Atenção: ainda pode faltar ${left}${meetings}.`;
+  } else {
+    content = (
+      <>
+        Ainda pode faltar <strong>{left}</strong>
+        {meetings ? <span className="text-muted">{meetings}</span> : null}.
+      </>
+    );
+  }
+  const risky = s.risk !== "safe" || s.exceededBy > 0;
   return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium ${RISK_STYLE[risk].badge}`}
+    <p
+      className={`flex items-start gap-1.5 ${RISK_TEXT[s.exceededBy > 0 ? "failed" : s.risk]} ${className}`}
+      data-risk={s.risk}
     >
-      <span className="size-1.5 rounded-full bg-current" aria-hidden />
-      {RISK_LABEL[risk]}
-    </span>
+      {risky ? <AlertIcon size={short ? 14 : 16} className="mt-0.5 shrink-0" /> : null}
+      <span>{content}</span>
+    </p>
   );
 }
 
-/** Card da matéria: o semáforo, quanto já faltou e quanto ainda pode faltar. */
+/** Card da matéria: quanto já faltou, a barra do limite e quanto ainda pode faltar. */
 export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string }) {
   const s = subject.summary;
   const width = Math.min(100, s.consumptionPct);
@@ -38,7 +86,6 @@ export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string
             {[subject.professor, days || "sem horário na grade"].filter(Boolean).join(" · ")}
           </p>
         </div>
-        <RiskBadge risk={s.risk} />
       </div>
 
       <div className="grid gap-1.5">
@@ -64,24 +111,7 @@ export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string
         </div>
       </div>
 
-      <p className="text-sm">
-        {s.exceededBy > 0 ? (
-          <span className="font-medium text-fail">
-            Passou do limite em {plural(s.exceededBy, "tempo", "tempos")}.
-          </span>
-        ) : (
-          <>
-            Ainda pode faltar <strong>{plural(s.remainingUnits, "tempo", "tempos")}</strong>
-            {subject.unitsPerClass > 1 ? (
-              <span className="text-muted">
-                {" "}
-                ({plural(s.remainingClasses, "encontro", "encontros")})
-              </span>
-            ) : null}
-            .
-          </>
-        )}
-      </p>
+      <RiskLine summary={s} unitsPerClass={subject.unitsPerClass} className="text-sm" />
       {hint ? <p className="text-xs text-muted">{hint}</p> : null}
     </Link>
   );

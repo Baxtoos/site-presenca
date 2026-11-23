@@ -10,7 +10,7 @@ import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { SubjectCalendar } from "@/components/attendance/subject-calendar";
 import { BookIcon, ChevronRightIcon, SettingsIcon } from "@/components/icons";
-import { RiskBadge } from "@/components/subject-card";
+import { RiskLine } from "@/components/subject-card";
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
 import {
@@ -103,9 +103,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
           </ButtonLink>
         }
       >
-        <div>
-          <RiskBadge risk={s.risk} />
-        </div>
+        <RiskLine summary={s} unitsPerClass={subject.unitsPerClass} className="text-[15px]" />
       </PageHeader>
 
       <section className="card p-5 sm:p-6" aria-label="Resumo de faltas">

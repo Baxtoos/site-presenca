@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { useOffline } from "@/components/offline-provider";
-import { RiskBadge } from "@/components/subject-card";
+import { RiskLine } from "@/components/subject-card";
 import { useToast } from "@/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 import {
@@ -412,11 +412,8 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
 
               {!compact || shown ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <RiskBadge risk={c.summary.risk} />
-                    {c.summary.exceededBy > 0
-                      ? `passou do limite em ${plural(c.summary.exceededBy, "tempo", "tempos")}`
-                      : `pode faltar mais ${plural(c.summary.remainingUnits, "tempo", "tempos")}`}
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <RiskLine summary={c.summary} unitsPerClass={c.subject.unitsPerClass} short />
                     {r?.isExcused ? " · abonada" : ""}
                     {r?.reason ? ` · ${REASON_LABEL[r.reason]}` : ""}
                     {queued ? " · conta quando for enviado" : ""}

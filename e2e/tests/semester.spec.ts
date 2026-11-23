@@ -45,7 +45,9 @@ test("configura um semestre real de ponta a ponta pela interface", async ({ page
   await expect(page.getByRole("heading", { name: /^2026\.2/ })).toBeVisible();
   const card = page.getByRole("main").getByRole("link", { name: /Cálculo II/ });
   await expect(card).toContainText("0 de 18 faltas");
-  await expect(card).toContainText("Seguro");
+  // Sem selo de risco: matéria tranquila mostra só quanto ainda pode faltar, sem alerta.
+  await expect(card).toContainText("Ainda pode faltar 18 tempos (9 encontros).");
+  await expect(card.locator('[data-risk="safe"] svg')).toHaveCount(0);
   await expect(card).toContainText("Seg · Qua");
 
   // Feriado fora do semestre é recusado no campo; dentro, entra na lista.
