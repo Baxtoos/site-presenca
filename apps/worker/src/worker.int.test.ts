@@ -169,7 +169,7 @@ describe("entrega de e-mail", () => {
     const sent = mail.lastTo(s.email)!;
     expect(sent.subject).toBe("Física I: 75% do limite de faltas");
     expect(sent.text).toContain("Olá, Ana.");
-    expect(sent.text).toContain("Você tem 8 de 10 faltas. Ainda pode faltar 2 tempos.");
+    expect(sent.text).toContain("Você tem 8 de 10 faltas. Ainda pode faltar 2 aulas.");
     expect(sent.text).toContain(`https://app.exemplo/materias/${s.subjectId}`);
     expect(sent.idempotencyKey).toBe(email);
     expect(await row(email!)).toMatchObject({ status: "sent", attempts: 1, last_error: null });
