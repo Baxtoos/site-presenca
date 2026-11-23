@@ -67,6 +67,23 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   await page.goto("/semestres");
   await page.getByRole("link", { name: "Conectar ao SUAP" }).click();
   await expect(page.getByRole("heading", { name: "Conectar ao SUAP" })).toBeVisible();
+  // No celular (sem barra de favoritos), o passo a passo do navegador da pessoa.
+  if (testInfo.project.name === "celular") {
+    await expect(page.getByRole("tab", { name: "Chrome (Android)" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByTestId("suap-guia").locator(":scope > li")).toHaveCount(5);
+    await page.getByRole("tab", { name: "iPhone" }).click();
+    await expect(page.getByTestId("suap-guia")).toContainText("Adicionar Favorito");
+    await page.getByRole("tab", { name: "Firefox" }).click();
+    await expect(page.getByTestId("suap-guia")).toContainText("não roda favoritos");
+  } else {
+    await expect(page.getByRole("tab", { name: "Computador" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  }
   const favorite = page.getByTestId("suap-favorito");
   await expect(favorite).toHaveAttribute("href", /^javascript:/);
   const href = (await favorite.getAttribute("href"))!;
