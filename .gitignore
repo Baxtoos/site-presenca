@@ -15,3 +15,7 @@ next-env.d.ts
 *.log
 test-results/
 playwright-report/
+
+# Ferramentas de agentes de IA (skills, configurações locais): ficam só na máquina, fora do repositório.
+.claude/
+.agents/

@@ -39,7 +39,8 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
   );
   await signUp(page, { name: "Ana E2E", email, password });
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
-  expect(await realPath(page)).not.toMatch(/token=/);
+  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
+  await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
   // As sessões ficam na página Conta.
   await page.getByRole("link", { name: "Conta" }).click();
@@ -70,7 +71,8 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
 
   await openEmailLink(page, await waitForLink(email, "Redefinir sua senha", resetRequestedAt));
   await expect(page.getByRole("heading", { name: "Escolher nova senha" })).toBeVisible();
-  expect(await realPath(page)).not.toMatch(/token=/);
+  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
+  await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
   await page.getByLabel("Repita a nova senha").fill(newPassword);
   await page.getByRole("button", { name: "Salvar e entrar" }).click();
@@ -173,7 +175,8 @@ test("conta sem senha exclui a conta pelo link enviado ao e-mail", async ({ page
   // Abrir o link não exclui sozinho: pede a confirmação.
   await openEmailLink(page, await waitForLink(email, "Confirme a exclusão da sua conta", askedAt));
   await expect(page.getByRole("heading", { name: "Excluir conta" })).toBeVisible();
-  expect(await realPath(page)).not.toMatch(/token=/);
+  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
+  await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   await page.getByRole("button", { name: "Excluir minha conta" }).click();
   await expectPath(page, /^\/entrar$/);
 
@@ -271,7 +274,8 @@ test("conta sem senha liga a verificação em duas etapas pelo link do e-mail", 
     page,
     await waitForLink(email, "Ligar a verificação em duas etapas", askedAt),
   );
-  expect(await realPath(page)).not.toMatch(/token=/);
+  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
+  await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   const panel = page.getByRole("region", { name: "Verificação em duas etapas" });
   await panel.getByRole("button", { name: "Continuar" }).click();
   const secret = (await panel.getByTestId("mfa-chave").textContent())!.replace(/\s/g, "");
