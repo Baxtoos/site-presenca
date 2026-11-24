@@ -156,7 +156,7 @@ async function sendEmail(deps: DeliveryDeps, item: OutboxItem, to: Recipient): P
       subjectName: task.subjectName,
       dueLabel: task.dueLabel,
       remindLabel: remindLabel(task.remindBeforeMinutes),
-      url: `${deps.appUrl}/tarefas`,
+      url: `${deps.appUrl}/calendario`,
       settingsUrl: `${deps.appUrl}/conta`,
     });
     await deps.mailer.send({ to: to.email, ...message }, { idempotencyKey: item.id });

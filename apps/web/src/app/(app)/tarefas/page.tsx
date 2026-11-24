@@ -64,7 +64,7 @@ export default async function TasksPage({
         title="Tarefas"
         description="Trabalhos, listas e entregas com prazo. O app avisa antes do prazo e, depois, você conta se entregou."
         actions={
-          <ButtonLink href="/tarefas/nova">
+          <ButtonLink href="/tarefas/nova?voltar=/tarefas">
             <PlusIcon size={16} />
             Nova tarefa
           </ButtonLink>
@@ -93,7 +93,7 @@ export default async function TasksPage({
               : "Nada por aqui com esse filtro."}
           </p>
           {status === "pending" ? (
-            <ButtonLink href="/tarefas/nova" variant="secondary" className="w-fit">
+            <ButtonLink href="/tarefas/nova?voltar=/tarefas" variant="secondary" className="w-fit">
               Cadastrar tarefa
             </ButtonLink>
           ) : null}

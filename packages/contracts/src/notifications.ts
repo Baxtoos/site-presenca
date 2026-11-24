@@ -133,7 +133,7 @@ export function notificationContent(
       return {
         title: `Entrega em ${remindLabel(d.remindBeforeMinutes)}: ${d.title}`,
         body: `${d.subjectName ? `${d.subjectName} · ` : ""}prazo ${d.dueLabel}. Já entregou? Marque no app.`,
-        url: "/tarefas",
+        url: "/calendario",
       };
     }
   }

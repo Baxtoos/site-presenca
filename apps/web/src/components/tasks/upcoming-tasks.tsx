@@ -31,7 +31,7 @@ export async function UpcomingTasks({ days, title }: { days: number; title: stri
       <SectionTitle
         id="proximas-entregas"
         action={
-          <ButtonLink href="/tarefas" variant="ghost" className="-mr-2">
+          <ButtonLink href="/calendario" variant="ghost" className="-mr-2">
             Ver tarefas
           </ButtonLink>
         }
@@ -49,7 +49,7 @@ export async function UpcomingTasks({ days, title }: { days: number; title: stri
         {shown.map((t) => (
           <li key={t.id}>
             <Link
-              href="/tarefas"
+              href="/calendario"
               className="flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-surface-2"
             >
               <span

@@ -1,4 +1,5 @@
 import { remindLabel, type Task, TASK_REMIND_OPTIONS } from "@presenca/contracts";
+import { safeNext } from "./next-path";
 
 const WEEKDAY_SHORT = ["dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb."];
 
@@ -53,3 +54,29 @@ export const STATUS_LABEL: Record<Task["status"], string> = {
   completed: "Concluída",
   not_completed: "Não concluída",
 };
+
+/**
+ * Para onde o formulário volta: só a lista ou o calendário (com os filtros), nunca outro lugar.
+ * Padrão: o calendário.
+ */
+export function taskReturnPath(value: string | string[] | undefined): string {
+  const path = safeNext(value);
+  if (path && /^\/(calendario|tarefas)(?:[/?]|$)/.test(path)) return path;
+  return "/calendario";
+}
+
+/** "2026-11-30" válido (data inicial do formulário vinda do calendário). */
+export function isoDateParam(value: string | string[] | undefined): string | undefined {
+  return typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    !Number.isNaN(Date.parse(value))
+    ? value
+    : undefined;
+}
+
+/** Link "voltar" do cabeçalho conforme a origem. */
+export function backLink(returnTo: string): { href: string; label: string } {
+  return returnTo.startsWith("/tarefas")
+    ? { href: returnTo, label: "Tarefas" }
+    : { href: returnTo, label: "Calendário" };
+}

@@ -8,7 +8,7 @@ import {
   HomeIcon,
   SemesterIcon,
   ShareIcon,
-  TaskIcon,
+  CalendarIcon,
   TodayIcon,
   UserIcon,
 } from "@/components/icons";
@@ -21,12 +21,14 @@ type NavItem = {
   label: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   exact?: boolean;
+  /** Outros caminhos que acendem o mesmo item (a lista de tarefas fica sob o Calendário). */
+  also?: string[];
 };
 
 const PRIMARY: NavItem[] = [
   { href: "/", label: "Início", icon: HomeIcon, exact: true },
   { href: "/hoje", label: "Hoje", icon: TodayIcon },
-  { href: "/tarefas", label: "Tarefas", icon: TaskIcon },
+  { href: "/calendario", label: "Calendário", icon: CalendarIcon, also: ["/tarefas"] },
   { href: "/semestres", label: "Semestres", icon: SemesterIcon },
 ];
 const SECONDARY: NavItem[] = [
@@ -36,8 +38,9 @@ const SECONDARY: NavItem[] = [
 
 function useActive() {
   const pathname = usePathname();
-  return (href: string, exact = false) =>
-    exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  return (href: string, exact = false, also: string[] = []) =>
+    exact ? pathname === href : matches(href) || also.some(matches);
 }
 
 export type SidebarSubject = { id: string; name: string; color: string | null };
@@ -56,7 +59,7 @@ export function Sidebar({
 }) {
   const isActive = useActive();
   const item = (it: NavItem, extra?: ReactNode) => {
-    const active = isActive(it.href, it.exact);
+    const active = isActive(it.href, it.exact, it.also);
     const Icon = it.icon;
     return (
       <li key={it.href}>
@@ -163,9 +166,9 @@ export function MobileTabBar() {
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-4">
+      <ul className="mx-auto grid max-w-md grid-cols-5">
         {tabs.map((t) => {
-          const active = isActive(t.href, t.exact);
+          const active = isActive(t.href, t.exact, t.also);
           const Icon = t.icon;
           return (
             <li key={t.href}>

@@ -354,6 +354,29 @@ Tudo dentro da API, sem serviço externo de identidade.
   editar e excluir. O Início mostra as entregas dos próximos 7 dias e a tela de hoje as das próximas
   48 h. O push abre `/tarefas`.
 
+## Calendário e linha do tempo (`/calendario`)
+
+- **Rota agregadora** `GET /v1/calendar?from=&to=&subjectId=&status=` (até 400 dias): só os dias
+  com alguma coisa, cada um com as tarefas (com `version` para marcar por `If-Match` direto da
+  tela), as exceções dos semestres ativos (feriado, sem aula, semana de provas) e, nos dias que já
+  passaram, quantas aulas da grade ficaram sem chamada (`pendingClasses`, calculado com
+  `classOccurrences` do motor). Traz também `today` (fuso da conta) e `overdueCount` (pendentes com
+  prazo vencido, para o alerta). O dia de cada tarefa é o dia **local** do aluno: um prazo às 23:59
+  de domingo em São Paulo (02:59 de segunda em UTC) fica no domingo.
+- **Linha do tempo:** janelas Atrasadas, Hoje, Próximos 7 dias (padrão), Próximos 30 dias e Todas
+  (200 dias para trás e 199 para a frente); status Pendentes (padrão), Todas, Concluídas, Não
+  concluídas; busca por título, matéria ou código e agrupamento por dia (por extenso) ou por
+  matéria, no navegador. Cada linha: horário, cor e "Status · Matéria · Código · Semestre", selo
+  Moodle e as ações Concluída / Não concluída / Reabrir / Editar / Abrir.
+- **Calendário mensal** (`monthGrid` do motor, segunda a domingo): filtro de matéria e de status,
+  ◀ mês ▶ e "Hoje", opção para mostrar exceções e chamadas pendentes na grade. No computador, as
+  tarefas aparecem como etiquetas nos dias; no celular, como bolinhas. Escolher um dia mostra a lista
+  dele com as ações e "Nova tarefa neste dia" (data já preenchida).
+- Janela, status, mês, matéria e situação ficam na URL (`janela`, `status`, `mes`, `materia`,
+  `situacao`). O formulário de tarefa volta para a tela de origem (`?voltar=`, só `/calendario` ou
+  `/tarefas`). No menu, "Calendário" ocupa o lugar de "Tarefas"; a lista continua em `/tarefas`
+  ("Ver em lista"). O push e o e-mail do aviso de prazo abrem o calendário.
+
 ## App instalável e modo offline
 
 - **Instalável (PWA):** `app/manifest.ts` (ícones normais e "maskable", atalho para "Aulas de

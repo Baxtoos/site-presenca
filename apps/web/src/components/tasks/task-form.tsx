@@ -19,7 +19,19 @@ const localToday = () => new Date().toLocaleDateString("en-CA");
  * conta. Criar usa uma Idempotency-Key fixa por formulário (clique duplo não duplica); editar manda
  * a versão no If-Match.
  */
-export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOption[] }) {
+export function TaskForm({
+  task,
+  subjects,
+  returnTo = "/calendario",
+  initialDate,
+}: {
+  task?: Task;
+  subjects: SubjectOption[];
+  /** Lista ou calendário, já validado pela página (taskReturnPath). */
+  returnTo?: string;
+  /** Data inicial vinda do calendário (dia clicado). */
+  initialDate?: string;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, setPending] = useState(false);
@@ -57,7 +69,7 @@ export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOpt
         await api("/v1/tasks", { method: "POST", idempotencyKey: key.current, body });
         toast.push({ tone: "success", message: "Tarefa criada." });
       }
-      router.push("/tarefas");
+      router.push(returnTo);
       router.refresh();
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;
@@ -108,7 +120,7 @@ export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOpt
           id="tarefa-data"
           label="Data do prazo"
           type="date"
-          defaultValue={task?.dueLocal.date ?? localToday()}
+          defaultValue={task?.dueLocal.date ?? initialDate ?? localToday()}
           required
           error={fields.dueAt}
         />
@@ -172,7 +184,7 @@ export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOpt
           type="button"
           variant="ghost"
           disabled={pending}
-          onClick={() => router.push("/tarefas")}
+          onClick={() => router.push(returnTo)}
         >
           Cancelar
         </Button>

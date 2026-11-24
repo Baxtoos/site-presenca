@@ -34,7 +34,7 @@ async function newTask(
     link?: string;
   },
 ) {
-  await page.goto("/tarefas/nova");
+  await page.goto("/tarefas/nova?voltar=/tarefas");
   await expect(page.getByRole("heading", { name: "Nova tarefa" })).toBeVisible();
   await page.getByLabel("Título").fill(task.title);
   if (task.subject)
@@ -61,9 +61,11 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   });
   const startedAt = new Date(Date.now() - 1_000);
 
-  // Pela navegação principal.
+  // Pela navegação principal: Calendário → Ver em lista.
   await page.goto("/");
-  await page.getByRole("link", { name: "Tarefas" }).first().click();
+  await page.getByRole("link", { name: "Calendário" }).first().click();
+  await expect(page.getByRole("heading", { name: "Calendário", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Ver em lista" }).click();
   await expect(page.getByRole("heading", { name: "Tarefas", exact: true })).toBeVisible();
   await expect(page.getByText("Nenhuma tarefa pendente.")).toBeVisible();
 
@@ -115,7 +117,7 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   // O worker gera o aviso: e-mail (Mailpit) e sino/central.
   const mail = await waitForEmail(email, "Entrega em 1 h: Lista 3", startedAt, 90_000);
   expect(mail.text).toContain("Matéria: Algoritmos");
-  expect(mail.text).toContain("/tarefas");
+  expect(mail.text).toContain("/calendario");
   await page.goto("/avisos");
   await expect(page.getByText("Entrega em 1 h: Lista 3")).toBeVisible();
 

@@ -629,11 +629,11 @@ describe("aviso de tarefa (task_due)", () => {
     expect(sent.subject).toBe("Entrega em 24 h: Lista 3");
     expect(sent.text).toContain("Prazo: qua., 18/11 às 22:00");
     expect(sent.text).toContain("Matéria: Física I");
-    expect(sent.text).toContain("https://app.exemplo/tarefas");
+    expect(sent.text).toContain("https://app.exemplo/calendario");
     const pushed = push.sent.find((p) => p.endpoint === "https://push.exemplo/tarefa-1")!;
     expect(pushed.message).toMatchObject({
       title: "Entrega em 24 h: Lista 3",
-      url: "/tarefas",
+      url: "/calendario",
       tag: `task:${id}`,
     });
   });

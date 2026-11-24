@@ -2,59 +2,22 @@
 
 import { remindLabel, type Task } from "@presenca/contracts";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { CheckCircleIcon } from "@/components/icons";
-import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
-import { api, ApiError } from "@/lib/api-client";
 import { SUBJECT_COLOR_CLASS } from "@/lib/format";
 import { dueLabel, dueRelative, STATUS_LABEL } from "@/lib/tasks";
+import { useTaskActions } from "./use-task-actions";
 
 /**
  * Uma tarefa: prazo, matéria e, enquanto pendente, os botões para registrar se foi entregue.
  * Vencida e pendente ganha destaque; resolvida pode ser corrigida (volta para pendente ou troca).
  */
 export function TaskCard({ task, now }: { task: Task; now: string }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [pending, setPending] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { pending, setStatus, remove, confirmDelete, setConfirmDelete } = useTaskActions(task);
   const soon =
     task.status === "pending" &&
     !task.overdue &&
     new Date(task.dueAt).getTime() - new Date(now).getTime() <= 48 * 3_600_000;
-
-  async function run(label: string, action: () => Promise<unknown>, success: string) {
-    setPending(label);
-    try {
-      await action();
-      toast.push({ tone: "success", message: success });
-      router.refresh();
-    } catch (e) {
-      const stale = e instanceof ApiError && e.problem.status === 412;
-      toast.push({
-        tone: "error",
-        message: stale
-          ? "Esta tarefa mudou em outro lugar. A lista foi atualizada; tente de novo."
-          : e instanceof ApiError
-            ? e.message
-            : "Não foi possível salvar.",
-      });
-      router.refresh();
-    } finally {
-      setPending(null);
-      setConfirmDelete(false);
-    }
-  }
-
-  const setStatus = (status: Task["status"], message: string) =>
-    run(
-      status,
-      () =>
-        api(`/v1/tasks/${task.id}`, { method: "PATCH", ifMatch: task.version, body: { status } }),
-      message,
-    );
 
   const tone = task.overdue
     ? "border-fail/50 bg-fail-soft/40"
@@ -169,7 +132,7 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
           </a>
         ) : null}
         <Link
-          href={`/tarefas/${task.id}/editar`}
+          href={`/tarefas/${task.id}/editar?voltar=/tarefas`}
           className="ml-auto min-h-9 rounded-md px-2 py-2 text-sm font-medium text-accent hover:bg-accent-soft"
         >
           Editar
@@ -179,13 +142,7 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
             type="button"
             variant="danger"
             loading={pending === "delete"}
-            onClick={() =>
-              void run(
-                "delete",
-                () => api(`/v1/tasks/${task.id}`, { method: "DELETE", ifMatch: task.version }),
-                "Tarefa apagada.",
-              )
-            }
+            onClick={() => void remove()}
           >
             Confirmar exclusão
           </Button>
