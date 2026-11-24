@@ -77,6 +77,11 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
           <strong className="break-words text-[15px]">{task.title}</strong>
           <span className="text-xs text-muted">
             {task.subject ? `${task.subject.name} · ` : ""}prazo {dueLabel(task)}
+            {task.source !== "manual" ? (
+              <span className="ml-1.5 rounded border border-line px-1 py-px text-[11px]">
+                Moodle
+              </span>
+            ) : null}
           </span>
         </div>
         {task.status === "pending" ? (
@@ -99,7 +104,9 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
         <p className="font-medium text-fail">O prazo passou. Você entregou?</p>
       ) : task.status === "pending" ? (
         <p className="text-xs text-muted">
-          Aviso {remindLabel(task.remindBeforeMinutes)} antes do prazo.
+          {task.remindBeforeMinutes === null
+            ? "Sem aviso."
+            : `Aviso ${remindLabel(task.remindBeforeMinutes)} antes do prazo.`}
         </p>
       ) : null}
 
@@ -151,6 +158,16 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
             </Button>
           </>
         )}
+        {task.externalUrl ? (
+          <a
+            href={task.externalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-h-9 rounded-md px-2 py-2 text-sm font-medium text-accent hover:bg-accent-soft"
+          >
+            Abrir atividade<span className="sr-only"> (abre em nova aba)</span>
+          </a>
+        ) : null}
         <Link
           href={`/tarefas/${task.id}/editar`}
           className="ml-auto min-h-9 rounded-md px-2 py-2 text-sm font-medium text-accent hover:bg-accent-soft"

@@ -25,7 +25,14 @@ function inSaoPaulo(minutes: number): { date: string; time: string } {
 
 async function newTask(
   page: Page,
-  task: { title: string; date: string; time: string; remind?: string; subject?: string },
+  task: {
+    title: string;
+    date: string;
+    time: string;
+    remind?: string;
+    subject?: string;
+    link?: string;
+  },
 ) {
   await page.goto("/tarefas/nova");
   await expect(page.getByRole("heading", { name: "Nova tarefa" })).toBeVisible();
@@ -35,6 +42,7 @@ async function newTask(
   await page.getByLabel("Data do prazo").fill(task.date);
   await page.getByLabel("Hora do prazo").fill(task.time);
   if (task.remind) await page.getByLabel("Avisar").selectOption({ label: task.remind });
+  if (task.link) await page.getByLabel("Link da atividade (opcional)").fill(task.link);
   await page.getByRole("button", { name: "Criar tarefa" }).click();
   await expect(page.getByText("Tarefa criada.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tarefas", exact: true })).toBeVisible();
@@ -67,6 +75,7 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
     date: soon.date,
     time: soon.time,
     remind: "1 h antes",
+    link: "https://moodle.exemplo.edu.br/mod/assign/view.php?id=3",
   });
   // Uma vencida (prazo ontem) e uma para daqui a 10 dias.
   await newTask(page, {
@@ -78,6 +87,7 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
     title: "Projeto final",
     date: shift(todayInSaoPaulo(), 10),
     time: "23:59",
+    remind: "Sem aviso",
   });
 
   const cards = page.getByTestId("tarefa");
@@ -90,6 +100,10 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   const list3 = cards.filter({ hasText: "Lista 3" });
   await expect(list3).toContainText("Algoritmos · prazo");
   await expect(list3).toContainText(/vence em \d+ min/);
+  await expect(
+    list3.getByRole("link", { name: "Abrir atividade (abre em nova aba)" }),
+  ).toHaveAttribute("href", "https://moodle.exemplo.edu.br/mod/assign/view.php?id=3");
+  await expect(cards.filter({ hasText: "Projeto final" })).toContainText("Sem aviso.");
 
   // O Início mostra as entregas próximas.
   await page.goto("/");

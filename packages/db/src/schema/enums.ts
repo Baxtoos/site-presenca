@@ -53,3 +53,7 @@ export const notificationStatus = app.enum("notification_status", [
 
 /** Tarefas e entregas: pendente até o aluno marcar se concluiu ou não. */
 export const taskStatus = app.enum("task_status", ["pending", "completed", "not_completed"]);
+/** De onde veio a tarefa: digitada pelo aluno ou importada (Moodle). */
+export const taskSource = app.enum("task_source", ["manual", "moodle_ics", "moodle_api"]);
+/** Quem definiu o status: o aluno (sempre vence) ou a sincronização. */
+export const taskStatusSource = app.enum("task_status_source", ["user", "sync"]);

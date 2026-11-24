@@ -345,4 +345,107 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     const data = exp.json<{ tasks: { id: string; title: string }[] }>();
     expect(data.tasks).toEqual([expect.objectContaining({ id: task.id, title: "Lab 2" })]);
   });
+
+  it("filtra por dias locais (bordas de 23:59), aceita tarefa sem aviso e link https da atividade", async () => {
+    const ana = await student();
+    // 23:59 de domingo em São Paulo é 02:59 de segunda em UTC: precisa cair no domingo.
+    const sunday = taskSchema.parse(
+      (
+        await create(ana, {
+          title: "Entrega de domingo",
+          dueAt: "2026-11-29T23:59",
+          remindBeforeMinutes: null,
+          externalUrl: "https://moodle.exemplo.edu.br/mod/assign/view.php?id=42",
+        })
+      ).json(),
+    );
+    expect(sunday).toMatchObject({
+      remindBeforeMinutes: null,
+      externalUrl: "https://moodle.exemplo.edu.br/mod/assign/view.php?id=42",
+      source: "manual",
+      statusSource: "user",
+    });
+    await create(ana, { title: "Segunda cedo", dueAt: "2026-11-30T00:00" });
+    await create(ana, { title: "Sábado", dueAt: "2026-11-28T00:00" });
+
+    const titles = async (qs: string) =>
+      taskListSchema
+        .parse((await ana.b.request("GET", `/v1/tasks?${qs}`)).json())
+        .tasks.map((t) => t.title);
+    expect(await titles("from=2026-11-29&to=2026-11-29")).toEqual(["Entrega de domingo"]);
+    expect(await titles("from=2026-11-30")).toEqual(["Segunda cedo"]);
+    expect(await titles("to=2026-11-28")).toEqual(["Sábado"]);
+    expect(await titles("from=2026-11-28&to=2026-11-30")).toHaveLength(3);
+
+    const backwards = await ana.b.request("GET", "/v1/tasks?from=2026-12-01&to=2026-11-01");
+    expect(backwards.statusCode).toBe(422);
+    const tooLong = await ana.b.request("GET", "/v1/tasks?from=2026-01-01&to=2027-03-01");
+    expect(tooLong.statusCode).toBe(422);
+
+    for (const externalUrl of [
+      "http://moodle.exemplo.edu.br/x",
+      "javascript:alert(1)",
+      "https://127.0.0.1/",
+    ]) {
+      const bad = await create(ana, { title: "x", dueAt: "2026-11-20T10:00", externalUrl });
+      expect(bad.statusCode, externalUrl).toBe(422);
+      expect(problem(bad).errors?.[0]?.path).toBe("externalUrl");
+    }
+
+    // Ligar o aviso e tirar o link; desligar de novo cancela o que estava na fila.
+    const on = await ana.b.request(
+      "PATCH",
+      `/v1/tasks/${sunday.id}`,
+      { remindBeforeMinutes: 60, externalUrl: "" },
+      { headers: ifMatch(sunday.version) },
+    );
+    expect(on.statusCode, on.body).toBe(200);
+    const withReminder = taskSchema.parse(on.json());
+    expect(withReminder).toMatchObject({ remindBeforeMinutes: 60, externalUrl: null });
+    await queueReminder(ana.userId, sunday.id);
+    const off = await ana.b.request(
+      "PATCH",
+      `/v1/tasks/${sunday.id}`,
+      { remindBeforeMinutes: null },
+      { headers: ifMatch(withReminder.version) },
+    );
+    expect(off.statusCode, off.body).toBe(200);
+    expect(await reminderStatus(sunday.id)).toEqual({
+      in_app: "sent",
+      push: "skipped",
+      email: "skipped",
+    });
+  });
+
+  it("marcação do aluno vira statusSource user, mesmo sobre uma tarefa importada", async () => {
+    const ana = await student();
+    const task = taskSchema.parse(
+      (await create(ana, { title: "Questionário 4", dueAt: "2026-11-25T23:59" })).json(),
+    );
+    // Simula o que a sincronização do Moodle fará: tarefa importada e concluída pelo Moodle.
+    await env.db.admin.query(
+      `update app.tasks set source = 'moodle_ics', external_uid = 'uid-123@moodle',
+              status = 'completed', resolved_at = now(), status_source = 'sync' where id = $1`,
+      [task.id],
+    );
+    const synced = taskSchema.parse((await ana.b.request("GET", `/v1/tasks/${task.id}`)).json());
+    expect(synced).toMatchObject({
+      source: "moodle_ics",
+      status: "completed",
+      statusSource: "sync",
+    });
+
+    const res = await ana.b.request(
+      "PATCH",
+      `/v1/tasks/${task.id}`,
+      { status: "not_completed" },
+      { headers: ifMatch(synced.version) },
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    expect(taskSchema.parse(res.json())).toMatchObject({
+      status: "not_completed",
+      statusSource: "user",
+      source: "moodle_ics",
+    });
+  });
 });

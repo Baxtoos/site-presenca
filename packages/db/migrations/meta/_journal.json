@@ -92,6 +92,13 @@
       "when": 1795474639289,
       "tag": "0012_tarefas_seguranca",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795479017417,
+      "tag": "0013_tarefas_integracao",
+      "breakpoints": true
     }
   ]
 }

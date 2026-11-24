@@ -229,12 +229,47 @@ describe("tarefas (FKs compostas e restrições)", () => {
     ["título vazio", "title", "'   '"],
     ["antecedência fora das opções", "remind_before_minutes", "45"],
     ["concluída sem data de conclusão", "status", "'completed'"],
+    ["link sem https", "external_url", "'http://moodle.exemplo.edu.br/a'"],
+    ["link javascript:", "external_url", "'javascript:alert(1)'"],
+    ["importada sem identificador", "source", "'moodle_ics'"],
+    ["manual com identificador", "external_uid", "'uid-1'"],
   ])("recusa %s", async (_name, column, value) => {
     await expect(
       inTx(api(), { userId: alice.userId }, (c) =>
         c.query(`update tasks set ${column} = ${value} where id = $1`, [alice.taskId]),
       ),
     ).rejects.toThrow(/violates check constraint/);
+  });
+
+  it("aceita tarefa sem aviso (antecedência nula) e link https", async () => {
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      await c.query(
+        `update tasks set remind_before_minutes = null,
+                external_url = 'https://moodle.exemplo.edu.br/mod/assign/view.php?id=1' where id = $1`,
+        [alice.taskId],
+      );
+    });
+  });
+
+  it("uma tarefa importada por identificador de origem, por conta", async () => {
+    const insert = (c: { query: (q: string, v: unknown[]) => Promise<unknown> }, userId: string) =>
+      c.query(
+        `insert into tasks (user_id, title, due_at, source, external_uid)
+         values ($1, 'Questionário', now(), 'moodle_ics', 'uid-repetido@moodle')`,
+        [userId],
+      );
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      await insert(c, alice.userId);
+      await c.query("savepoint dup");
+      await expect(insert(c, alice.userId)).rejects.toThrow(/tasks_external_uid_key/);
+      await c.query("rollback to savepoint dup");
+      await c.query("delete from tasks where external_uid is not null");
+    });
+    // O mesmo identificador em outra conta é aceito.
+    await inTx(api(), { userId: bob.userId }, async (c) => {
+      await insert(c, bob.userId);
+      await c.query("delete from tasks where external_uid is not null");
+    });
   });
 
   it("toda edição incrementa version e atualiza updated_at", async () => {

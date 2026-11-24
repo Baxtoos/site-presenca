@@ -316,11 +316,16 @@ Tudo dentro da API, sem serviço externo de identidade.
 
 ## Tarefas e entregas
 
-- **Tabela `tasks`** (migrations `0011_tarefas` e `0012_tarefas_seguranca`): título, observações,
-  matéria opcional, prazo (`due_at`, `timestamptz`), antecedência do aviso
-  (`remind_before_minutes`: 60, 180, 720, 1440 ou 2880; padrão 24 h) e status `pending`,
-  `completed` ou `not_completed`. O banco confere as listas, o tamanho dos textos e que
-  `resolved_at` só existe fora de `pending`.
+- **Tabela `tasks`** (migrations `0011_tarefas`, `0012_tarefas_seguranca` e
+  `0013_tarefas_integracao`): título, observações, matéria opcional, prazo (`due_at`,
+  `timestamptz`), antecedência do aviso (`remind_before_minutes`: 60, 180, 720, 1440 ou 2880;
+  padrão 24 h; `null` = sem aviso) e status `pending`, `completed` ou `not_completed`. O banco
+  confere as listas, o tamanho dos textos e que `resolved_at` só existe fora de `pending`.
+- **Preparada para o Moodle:** `source` (`manual`, `moodle_ics`, `moodle_api`), `external_uid`
+  (identificador na origem, obrigatório nas importadas e proibido nas manuais; único por
+  `(user_id, source, external_uid)`), `external_url` (só `https://`, botão "Abrir atividade") e
+  `status_source` (`user` quando o aluno marca: a sincronização futura nunca desfaz uma marcação
+  manual). A API só cria tarefas `manual`; o aluno pode editar o link.
 - **Isolamento:** RLS com `ENABLE` + `FORCE` (o `app_api` só vê `user_id = app.current_user_id()`).
   FKs compostas `(subject_id, user_id)` e `(task_id, user_id)`: não dá para ligar uma tarefa à
   matéria de outra conta, nem um aviso à tarefa de outra conta. Apagar a matéria deixa a tarefa sem
@@ -329,7 +334,8 @@ Tudo dentro da API, sem serviço externo de identidade.
   não escreve.
 - **Prazo no fuso da conta:** o aluno digita data e hora ("2026-11-30T23:59"); a API converte com
   `users.timezone` e devolve `dueAt` (UTC) e `dueLocal`, mais `overdue` (pendente com prazo passado).
-- **API:** `GET /v1/tasks` (filtros `status` e `subjectId`, ordem `due_asc`/`due_desc`, cursor),
+- **API:** `GET /v1/tasks` (filtros `status`, `subjectId` e `from`/`to` em dias locais do aluno,
+  até 400 dias; ordem `due_asc`/`due_desc`; cursor),
   `POST /v1/tasks` (Idempotency-Key obrigatória), `GET|PATCH|DELETE /v1/tasks/:id` (ETag;
   `If-Match` no PATCH e no DELETE, 412 se mudou). Erros em RFC 9457 (`TASK_INVALID` com o campo).
   A exportação de dados (Conta) inclui as tarefas.
@@ -337,9 +343,11 @@ Tudo dentro da API, sem serviço externo de identidade.
   pendentes com prazo nas próximas 48 h cuja hora do aviso (`due_at - antecedência`) já chegou e
   grava no outbox, na mesma transação: central (`in_app`) já entregue, push `pending` (se ligado) e
   e-mail `pending` (se ligado e confirmado), tipo `task_due` com payload tipado. O `dedupe_key`
-  (`task_due:{tarefa}:{prazo}:{antecedência}`) impede repetição; mudar o prazo ou a antecedência
-  gera um aviso novo. Marcar, mudar o prazo ou apagar cancela os envios ainda pendentes, e o worker
-  confere de novo antes de enviar (não avisa tarefa resolvida, apagada ou vencida).
+  (`task_due:{tarefa}:{prazo em minutos desde 1970}:{antecedência}`) impede repetição; mudar o
+  prazo ou a antecedência gera um aviso novo. Marcar, mudar o prazo, desligar o aviso ou apagar
+  cancela os envios ainda pendentes, e o worker confere de novo antes de enviar (não avisa tarefa
+  resolvida, apagada, sem aviso ou vencida). O horário silencioso adia push e e-mail como nos
+  outros avisos; se o adiamento passar do prazo, o envio é pulado.
 - **Web:** página `/tarefas` (abas Pendentes, Concluídas, Não concluídas e Todas; filtro por
   matéria), pendentes agrupadas em "Vencidas: falta registrar", "Próximas 48 h", "Esta semana" e
   "Depois", com destaque para as vencidas e as próximas. Botões **Concluída** / **Não concluída**,

@@ -1,14 +1,15 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from "@nestjs/common";
-import type {
-  CreateTaskBody,
-  Task,
-  TaskList,
-  TaskListQuery,
-  UpdateTaskBody,
+import {
+  DEFAULT_TASK_REMIND,
+  type CreateTaskBody,
+  type Task,
+  type TaskList,
+  type TaskListQuery,
+  type UpdateTaskBody,
 } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
 import { localParts, zonedTimeToUtc } from "@presenca/engine";
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
 import { ClockService } from "../common/clock";
 import { type IdempotentResult, IdempotencyService } from "../common/idempotency";
 import { assertVersioned } from "../common/versioning";
@@ -69,6 +70,9 @@ export class TasksService {
       dueLocal: { date: local.date, time: local.time },
       remindBeforeMinutes: row.remindBeforeMinutes,
       status: row.status,
+      statusSource: row.statusSource,
+      source: row.source,
+      externalUrl: row.externalUrl,
       resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
       overdue: row.status === "pending" && row.dueAt.getTime() < this.clock.now().getTime(),
       version: row.version,
@@ -139,7 +143,9 @@ export class TasksService {
         title: body.title.trim(),
         notes: body.notes ?? null,
         dueAt: this.toInstant(body.dueAt, tz),
-        remindBeforeMinutes: body.remindBeforeMinutes ?? 1440,
+        remindBeforeMinutes:
+          body.remindBeforeMinutes === undefined ? DEFAULT_TASK_REMIND : body.remindBeforeMinutes,
+        externalUrl: body.externalUrl ?? null,
       })
       .returning({ id: tasks.id });
     return this.toDto((await this.load(tx, row!.id))!, tz);
@@ -164,6 +170,9 @@ export class TasksService {
       const filters: SQL[] = [];
       if (query.status) filters.push(eq(tasks.status, query.status));
       if (query.subjectId) filters.push(eq(tasks.subjectId, query.subjectId));
+      // Dias locais do aluno: [from 00:00, to + 1 dia 00:00) no fuso da conta.
+      if (query.from) filters.push(gte(tasks.dueAt, zonedTimeToUtc(query.from, "00:00", tz)));
+      if (query.to) filters.push(lt(tasks.dueAt, zonedTimeToUtc(nextDay(query.to), "00:00", tz)));
       if (cursor) {
         filters.push(
           asc_
@@ -205,9 +214,14 @@ export class TasksService {
       if (body.dueAt !== undefined) patch.dueAt = this.toInstant(body.dueAt, tz);
       if (body.remindBeforeMinutes !== undefined)
         patch.remindBeforeMinutes = body.remindBeforeMinutes;
-      if (body.status !== undefined && body.status !== current.status) {
-        patch.status = body.status;
-        patch.resolvedAt = body.status === "pending" ? null : this.clock.now();
+      if (body.externalUrl !== undefined) patch.externalUrl = body.externalUrl;
+      if (body.status !== undefined) {
+        // O aluno marcou: a sincronização com o Moodle não muda mais este status.
+        patch.statusSource = "user";
+        if (body.status !== current.status) {
+          patch.status = body.status;
+          patch.resolvedAt = body.status === "pending" ? null : this.clock.now();
+        }
       }
 
       const rows = await tx
@@ -227,7 +241,11 @@ export class TasksService {
         await this.cancelPending(
           tx,
           id,
-          resolved ? "tarefa marcada pelo aluno" : "prazo ou antecedência alterados",
+          resolved
+            ? "tarefa marcada pelo aluno"
+            : patch.remindBeforeMinutes === null
+              ? "aviso desligado pelo aluno"
+              : "prazo ou antecedência alterados",
         );
       }
       return this.toDto((await this.load(tx, id))!, tz);
@@ -251,6 +269,13 @@ export class TasksService {
       await assertVersioned(rows, async () => true, "Tarefa não encontrada.");
     });
   }
+}
+
+/** "2026-11-30" → "2026-12-01" (calendário, sem fuso). */
+function nextDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 // Cursor opaco: base64url de "instante ISO|uuid" (ordem por prazo e, no empate, por id).

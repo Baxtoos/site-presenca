@@ -1,7 +1,16 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  index,
+  integer,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { app, createdAt, ownerId, pk, updatedAt, version } from "./_shared";
-import { taskStatus } from "./enums";
+import { taskSource, taskStatus, taskStatusSource } from "./enums";
 import { users } from "./identity";
 
 /** Antecedências permitidas para o aviso (minutos antes do prazo). */
@@ -21,8 +30,16 @@ export const tasks = app.table(
     notes: text(),
     /** Prazo de envio (instante; a tela informa data e hora no fuso do aluno). */
     dueAt: timestamp({ withTimezone: true }).notNull(),
-    remindBeforeMinutes: integer().notNull().default(1440),
+    /** Antecedência do aviso; null = sem aviso. */
+    remindBeforeMinutes: integer().default(1440),
     status: taskStatus().notNull().default("pending"),
+    /** "user" quando o aluno marcou: a sincronização nunca sobrescreve. */
+    statusSource: taskStatusSource().notNull().default("user"),
+    source: taskSource().notNull().default("manual"),
+    /** Identificador na origem (UID do .ics, id da atividade no Moodle); null nas manuais. */
+    externalUid: text(),
+    /** Link para a atividade original (só https). */
+    externalUrl: text(),
     /** Quando virou concluída ou não concluída (null enquanto pendente). */
     resolvedAt: timestamp({ withTimezone: true }),
     version: version(),
@@ -39,9 +56,21 @@ export const tasks = app.table(
       .where(sql`${t.status} = 'pending'`),
     check("tasks_title_chk", sql`char_length(btrim(${t.title})) between 1 and 200`),
     check("tasks_notes_chk", sql`${t.notes} is null or char_length(${t.notes}) <= 2000`),
+    // Uma tarefa importada por origem: a sincronização reconcilia por (user_id, source, external_uid).
+    uniqueIndex("tasks_external_uid_key")
+      .on(t.userId, t.source, t.externalUid)
+      .where(sql`${t.externalUid} is not null`),
     check(
       "tasks_remind_chk",
-      sql`${t.remindBeforeMinutes} in (${sql.raw(TASK_REMIND_OPTIONS.join(", "))})`,
+      sql`${t.remindBeforeMinutes} is null or ${t.remindBeforeMinutes} in (${sql.raw(TASK_REMIND_OPTIONS.join(", "))})`,
+    ),
+    check(
+      "tasks_external_url_chk",
+      sql`${t.externalUrl} is null or (${t.externalUrl} ~ '^https://' and char_length(${t.externalUrl}) <= 2000)`,
+    ),
+    check(
+      "tasks_external_uid_chk",
+      sql`(${t.source} = 'manual') = (${t.externalUid} is null) and (${t.externalUid} is null or char_length(${t.externalUid}) <= 500)`,
     ),
     check("tasks_resolved_chk", sql`(${t.status} = 'pending') = (${t.resolvedAt} is null)`),
   ],

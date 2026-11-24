@@ -40,7 +40,11 @@ export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOpt
       notes: formText(form, "tarefa-notas"),
       subjectId: formText(form, "tarefa-materia") || null,
       dueAt: `${formText(form, "tarefa-data")}T${formText(form, "tarefa-hora")}`,
-      remindBeforeMinutes: Number(formText(form, "tarefa-aviso")),
+      // "" = sem aviso.
+      remindBeforeMinutes: formText(form, "tarefa-aviso")
+        ? Number(formText(form, "tarefa-aviso"))
+        : null,
+      externalUrl: formText(form, "tarefa-link"),
     };
     setPending(true);
     setError(undefined);
@@ -120,9 +124,12 @@ export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOpt
           <select
             id="tarefa-aviso"
             name="tarefa-aviso"
-            defaultValue={String(task?.remindBeforeMinutes ?? DEFAULT_TASK_REMIND)}
+            defaultValue={
+              task ? String(task.remindBeforeMinutes ?? "") : String(DEFAULT_TASK_REMIND)
+            }
             className={INPUT_CLASS}
           >
+            <option value="">Sem aviso</option>
             {REMIND_CHOICES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -142,6 +149,17 @@ export function TaskForm({ task, subjects }: { task?: Task; subjects: SubjectOpt
           className={`${INPUT_CLASS} py-2`}
         />
       </label>
+      <Field
+        id="tarefa-link"
+        label="Link da atividade (opcional)"
+        type="url"
+        inputMode="url"
+        defaultValue={task?.externalUrl ?? ""}
+        maxLength={2000}
+        placeholder="https://moodle.../mod/assign/view.php?id=…"
+        hint="Cole o endereço da atividade no Moodle ou em outro site, para abrir direto da tarefa."
+        error={fields.externalUrl}
+      />
       <p className="text-xs text-muted">
         O aviso chega no sino, no celular (se as notificações estiverem ligadas) e por e-mail,
         enquanto a tarefa estiver pendente.
