@@ -125,7 +125,7 @@ const envSchema = z
      */
     ANTHROPIC_API_KEY: optionalString,
     /** Modelo do assistente de notas. */
-    GRADING_AI_MODEL: z.preprocess(emptyToUndefined, z.string().min(1).default("claude-opus-5-5")),
+    GRADING_AI_MODEL: z.preprocess(emptyToUndefined, z.string().min(1).default("claude-haiku-5-5")),
     /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
     INTEGRATIONS_ALLOW_INSECURE_FETCH: optionalBool,
 

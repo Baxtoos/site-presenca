@@ -3,12 +3,14 @@ import {
   type SimulateResponse,
   simulateResponseSchema,
   subjectCalendarSchema,
+  subjectGradingSchema,
   subjectSchema,
 } from "@presenca/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { SubjectCalendar } from "@/components/attendance/subject-calendar";
+import { GradesPanel } from "@/components/grades/grades-panel";
 import { BookIcon, ChevronRightIcon, SettingsIcon } from "@/components/icons";
 import { RiskLine } from "@/components/subject-card";
 import { ButtonLink, PageHeader } from "@/components/ui";
@@ -74,11 +76,12 @@ function CanISkip({ sim }: { sim: SimulateResponse }) {
 
 export default async function SubjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [subject, calendar, sim, history] = await Promise.all([
+  const [subject, calendar, sim, history, grading] = await Promise.all([
     apiGet(`/v1/subjects/${id}`, subjectSchema),
     apiGet(`/v1/subjects/${id}/calendar`, subjectCalendarSchema),
     apiGet(`/v1/subjects/${id}/simulate`, simulateResponseSchema),
     apiGet(`/v1/subjects/${id}/attendance?limit=30`, attendanceListSchema),
+    apiGet(`/v1/subjects/${id}/grading`, subjectGradingSchema),
   ]);
   const s = subject.summary;
 
@@ -146,6 +149,8 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
       </section>
 
       <CanISkip sim={sim} />
+
+      <GradesPanel key={grading.scheme?.version ?? 0} initial={grading} />
 
       <details className="group card p-5 sm:p-6">
         <summary className="cursor-pointer list-none font-semibold marker:hidden">

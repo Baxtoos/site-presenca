@@ -48,16 +48,14 @@ export class FakeClock extends ClockService {
 export class FakeAnthropic {
   readonly calls: { system: string; messages: { role: string; content: unknown }[] }[] = [];
   queue: (Record<string, unknown> | Error | { refusal: true })[] = [];
-  readonly beta = {
-    messages: {
-      parse: async (params: { system: string; messages: { role: string; content: unknown }[] }) => {
-        this.calls.push({ system: params.system, messages: params.messages });
-        const next = this.queue.shift();
-        if (!next) throw new Error("fila da IA falsa vazia");
-        if (next instanceof Error) throw next;
-        if ("refusal" in next) return { stop_reason: "refusal", parsed_output: null };
-        return { stop_reason: "end_turn", parsed_output: next };
-      },
+  readonly messages = {
+    parse: async (params: { system: string; messages: { role: string; content: unknown }[] }) => {
+      this.calls.push({ system: params.system, messages: params.messages });
+      const next = this.queue.shift();
+      if (!next) throw new Error("fila da IA falsa vazia");
+      if (next instanceof Error) throw next;
+      if ("refusal" in next) return { stop_reason: "refusal", parsed_output: null };
+      return { stop_reason: "end_turn", parsed_output: next };
     },
   };
 }

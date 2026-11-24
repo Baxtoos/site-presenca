@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   GRADING_AI_MAX_TURNS,
@@ -19,7 +19,7 @@ import { REDIS } from "../redis/redis.module";
 
 /** Cliente da Anthropic (null sem chave). Trocado por um falso nos testes. */
 export const ANTHROPIC_CLIENT = Symbol("ANTHROPIC_CLIENT");
-export type AnthropicLike = Pick<Anthropic, "beta">;
+export type AnthropicLike = Pick<Anthropic, "messages">;
 
 export function anthropicClientFactory(env: Env): AnthropicLike | null {
   if (!env.ANTHROPIC_API_KEY) return null;
@@ -65,7 +65,7 @@ const aiTurnSchema = z.object({
 type AiTurn = z.infer<typeof aiTurnSchema>;
 type Proposal = z.output<typeof saveGradingBodySchema>;
 
-const SYSTEM = `Você ajuda um aluno universitário brasileiro a registrar COMO o professor calcula a nota de uma matéria, para o app Monitor de Presenças fazer as contas. Cada professor calcula de um jeito: nunca suponha uma regra que o aluno não disse.
+const SYSTEM = `Você ajuda um aluno universitário brasileiro a registrar COMO o professor calcula a nota de uma matéria, para o app Monitor de Presenças fazer as contas. Cada professor calcula de um jeito: nunca suponha uma regra que o aluno não disse. Você só COLETA a regra: não calcule notas, médias nem quanto falta (o app faz as contas).
 
 Converse em português do Brasil, com frases curtas e amigáveis. Faça UMA pergunta por vez, só quando faltar algo essencial: avaliações e pesos, nota máxima de cada uma, nota mínima para passar, exame ou prova final, substitutiva, descarte de listas e arredondamento. Se o aluno colar o plano de ensino, extraia dele.
 
@@ -146,8 +146,8 @@ const FALLBACK_MESSAGE = {
 } as const;
 
 /**
- * Assistente de notas: conversa com o aluno (Claude Opus 5.5, saída estruturada) até ter a regra
- * de cálculo, no máximo 10 chamadas por conversa (contadas no Redis). Em limite, erro, demora ou
+ * Assistente de notas: conversa com o aluno (Claude Haiku, saída estruturada) só para coletar a
+ * regra de cálculo; as contas são do motor (@presenca/engine). No máximo 10 chamadas por conversa (contadas no Redis). Em limite, erro, demora ou
  * recusa, devolve "fallback" e a tela abre o editor manual com o rascunho. Nunca salva sozinho.
  */
 @Injectable()
@@ -198,7 +198,7 @@ export class GradingAssistantService {
       return { type: "fallback", reason: "limit", message: FALLBACK_MESSAGE.limit, draft: null };
     }
 
-    const history: Anthropic.Beta.BetaMessageParam[] = req.messages.map((m) => ({
+    const history: Anthropic.MessageParam[] = req.messages.map((m) => ({
       role: m.role,
       content: m.text,
     }));
@@ -273,18 +273,15 @@ export class GradingAssistantService {
 
   private async ask(
     subjectName: string,
-    messages: Anthropic.Beta.BetaMessageParam[],
+    messages: Anthropic.MessageParam[],
     remaining: number,
   ): Promise<AiTurn | null> {
-    const response = await this.client!.beta.messages.parse({
+    const response = await this.client!.messages.parse({
       model: this.model,
-      max_tokens: 8000,
-      // Se o modelo recusar por alguma regra de segurança, a API refaz em outro modelo.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      max_tokens: 4000,
       system: `${SYSTEM}\n\nMatéria: ${subjectName}.\nPerguntas que ainda pode fazer nesta conversa: ${remaining}. Com 0 restantes, responda kind="scheme" com a melhor regra possível.`,
       messages,
-      output_config: { effort: "medium", format: betaZodOutputFormat(aiTurnSchema) },
+      output_config: { format: zodOutputFormat(aiTurnSchema) },
     });
     if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") return null;
     return response.parsed_output ?? null;
