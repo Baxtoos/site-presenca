@@ -3,7 +3,6 @@
 import {
   type EvaluationItemDto,
   GRADE_STATUS_LABEL,
-  type GradeStatusDto,
   type SubjectGrading,
 } from "@presenca/contracts";
 import { formatGrade, parseGrade, simulateGrades } from "@presenca/engine";
@@ -12,16 +11,9 @@ import { useMemo, useState } from "react";
 import { useToast } from "@/components/toast";
 import { Button, INPUT_CLASS } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
+import { GRADE_STATUS_STYLE } from "@/lib/grades";
 import { type EditorDraft, GradingEditor } from "./grading-editor";
 import { GradingAssistant } from "./grading-assistant";
-
-const STATUS_STYLE: Record<GradeStatusDto, string> = {
-  aprovado_por_nota: "bg-ok-soft text-ok",
-  em_curso: "bg-accent-soft text-accent",
-  em_exame: "bg-warn-soft text-warn",
-  sem_chance_direta: "bg-warn-soft text-warn",
-  reprovado_por_nota: "bg-fail-soft text-fail",
-};
 
 type Setup = { draft: EditorDraft; notice?: string; rev: number };
 
@@ -104,7 +96,7 @@ function GradesView({ grading }: { grading: SubjectGrading }) {
     <div className="grid gap-4" data-testid="resumo-notas">
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`rounded-full px-3 py-1 text-sm font-semibold ${STATUS_STYLE[summary.status]}`}
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${GRADE_STATUS_STYLE[summary.status]}`}
           data-testid="situacao-nota"
         >
           {GRADE_STATUS_LABEL[summary.status]}

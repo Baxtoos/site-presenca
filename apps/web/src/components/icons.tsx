@@ -202,3 +202,9 @@ export const TaskIcon = (p: IconProps) => (
     <path d="m9 12.5 2 2 4-4.5" />
   </Svg>
 );
+export const GradeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="3" width="16" height="18" rx="2" />
+    <path d="M8 17v-3M12 17v-6M16 17V8" />
+  </Svg>
+);

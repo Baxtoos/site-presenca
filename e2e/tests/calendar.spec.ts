@@ -93,6 +93,14 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   const month = page.getByTestId("calendario-mes");
   if (inTen.slice(0, 7) !== today.slice(0, 7)) {
     await page.getByRole("link", { name: "Próximo mês" }).click();
+    // A grade de novembro já mostra o começo de dezembro: espera trocar de mês antes de clicar.
+    await expectPath(page, new RegExp(`mes=${inTen.slice(0, 7)}`));
+    const nextMonth = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" }).format(
+      new Date(`${inTen}T12:00:00Z`),
+    );
+    await expect(
+      page.getByRole("heading", { name: new RegExp(`^${nextMonth}`, "i") }),
+    ).toBeVisible();
   }
   const dayButton = month.locator(`button[data-date="${inTen}"]`);
   await expect(dayButton).toHaveAccessibleName(/1 tarefa/);
@@ -135,7 +143,7 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await expect(page.getByRole("heading", { name: "Calendário", exact: true })).toBeVisible();
   await expectPath(page, /^\/calendario\?/);
 
-  // Celular: as 5 abas cabem numa linha só (Calendário entrou no lugar de Tarefas).
+  // Celular: as 5 abas (Início, Hoje, Calendário, Tarefas, Notas) cabem numa linha só.
   if (testInfo.project.name === "celular") {
     const tabs = page.getByRole("navigation", { name: "Principal" }).getByRole("link");
     await expect(tabs).toHaveCount(5);

@@ -8,6 +8,7 @@ import {
 } from "@presenca/contracts";
 import { NotificationBell } from "@/components/notifications/bell";
 import { OfflineProvider } from "@/components/offline-provider";
+import { UserIcon } from "@/components/icons";
 import { ThemeSwitcher } from "@/components/theme-picker";
 import { ToastProvider } from "@/components/toast";
 import { apiGet, getMe } from "@/lib/api-server";
@@ -54,6 +55,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                   <ThemeSwitcher name="tema-topo" showLabel={false} />
                 </div>
                 <NotificationBell unread={unreadCount} />
+                {/* Celular: a Conta saiu das abas de baixo para caber Tarefas e Notas. */}
+                <Link
+                  href="/conta"
+                  aria-label="Conta"
+                  className="grid size-10 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-ink lg:hidden"
+                >
+                  <UserIcon size={20} />
+                </Link>
               </div>
             </header>
             <main className="mx-auto grid w-full max-w-[50rem] grid-cols-[minmax(0,1fr)] gap-8 px-4 pb-32 pt-4 sm:px-8 lg:px-12 lg:pb-24 lg:pt-8">

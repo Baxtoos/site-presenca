@@ -44,6 +44,18 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
   await notes.getByRole("button", { name: "Limpar simulação" }).click();
   await expect(summary.getByTestId("situacao-nota")).toHaveText("Em curso");
 
+  // Aba Notas: todas as matérias, com a situação e quanto falta.
+  await page.getByRole("link", { name: "Notas", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Notas", exact: true })).toBeVisible();
+  const card = page.getByTestId("nota-materia").filter({ hasText: "Cálculo" });
+  await expect(card).toContainText("Em curso");
+  await expect(card).toContainText("1 de 2 notas lançadas");
+  await expect(card).toContainText("8 na Prova 2");
+  await card.click();
+  await expect(notes.getByTestId("resumo-notas")).toBeVisible();
+  await page.getByRole("link", { name: "Notas", exact: true }).first().click();
+  await expect(card).toBeVisible();
+
   await page.waitForLoadState("networkidle");
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

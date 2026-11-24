@@ -9,6 +9,8 @@ import {
   SemesterIcon,
   ShareIcon,
   CalendarIcon,
+  GradeIcon,
+  TaskIcon,
   TodayIcon,
   UserIcon,
 } from "@/components/icons";
@@ -21,14 +23,14 @@ type NavItem = {
   label: string;
   icon: ComponentType<{ size?: number; className?: string }>;
   exact?: boolean;
-  /** Outros caminhos que acendem o mesmo item (a lista de tarefas fica sob o Calendário). */
-  also?: string[];
 };
 
 const PRIMARY: NavItem[] = [
   { href: "/", label: "Início", icon: HomeIcon, exact: true },
   { href: "/hoje", label: "Hoje", icon: TodayIcon },
-  { href: "/calendario", label: "Calendário", icon: CalendarIcon, also: ["/tarefas"] },
+  { href: "/calendario", label: "Calendário", icon: CalendarIcon },
+  { href: "/tarefas", label: "Tarefas", icon: TaskIcon },
+  { href: "/notas", label: "Notas", icon: GradeIcon },
   { href: "/semestres", label: "Semestres", icon: SemesterIcon },
 ];
 const SECONDARY: NavItem[] = [
@@ -39,8 +41,7 @@ const SECONDARY: NavItem[] = [
 function useActive() {
   const pathname = usePathname();
   const matches = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  return (href: string, exact = false, also: string[] = []) =>
-    exact ? pathname === href : matches(href) || also.some(matches);
+  return (href: string, exact = false) => (exact ? pathname === href : matches(href));
 }
 
 export type SidebarSubject = { id: string; name: string; color: string | null };
@@ -59,7 +60,7 @@ export function Sidebar({
 }) {
   const isActive = useActive();
   const item = (it: NavItem, extra?: ReactNode) => {
-    const active = isActive(it.href, it.exact, it.also);
+    const active = isActive(it.href, it.exact);
     const Icon = it.icon;
     return (
       <li key={it.href}>
@@ -157,10 +158,13 @@ export function Sidebar({
   );
 }
 
-/** Barra de abas do celular, presa embaixo (como um app). */
+/**
+ * Barra de abas do celular, presa embaixo (como um app). Cabem 5: Semestres fica no "Gerenciar
+ * semestre" do Início e a Conta no ícone do topo.
+ */
 export function MobileTabBar() {
   const isActive = useActive();
-  const tabs: NavItem[] = [...PRIMARY, { href: "/conta", label: "Conta", icon: UserIcon }];
+  const tabs = PRIMARY.filter((t) => t.href !== "/semestres");
   return (
     <nav
       aria-label="Principal"
@@ -168,7 +172,7 @@ export function MobileTabBar() {
     >
       <ul className="mx-auto grid max-w-md grid-cols-5">
         {tabs.map((t) => {
-          const active = isActive(t.href, t.exact, t.also);
+          const active = isActive(t.href, t.exact);
           const Icon = t.icon;
           return (
             <li key={t.href}>

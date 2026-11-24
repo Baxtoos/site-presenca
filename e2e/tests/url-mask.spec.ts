@@ -26,8 +26,9 @@ test("a barra mostra só o domínio; Voltar, Avançar e recarregar continuam fun
   await page.goto("/conta");
   const conta = page.getByRole("heading", { name: "Conta", exact: true });
   await expect(conta).toBeVisible();
-  await page.getByRole("link", { name: "Semestres" }).first().click();
-  await expect(semestres).toBeVisible();
+  const notas = page.getByRole("heading", { name: "Notas", exact: true });
+  await page.getByRole("link", { name: "Notas" }).first().click();
+  await expect(notas).toBeVisible();
   await expectBarMasked(page);
 
   // Voltar e Avançar restauram a tela certa.
@@ -36,12 +37,12 @@ test("a barra mostra só o domínio; Voltar, Avançar e recarregar continuam fun
   await expectBarMasked(page);
   expect(await realPath(page)).toBe("/conta");
   await page.goForward();
-  await expect(semestres).toBeVisible();
+  await expect(notas).toBeVisible();
   await expectBarMasked(page);
 
   // Recarregar (F5 / puxar para atualizar) volta para a mesma tela, não para o início.
   await page.reload();
-  await expect(semestres).toBeVisible();
+  await expect(notas).toBeVisible();
   await expectBarMasked(page);
-  expect(await realPath(page)).toBe("/semestres");
+  expect(await realPath(page)).toBe("/notas");
 });

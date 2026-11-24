@@ -84,6 +84,7 @@ for (const scheme of ["light", "dark"] as const) {
       "/tarefas",
       "/tarefas/nova",
       "/calendario",
+      "/notas",
     ]) {
       await page.goto(url);
       await expectAccessible(page, url);
