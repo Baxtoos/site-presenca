@@ -19,9 +19,18 @@ if (!url) {
 runMigrations(url)
   .then(() => console.log("Migrations aplicadas."))
   .catch((error: unknown) => {
-    // O Drizzle embrulha o erro do Postgres em `cause`; o motivo real está lá.
-    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : undefined;
+    // O Drizzle embrulha o erro do Postgres em `cause`; o motivo real está lá. Queda de conexão
+    // chega como AggregateError sem texto: mostra o código (ECONNREFUSED, ETIMEDOUT...) de cada
+    // tentativa. Nunca imprime a URL (tem a senha).
+    const root = error instanceof Error && error.cause instanceof Error ? error.cause : error;
+    const parts = (e: unknown): string[] => {
+      if (!(e instanceof Error)) return [String(e)];
+      const code = (e as NodeJS.ErrnoException).code;
+      const inner = e instanceof AggregateError ? e.errors.flatMap(parts) : [];
+      const own = [e.message, code].filter(Boolean).join(" ");
+      return [own || e.name, ...inner];
+    };
     console.error("Falha ao aplicar migrations (nada foi aplicado: tudo roda numa transação).");
-    console.error("Motivo:", cause?.message ?? (error instanceof Error ? error.message : error));
+    console.error("Motivo:", [...new Set(parts(root))].join(" | "));
     process.exit(1);
   });
