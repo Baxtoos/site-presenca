@@ -6,6 +6,7 @@ export * from "./sharing";
 export * from "./imports";
 export * from "./suap";
 export * from "./tasks";
+export * from "./calendar";
 export * from "./health";
 export * from "./problem";
 export * from "./routes";

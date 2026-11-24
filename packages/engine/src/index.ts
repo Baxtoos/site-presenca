@@ -30,6 +30,10 @@ export {
   type IsoDate,
   type ScheduleSlot,
   type SkipPlan,
+  monthGrid,
+  monthRange,
+  shiftMonth,
+  type MonthGrid,
 } from "./calendar";
 export {
   evaluateThresholds,

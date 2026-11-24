@@ -93,7 +93,14 @@ export const taskSchema = z.object({
   notes: z.string().nullable(),
   subjectId: z.uuid().nullable(),
   subject: z
-    .object({ id: z.uuid(), name: z.string(), color: subjectColorSchema.nullable() })
+    .object({
+      id: z.uuid(),
+      name: z.string(),
+      code: z.string().nullable(),
+      color: subjectColorSchema.nullable(),
+      /** Rótulo do semestre da matéria (ex.: "2026.2"). */
+      semesterLabel: z.string(),
+    })
     .nullable(),
   /** Instante do prazo (UTC). */
   dueAt: z.iso.datetime({ offset: true }),

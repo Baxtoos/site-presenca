@@ -111,3 +111,42 @@ export function planSkips(remainingUnits: number, upcoming: readonly ClassOccurr
   }
   return { classes, units: used, untilDate, firstUnsafe: null };
 }
+
+/** Primeiro e último dia do mês "AAAA-MM". */
+export function monthRange(month: string): { first: IsoDate; last: IsoDate } {
+  const first = `${month}-01`;
+  const d = toUtc(first);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
+  return { first, last: last.toISOString().slice(0, 10) };
+}
+
+/** "2026-11" + 1 = "2026-12"; aceita deslocamentos negativos e vira o ano. */
+export function shiftMonth(month: string, delta: number): string {
+  const d = toUtc(`${month}-01`);
+  const shifted = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + delta, 1));
+  return shifted.toISOString().slice(0, 7);
+}
+
+export interface MonthGrid {
+  month: string;
+  first: IsoDate;
+  last: IsoDate;
+  /** Segunda-feira da primeira semana mostrada (pode ser do mês anterior). */
+  gridFrom: IsoDate;
+  /** Domingo da última semana mostrada (pode ser do mês seguinte). */
+  gridTo: IsoDate;
+  /** Semanas de segunda a domingo (ISO 8601), 4 a 6 linhas de 7 dias. */
+  weeks: IsoDate[][];
+}
+
+/** A grade de um mês para o calendário: semanas completas de segunda a domingo. */
+export function monthGrid(month: string): MonthGrid {
+  const { first, last } = monthRange(month);
+  const gridFrom = addDays(first, 1 - isoWeekday(first));
+  const gridTo = addDays(last, 7 - isoWeekday(last));
+  const weeks: IsoDate[][] = [];
+  for (let start = gridFrom; start <= gridTo; start = addDays(start, 7)) {
+    weeks.push(Array.from({ length: 7 }, (_, i) => addDays(start, i)));
+  }
+  return { month, first, last, gridFrom, gridTo, weeks };
+}

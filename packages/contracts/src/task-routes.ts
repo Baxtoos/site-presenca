@@ -1,3 +1,4 @@
+import { calendarQuerySchema, calendarResponseSchema } from "./calendar";
 import type { RouteDef } from "./route-types";
 import {
   createTaskBodySchema,
@@ -11,6 +12,22 @@ import {
 const notFound = { description: "Tarefa não encontrada (ou de outra pessoa)" };
 
 export const taskRoutes = {
+  getCalendar: {
+    method: "GET",
+    path: "/v1/calendar",
+    summary:
+      "Linha do tempo e calendário: tarefas por dia local, exceções do semestre e chamadas pendentes",
+    tag: "Tarefas",
+    auth: true,
+    request: { query: calendarQuerySchema },
+    responses: {
+      200: {
+        description: "Dias com tarefas, exceções ou chamadas pendentes",
+        schema: calendarResponseSchema,
+      },
+      422: { description: "Intervalo inválido (mais de 400 dias ou ao contrário)" },
+    },
+  },
   listTasks: {
     method: "GET",
     path: "/v1/tasks",

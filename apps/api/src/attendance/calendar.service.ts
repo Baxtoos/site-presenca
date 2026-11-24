@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type { CalendarClass, SubjectCalendar } from "@presenca/contracts";
 import { schema } from "@presenca/db";
-import { addDays, isoWeekday, summarize } from "@presenca/engine";
+import { addDays, isoWeekday, monthRange, shiftMonth, summarize } from "@presenca/engine";
 import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
 import { rulesFromRow } from "../academic/mappers";
 import { loadTotals } from "../academic/summary";
@@ -14,19 +14,6 @@ const { subjects, semesters, subjectSchedules, calendarExceptions, attendanceLog
 
 const hhmm = (time: string) => time.slice(0, 5);
 const monthOf = (date: string) => date.slice(0, 7);
-
-/** Primeiro e último dia do mês AAAA-MM. */
-function monthRange(month: string): { first: string; last: string } {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return { first: `${month}-01`, last: `${month}-${String(last).padStart(2, "0")}` };
-}
-
-function shiftMonth(month: string, delta: number): string {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
 
 @Injectable()
 export class CalendarService {

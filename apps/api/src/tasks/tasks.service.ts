@@ -15,7 +15,7 @@ import { type IdempotentResult, IdempotencyService } from "../common/idempotency
 import { assertVersioned } from "../common/versioning";
 import { DbService } from "../database/db.service";
 
-const { tasks, subjects, users, notificationLogs } = schema;
+const { tasks, subjects, semesters, users, notificationLogs } = schema;
 
 const FALLBACK_TZ = "America/Sao_Paulo";
 
@@ -25,8 +25,20 @@ const taskNotFound = () => new NotFoundException({ detail: "Tarefa não encontra
 
 type TaskRow = typeof tasks.$inferSelect & {
   subjectName: string | null;
+  subjectCode: string | null;
   subjectColor: string | null;
+  semesterLabel: string | null;
 };
+
+type SelectedRow = {
+  task: typeof tasks.$inferSelect;
+  subjectName: string | null;
+  subjectCode: string | null;
+  subjectColor: string | null;
+  semesterLabel: string | null;
+};
+
+const flatten = ({ task, ...extra }: SelectedRow): TaskRow => ({ ...task, ...extra });
 
 /**
  * Tarefas e entregas. O prazo chega como data e hora locais e é guardado como instante no fuso da
@@ -46,6 +58,11 @@ export class TasksService {
     return me?.timezone ?? FALLBACK_TZ;
   }
 
+  /** Fuso da conta (users.timezone), na transação do usuário. */
+  timezoneOf(tx: Tx): Promise<string> {
+    return this.timezone(tx);
+  }
+
   private toInstant(local: string, tz: string): Date {
     const [date, time] = local.split("T") as [string, string];
     return zonedTimeToUtc(date, time, tz);
@@ -63,7 +80,9 @@ export class TasksService {
           ? {
               id: row.subjectId,
               name: row.subjectName,
+              code: row.subjectCode,
               color: row.subjectColor as NonNullable<Task["subject"]>["color"],
+              semesterLabel: row.semesterLabel ?? "",
             }
           : null,
       dueAt: row.dueAt.toISOString(),
@@ -84,17 +103,18 @@ export class TasksService {
       .select({
         task: tasks,
         subjectName: subjects.name,
+        subjectCode: subjects.code,
         subjectColor: subjects.color,
+        semesterLabel: semesters.label,
       })
       .from(tasks)
-      .leftJoin(subjects, eq(subjects.id, tasks.subjectId));
+      .leftJoin(subjects, eq(subjects.id, tasks.subjectId))
+      .leftJoin(semesters, eq(semesters.id, subjects.semesterId));
   }
 
   private async load(tx: Tx, id: string): Promise<TaskRow | undefined> {
     const [row] = await this.select(tx).where(eq(tasks.id, id));
-    return row
-      ? { ...row.task, subjectName: row.subjectName, subjectColor: row.subjectColor }
-      : undefined;
+    return row ? flatten(row) : undefined;
   }
 
   /** A matéria precisa ser do aluno (o RLS esconde as dos outros; a FK composta garante no banco). */
@@ -187,15 +207,43 @@ export class TasksService {
       const page = rows.slice(0, query.limit);
       const last = page.at(-1);
       return {
-        tasks: page.map((r) =>
-          this.toDto({ ...r.task, subjectName: r.subjectName, subjectColor: r.subjectColor }, tz),
-        ),
+        tasks: page.map((r) => this.toDto(flatten(r), tz)),
         nextCursor:
           rows.length > query.limit && last
             ? encodeTaskCursor(last.task.dueAt.toISOString(), last.task.id)
             : null,
       };
     });
+  }
+
+  /**
+   * Tarefas com prazo em [from, to) (instantes), por prazo: base da linha do tempo e do calendário.
+   * Roda na transação de quem chama (o RLS já filtra pelo aluno).
+   */
+  async inRangeTx(
+    tx: Tx,
+    tz: string,
+    range: { from: Date; to: Date; subjectId?: string; status?: Task["status"] },
+  ): Promise<Task[]> {
+    const filters: SQL[] = [gte(tasks.dueAt, range.from), lt(tasks.dueAt, range.to)];
+    if (range.subjectId) filters.push(eq(tasks.subjectId, range.subjectId));
+    if (range.status) filters.push(eq(tasks.status, range.status));
+    const rows = await this.select(tx)
+      .where(and(...filters))
+      .orderBy(asc(tasks.dueAt), asc(tasks.id))
+      .limit(2000);
+    return rows.map((r) => this.toDto(flatten(r), tz));
+  }
+
+  /** Pendentes com o prazo já passado (o alerta "falta registrar"). */
+  async overdueCountTx(tx: Tx, subjectId?: string): Promise<number> {
+    const filters: SQL[] = [eq(tasks.status, "pending"), lt(tasks.dueAt, this.clock.now())];
+    if (subjectId) filters.push(eq(tasks.subjectId, subjectId));
+    const [row] = await tx
+      .select({ n: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(and(...filters));
+    return row?.n ?? 0;
   }
 
   // ---------------------------------------------------------------- editar

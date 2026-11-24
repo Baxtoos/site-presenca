@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  calendarResponseSchema,
   meResponseSchema,
   problemSchema,
   subjectSchema,
@@ -447,5 +448,124 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
       statusSource: "user",
       source: "moodle_ics",
     });
+  });
+
+  it("calendário: tarefas no dia local, exceções e chamadas pendentes, sem misturar contas", async () => {
+    const ana = await student();
+    const bia = await student();
+    // Semestre ativo com aula às segundas e quartas.
+    const sem = await ana.b.request("POST", "/v1/semesters", {
+      label: `Cal-${++seq}`,
+      startsOn: "2026-08-03",
+      endsOn: "2026-12-18",
+      isCurrent: true,
+    });
+    expect(sem.statusCode, sem.body).toBe(201);
+    const semesterId = sem.json<{ id: string }>().id;
+    const subjectRes = await ana.b.request("POST", `/v1/semesters/${semesterId}/subjects`, {
+      name: "Redes",
+      code: "RED1",
+      color: "teal",
+      unitsPerClass: 2,
+      countingMode: "class_count",
+      totalClasses: 36,
+      minAttendanceBp: 7500,
+      schedules: [
+        { weekday: 1, startsAt: "19:00", endsAt: "20:40", units: 2 },
+        { weekday: 3, startsAt: "19:00", endsAt: "20:40", units: 2 },
+      ],
+    });
+    expect(subjectRes.statusCode, subjectRes.body).toBe(201);
+    const subject = subjectSchema.parse(subjectRes.json());
+    const monday = subject.schedules.find((s) => s.weekday === 1)!;
+    for (const body of [
+      {
+        startsOn: "2026-11-11",
+        endsOn: "2026-11-11",
+        kind: "no_classes",
+        label: "Semana de ciências",
+      },
+      { startsOn: "2026-11-16", endsOn: "2026-11-17", kind: "exam_week", label: "Provas" },
+    ]) {
+      const res = await ana.b.request("POST", `/v1/semesters/${semesterId}/exceptions`, body);
+      expect(res.statusCode, res.body).toBe(201);
+    }
+    // Segunda 09/11 registrada; quarta 11/11 sem aula; segunda 16/11 ficou sem chamada.
+    const att = await ana.b.request(
+      "POST",
+      "/v1/attendance",
+      { subjectId: subject.id, classDate: "2026-11-09", scheduleId: monday.id, status: "present" },
+      { headers: key() },
+    );
+    expect(att.statusCode, att.body).toBe(201);
+
+    const sunday = taskSchema.parse(
+      (
+        await create(ana, { title: "Relatório", subjectId: subject.id, dueAt: "2026-11-15T23:59" })
+      ).json(),
+    );
+    const done = taskSchema.parse(
+      (await create(ana, { title: "Lista feita", dueAt: "2026-11-21T10:00" })).json(),
+    );
+    await ana.b.request(
+      "PATCH",
+      `/v1/tasks/${done.id}`,
+      { status: "completed" },
+      { headers: ifMatch(done.version) },
+    );
+    await create(bia, { title: "Da Bia", dueAt: "2026-11-15T12:00" });
+
+    const res = await ana.b.request("GET", "/v1/calendar?from=2026-11-09&to=2026-11-22");
+    expect(res.statusCode, res.body).toBe(200);
+    const cal = calendarResponseSchema.parse(res.json());
+    expect(cal).toMatchObject({ today: "2026-11-18", timezone: "America/Sao_Paulo" });
+    // O relatório (pendente, prazo já passou) conta como atrasado.
+    expect(cal.overdueCount).toBe(1);
+    const day = (date: string) => cal.days.find((d) => d.date === date);
+
+    expect(day("2026-11-15")?.tasks.map((t) => t.id)).toEqual([sunday.id]);
+    expect(day("2026-11-15")?.tasks[0]?.subject).toMatchObject({
+      name: "Redes",
+      code: "RED1",
+      semesterLabel: expect.stringMatching(/^Cal-/),
+    });
+    expect(day("2026-11-16")?.tasks ?? []).toEqual([]);
+    expect(day("2026-11-21")?.tasks.map((t) => t.status)).toEqual(["completed"]);
+    expect(cal.days.flatMap((d) => d.tasks).some((t) => t.title === "Da Bia")).toBe(false);
+
+    expect(day("2026-11-11")?.exceptions).toEqual([
+      expect.objectContaining({
+        kind: "no_classes",
+        label: "Semana de ciências",
+        subjectName: null,
+      }),
+    ]);
+    expect(day("2026-11-17")?.exceptions.map((e) => e.label)).toContain("Provas");
+    expect(day("2026-11-09")?.pendingClasses ?? 0).toBe(0);
+    expect(day("2026-11-11")?.pendingClasses ?? 0).toBe(0);
+    expect(day("2026-11-16")?.pendingClasses).toBe(1);
+    // Hoje (quarta 18) e o futuro não contam como pendentes.
+    expect(day("2026-11-18")?.pendingClasses ?? 0).toBe(0);
+
+    const onlyDone = calendarResponseSchema.parse(
+      (
+        await ana.b.request("GET", "/v1/calendar?from=2026-11-09&to=2026-11-22&status=completed")
+      ).json(),
+    );
+    expect(onlyDone.days.flatMap((d) => d.tasks).map((t) => t.title)).toEqual(["Lista feita"]);
+
+    const bad = await ana.b.request("GET", "/v1/calendar?from=2026-01-01&to=2027-03-01");
+    expect(bad.statusCode).toBe(422);
+    const backwards = await ana.b.request("GET", "/v1/calendar?from=2026-11-22&to=2026-11-09");
+    expect(backwards.statusCode).toBe(422);
+
+    // A Bia não vê nada da Ana (nem chamadas pendentes nem exceções).
+    const biaCal = calendarResponseSchema.parse(
+      (await bia.b.request("GET", "/v1/calendar?from=2026-11-09&to=2026-11-22")).json(),
+    );
+    expect(biaCal.days.flatMap((d) => d.tasks).map((t) => t.title)).toEqual(["Da Bia"]);
+    expect(biaCal.days.every((d) => d.pendingClasses === 0 && d.exceptions.length === 0)).toBe(
+      true,
+    );
   });
 });
