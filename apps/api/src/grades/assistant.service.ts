@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 import type { Redis } from "ioredis";
 import { z } from "zod";
 import { requestContext } from "../common/request-context";
-import { ENV, type Env } from "../config/env";
+import type { Env } from "../config/env";
 import { DbService } from "../database/db.service";
 import { REDIS } from "../redis/redis.module";
 
@@ -26,11 +26,14 @@ export interface GradingAi {
 }
 export const GRADING_AI = Symbol("GRADING_AI");
 
+/** Modelo fixo de propósito: sem variável para trocar, ninguém liga um modelo mais caro. */
+export const GRADING_AI_MODEL = "gemini-3.8-flash";
+
 /** Google Gemini pela API REST (generateContent com saída em JSON Schema). */
 export function gradingAiFactory(env: Env): GradingAi | null {
   const key = env.GEMINI_API_KEY;
   if (!key) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GRADING_AI_MODEL)}:generateContent`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GRADING_AI_MODEL}:generateContent`;
   return {
     async generate({ system, messages, schema }) {
       const res = await fetch(url, {
@@ -201,16 +204,11 @@ const FALLBACK_MESSAGE = {
  */
 @Injectable()
 export class GradingAssistantService {
-  private readonly model: string;
-
   constructor(
     private readonly db: DbService,
     @Inject(REDIS) private readonly redis: Redis,
     @Inject(GRADING_AI) private readonly client: GradingAi | null,
-    @Inject(ENV) env: Env,
-  ) {
-    this.model = env.GRADING_AI_MODEL;
-  }
+  ) {}
 
   get available(): boolean {
     return this.client !== null;

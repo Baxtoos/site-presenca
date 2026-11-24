@@ -49,7 +49,7 @@ describe("formato pedido ao Gemini", () => {
 
 describe("cliente do Gemini", () => {
   afterEach(() => vi.unstubAllGlobals());
-  const env = { GEMINI_API_KEY: "chave-falsa", GRADING_AI_MODEL: "gemini-teste" } as Env;
+  const env = { GEMINI_API_KEY: "chave-falsa" } as Env;
   const reply = (body: unknown, status = 200) =>
     vi.fn(async () => new Response(JSON.stringify(body), { status }));
 
@@ -80,7 +80,7 @@ describe("cliente do Gemini", () => {
     expect(out).toEqual({ kind: "question" });
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-teste:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
     );
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("chave-falsa");
     expect(JSON.parse(init.body as string)).toMatchObject({
