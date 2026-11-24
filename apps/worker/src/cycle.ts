@@ -31,10 +31,26 @@ export async function runCycle(
   options: { cleanup: boolean },
 ): Promise<CycleResult> {
   const now = deps.now ?? (() => new Date());
+  // Uma etapa que falha não segura as outras: o outbox (avisos de faltas já na fila) sempre sai.
+  // O primeiro erro volta no fim, para o modo pontual terminar com falha e o alerta disparar.
+  const errors: unknown[] = [];
+  const step = async <T>(name: string, fallback: T, fn: () => Promise<T>): Promise<T> => {
+    try {
+      return await fn();
+    } catch (error) {
+      deps.log?.("warn", `etapa do ciclo falhou: ${name}`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      errors.push(error);
+      return fallback;
+    }
+  };
   const reminders =
-    (await enqueueReminders(deps.pool, now())) + (await enqueueTaskReminders(deps.pool, now()));
+    (await step("lembretes de chamada", 0, () => enqueueReminders(deps.pool, now()))) +
+    (await step("avisos de tarefas", 0, () => enqueueTaskReminders(deps.pool, now())));
   const delivery = await processOutbox(deps);
   const cleanup = options.cleanup ? await cleanupExpired(deps.pool) : null;
+  if (errors.length > 0) throw errors[0];
   return { reminders, delivery, cleanup };
 }
 

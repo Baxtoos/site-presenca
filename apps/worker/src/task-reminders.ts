@@ -1,5 +1,5 @@
 import type { TaskDuePayload } from "@presenca/contracts";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { formatLocalDateTimeBR } from "./time";
 
 /** A maior antecedência permitida (2 dias): limita a busca às tarefas que podem estar na janela. */
@@ -71,17 +71,29 @@ export async function enqueueTaskReminders(pool: Pool, now: Date): Promise<numbe
       dueLabel: formatLocalDateTimeBR(t.dueAt, t.timezone),
       remindBeforeMinutes: t.remind,
     };
-    const inserted = await insertLog(pool, t, dedupeKey, "in_app", "sent", payload);
-    if (!inserted) continue; // outro worker chegou antes
-    if (t.pushOn) await insertLog(pool, t, dedupeKey, "push", "pending", payload);
-    if (t.emailOk) await insertLog(pool, t, dedupeKey, "email", "pending", payload);
-    created++;
+    // Os três canais na mesma transação: ou entram todos, ou nenhum (o próximo ciclo tenta de novo).
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const inserted = await insertLog(client, t, dedupeKey, "in_app", "sent", payload);
+      if (inserted) {
+        if (t.pushOn) await insertLog(client, t, dedupeKey, "push", "pending", payload);
+        if (t.emailOk) await insertLog(client, t, dedupeKey, "email", "pending", payload);
+        created++;
+      } // senão, outro worker chegou antes
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
   return created;
 }
 
 async function insertLog(
-  pool: Pool,
+  pool: Pick<PoolClient, "query">,
   task: Candidate,
   dedupeKey: string,
   channel: "in_app" | "push" | "email",
