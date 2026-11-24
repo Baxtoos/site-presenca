@@ -70,6 +70,8 @@ export const createTaskBodySchema = z.object({
   /** null = sem aviso. */
   remindBeforeMinutes: taskRemindSchema.nullable().default(DEFAULT_TASK_REMIND),
   externalUrl: externalUrlSchema.optional(),
+  /** Avaliação da matéria a que a entrega corresponde. */
+  evaluationItemId: z.uuid().nullable().optional(),
 });
 export type CreateTaskBody = z.input<typeof createTaskBodySchema>;
 
@@ -82,6 +84,7 @@ export const updateTaskBodySchema = z
     remindBeforeMinutes: taskRemindSchema.nullable(),
     status: taskStatusSchema,
     externalUrl: externalUrlSchema,
+    evaluationItemId: z.uuid().nullable(),
   })
   .partial()
   .refine((b) => Object.keys(b).length > 0, { error: "Nada para alterar." });
@@ -111,6 +114,15 @@ export const taskSchema = z.object({
   statusSource: taskStatusSourceSchema,
   source: taskSourceSchema,
   externalUrl: z.string().nullable(),
+  /** Avaliação ligada (nome e nota, para "Entregue · aguardando nota"). */
+  evaluation: z
+    .object({
+      id: z.uuid(),
+      name: z.string(),
+      score: z.number().int().nullable(),
+      maxScore: z.number().int(),
+    })
+    .nullable(),
   resolvedAt: z.iso.datetime({ offset: true }).nullable(),
   /** Pendente com o prazo já passado: pede para o aluno registrar se entregou. */
   overdue: z.boolean(),

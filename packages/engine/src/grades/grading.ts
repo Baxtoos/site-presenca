@@ -195,7 +195,13 @@ export function validateGrading(
   if (errors.length === 0) {
     // Teste de conta: tudo no máximo não pode dividir por zero.
     try {
-      evalScenario(prepare(rules, items as EvaluationItem[]), (it) => fromCenti(it.maxScore));
+      evalScenario(
+        prepare(
+          rules,
+          items.map((it) => ({ ...it, score: null })),
+        ),
+        (it) => fromCenti(it.maxScore),
+      );
     } catch {
       errors.push({ path: "formula", message: "A fórmula divide por zero." });
     }

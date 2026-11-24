@@ -1,6 +1,7 @@
 import { type DynamicModule, Module } from "@nestjs/common";
 import { AcademicModule } from "./academic/academic.module";
 import { AttendanceModule } from "./attendance/attendance.module";
+import { GradesModule } from "./grades/grades.module";
 import { MoodleModule } from "./moodle/moodle.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { AuthModule } from "./auth/auth.module";
@@ -30,6 +31,7 @@ export class AppModule {
         AttendanceModule,
         TasksModule,
         MoodleModule,
+        GradesModule,
         NotificationsModule,
         SharingModule,
       ],

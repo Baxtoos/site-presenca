@@ -165,6 +165,13 @@ describe("validação", () => {
   it("aponta nome desconhecido, exame errado, mínima fora da escala e divisão por zero", () => {
     const items = [item("P1", null), item("P2", null)];
     expect(validateGrading(base, items)).toEqual([]);
+    // Sem o campo score (como chega da API ao salvar a regra) também valida.
+    expect(
+      validateGrading(
+        { ...base, formula: "0.4*P1 + 0.6*P2" },
+        items.map(({ score: _s, ...rest }) => rest),
+      ),
+    ).toEqual([]);
     expect(validateGrading({ ...base, formula: "P1 + P3" }, items)).toEqual([
       { path: "formula", message: '"P3" não é uma avaliação nem um grupo.' },
     ]);

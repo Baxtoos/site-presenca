@@ -12,6 +12,7 @@ export const notificationKindSchema = z.enum([
   "checkin_reminder",
   "system",
   "task_due",
+  "grade_posted",
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
@@ -37,6 +38,22 @@ export const taskDuePayloadSchema = z.object({
   remindBeforeMinutes: z.number().int(),
 });
 export type TaskDuePayload = z.infer<typeof taskDuePayloadSchema>;
+
+/** Nota nova publicada no Moodle (importada pela sincronização). */
+export const gradePostedPayloadSchema = z.object({
+  subjectName: z.string(),
+  itemName: z.string(),
+  score: z.number().int(),
+  maxScore: z.number().int(),
+});
+export type GradePostedPayload = z.infer<typeof gradePostedPayloadSchema>;
+
+/** 750 → "7,5" (cópia mínima do formato do motor, para o texto do aviso). */
+const grade = (centi: number) => {
+  const whole = Math.trunc(centi / 100);
+  const frac = centi % 100;
+  return frac === 0 ? String(whole) : `${whole},${String(frac).padStart(2, "0").replace(/0$/, "")}`;
+};
 
 /** Uma aula sem registro, para marcar direto pela notificação (botões Fui / Faltei). */
 export const pendingClassSchema = z.object({
@@ -134,6 +151,17 @@ export function notificationContent(
         title: `Entrega em ${remindLabel(d.remindBeforeMinutes)}: ${d.title}`,
         body: `${d.subjectName ? `${d.subjectName} · ` : ""}prazo ${d.dueLabel}. Já entregou? Marque no app.`,
         url: "/calendario",
+      };
+    }
+  }
+  if (kind === "grade_posted") {
+    const p = gradePostedPayloadSchema.safeParse(payload);
+    if (p.success) {
+      const d = p.data;
+      return {
+        title: `Nota nova em ${d.subjectName}: ${d.itemName}`,
+        body: `Saiu no Moodle: ${grade(d.score)} de ${grade(d.maxScore)}.`,
+        url: subjectId ? `/materias/${subjectId}` : "/",
       };
     }
   }

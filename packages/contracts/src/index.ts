@@ -8,6 +8,7 @@ export * from "./suap";
 export * from "./tasks";
 export * from "./calendar";
 export * from "./moodle";
+export * from "./grades";
 export * from "./health";
 export * from "./problem";
 export * from "./routes";

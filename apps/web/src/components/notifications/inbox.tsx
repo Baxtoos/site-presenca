@@ -13,6 +13,7 @@ const KIND_STYLE: Record<NotificationItem["kind"], string> = {
   checkin_reminder: "bg-accent",
   system: "bg-muted",
   task_due: "bg-crit",
+  grade_posted: "bg-ok",
 };
 
 /** "há 5 min", "ontem, 21:00", "12/11, 19:30". */

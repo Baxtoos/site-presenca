@@ -15,7 +15,7 @@ import { type IdempotentResult, IdempotencyService } from "../common/idempotency
 import { assertVersioned } from "../common/versioning";
 import { DbService } from "../database/db.service";
 
-const { tasks, subjects, semesters, users, notificationLogs } = schema;
+const { tasks, subjects, semesters, users, notificationLogs, evaluationItems } = schema;
 
 const FALLBACK_TZ = "America/Sao_Paulo";
 
@@ -23,20 +23,17 @@ const invalid = (path: string, message: string) =>
   new UnprocessableEntityException({ code: "TASK_INVALID", errors: [{ path, message }] });
 const taskNotFound = () => new NotFoundException({ detail: "Tarefa não encontrada." });
 
-type TaskRow = typeof tasks.$inferSelect & {
+type Extra = {
   subjectName: string | null;
   subjectCode: string | null;
   subjectColor: string | null;
   semesterLabel: string | null;
+  evaluationName: string | null;
+  evaluationScore: number | null;
+  evaluationMax: number | null;
 };
-
-type SelectedRow = {
-  task: typeof tasks.$inferSelect;
-  subjectName: string | null;
-  subjectCode: string | null;
-  subjectColor: string | null;
-  semesterLabel: string | null;
-};
+type TaskRow = typeof tasks.$inferSelect & Extra;
+type SelectedRow = { task: typeof tasks.$inferSelect } & Extra;
 
 const flatten = ({ task, ...extra }: SelectedRow): TaskRow => ({ ...task, ...extra });
 
@@ -92,6 +89,15 @@ export class TasksService {
       statusSource: row.statusSource,
       source: row.source,
       externalUrl: row.externalUrl,
+      evaluation:
+        row.evaluationItemId && row.evaluationName !== null && row.evaluationMax !== null
+          ? {
+              id: row.evaluationItemId,
+              name: row.evaluationName,
+              score: row.evaluationScore,
+              maxScore: row.evaluationMax,
+            }
+          : null,
       resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
       overdue: row.status === "pending" && row.dueAt.getTime() < this.clock.now().getTime(),
       version: row.version,
@@ -106,10 +112,14 @@ export class TasksService {
         subjectCode: subjects.code,
         subjectColor: subjects.color,
         semesterLabel: semesters.label,
+        evaluationName: evaluationItems.name,
+        evaluationScore: evaluationItems.score,
+        evaluationMax: evaluationItems.maxScore,
       })
       .from(tasks)
       .leftJoin(subjects, eq(subjects.id, tasks.subjectId))
-      .leftJoin(semesters, eq(semesters.id, subjects.semesterId));
+      .leftJoin(semesters, eq(semesters.id, subjects.semesterId))
+      .leftJoin(evaluationItems, eq(evaluationItems.id, tasks.evaluationItemId));
   }
 
   private async load(tx: Tx, id: string): Promise<TaskRow | undefined> {
@@ -125,6 +135,23 @@ export class TasksService {
       .from(subjects)
       .where(eq(subjects.id, subjectId));
     if (!found) throw invalid("subjectId", "Matéria não encontrada.");
+  }
+
+  /** A avaliação ligada precisa ser do aluno e da mesma matéria da tarefa (o banco também confere). */
+  private async assertEvaluation(
+    tx: Tx,
+    evaluationItemId: string | null | undefined,
+    subjectId: string | null,
+  ) {
+    if (!evaluationItemId) return;
+    const [found] = await tx
+      .select({ subjectId: evaluationItems.subjectId })
+      .from(evaluationItems)
+      .where(eq(evaluationItems.id, evaluationItemId));
+    if (!found) throw invalid("evaluationItemId", "Avaliação não encontrada.");
+    if (found.subjectId !== subjectId) {
+      throw invalid("evaluationItemId", "A avaliação precisa ser da mesma matéria da tarefa.");
+    }
   }
 
   /** Envios de aviso ainda na fila (push/e-mail) desta tarefa deixam de valer. */
@@ -154,6 +181,7 @@ export class TasksService {
 
   private async createInTx(tx: Tx, body: CreateTaskBody): Promise<Task> {
     await this.assertSubject(tx, body.subjectId);
+    await this.assertEvaluation(tx, body.evaluationItemId, body.subjectId ?? null);
     const tz = await this.timezone(tx);
     const [row] = await tx
       .insert(tasks)
@@ -166,6 +194,7 @@ export class TasksService {
         remindBeforeMinutes:
           body.remindBeforeMinutes === undefined ? DEFAULT_TASK_REMIND : body.remindBeforeMinutes,
         externalUrl: body.externalUrl ?? null,
+        evaluationItemId: body.evaluationItemId ?? null,
       })
       .returning({ id: tasks.id });
     return this.toDto((await this.load(tx, row!.id))!, tz);
@@ -253,6 +282,13 @@ export class TasksService {
       const current = await this.load(tx, id);
       if (!current) throw taskNotFound();
       if (body.subjectId !== undefined) await this.assertSubject(tx, body.subjectId);
+      if (body.evaluationItemId !== undefined) {
+        await this.assertEvaluation(
+          tx,
+          body.evaluationItemId,
+          body.subjectId !== undefined ? body.subjectId : current.subjectId,
+        );
+      }
       const tz = await this.timezone(tx);
       if (current.source !== "manual") {
         // Título, prazo e link de tarefa importada seguem o Moodle (a próxima sincronização
@@ -278,6 +314,7 @@ export class TasksService {
       if (body.remindBeforeMinutes !== undefined)
         patch.remindBeforeMinutes = body.remindBeforeMinutes;
       if (body.externalUrl !== undefined) patch.externalUrl = body.externalUrl;
+      if (body.evaluationItemId !== undefined) patch.evaluationItemId = body.evaluationItemId;
       if (body.status !== undefined) {
         // O aluno marcou: a sincronização com o Moodle não muda mais este status.
         patch.statusSource = "user";
