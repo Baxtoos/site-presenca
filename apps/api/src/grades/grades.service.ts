@@ -10,7 +10,6 @@ import {
 import { schema, type Tx } from "@presenca/db";
 import {
   type EvaluationItem,
-  type GradingRules,
   summarizeGrades,
   validateGrading,
   zonedTimeToUtc,
