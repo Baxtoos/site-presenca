@@ -75,6 +75,10 @@ jobs:
       - name: Sobe API, worker e web
         run: |
           # NODE_ENV=test: sem consulta externa de senhas vazadas; resto igual ao .env de desenvolvimento.
+          # Moodle: chave gerada na hora (a mesma na API e no worker) e busca liberada para o
+          # servidor .ics falso do teste (só vale com NODE_ENV=test).
+          export INTEGRATION_ENCRYPTION_KEY="$(openssl rand -base64 32)"
+          export INTEGRATIONS_ALLOW_INSECURE_FETCH=true
           NODE_ENV=test nohup node apps/api/dist/main.js > api.log 2>&1 &
           # O worker entrega os alertas por e-mail (Mailpit) que o E2E de avisos confere.
           NODE_ENV=test nohup node apps/worker/dist/main.js > worker.log 2>&1 &

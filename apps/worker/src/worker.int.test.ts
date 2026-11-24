@@ -911,7 +911,7 @@ describe("sincronização com o Moodle", () => {
 
     // A tarefa importada entra na fila normal de avisos (prazo em menos de 24 h).
     await enqueueTaskReminders(worker, NOW);
-    const due = await db.admin.query(
+    const due = await db.admin.query<{ channel: string }>(
       "select channel from app.notification_logs where task_id = $1 order by channel",
       [imported[0]!.id],
     );

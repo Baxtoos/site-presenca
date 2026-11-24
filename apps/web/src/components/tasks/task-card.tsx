@@ -137,7 +137,7 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
         >
           Editar
         </Link>
-        {confirmDelete ? (
+        {task.source !== "manual" ? null : confirmDelete ? (
           <Button
             type="button"
             variant="danger"

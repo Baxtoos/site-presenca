@@ -38,6 +38,7 @@ export function TaskForm({
   const [error, setError] = useState<string>();
   const [fields, setFields] = useState<Record<string, string>>({});
   const key = useRef(crypto.randomUUID());
+  const imported = task !== undefined && task.source !== "manual";
   // A matéria da tarefa pode ser de outro semestre: continua na lista.
   const options =
     task?.subject && !subjects.some((s) => s.id === task.subject!.id)
@@ -47,17 +48,23 @@ export function TaskForm({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const body = {
-      title: formText(form, "tarefa-titulo"),
+    const common = {
       notes: formText(form, "tarefa-notas"),
       subjectId: formText(form, "tarefa-materia") || null,
-      dueAt: `${formText(form, "tarefa-data")}T${formText(form, "tarefa-hora")}`,
       // "" = sem aviso.
       remindBeforeMinutes: formText(form, "tarefa-aviso")
         ? Number(formText(form, "tarefa-aviso"))
         : null,
-      externalUrl: formText(form, "tarefa-link"),
     };
+    // Tarefa do Moodle: título, prazo e link seguem o Moodle (a API recusa mudar).
+    const body = imported
+      ? common
+      : {
+          ...common,
+          title: formText(form, "tarefa-titulo"),
+          dueAt: `${formText(form, "tarefa-data")}T${formText(form, "tarefa-hora")}`,
+          externalUrl: formText(form, "tarefa-link"),
+        };
     setPending(true);
     setError(undefined);
     setFields({});
@@ -89,8 +96,15 @@ export function TaskForm({
   return (
     <form className="card grid gap-4 p-5 sm:p-6" onSubmit={(e) => void onSubmit(e)} noValidate>
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {imported ? (
+        <Alert tone="info">
+          Esta tarefa veio do Moodle: título, prazo e link seguem o Moodle e se atualizam sozinhos.
+          Você pode mudar a matéria, o aviso e as observações.
+        </Alert>
+      ) : null}
       <Field
         id="tarefa-titulo"
+        disabled={imported}
         label="Título"
         defaultValue={task?.title ?? ""}
         maxLength={200}
@@ -118,6 +132,7 @@ export function TaskForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <Field
           id="tarefa-data"
+          disabled={imported}
           label="Data do prazo"
           type="date"
           defaultValue={task?.dueLocal.date ?? initialDate ?? localToday()}
@@ -126,6 +141,7 @@ export function TaskForm({
         />
         <Field
           id="tarefa-hora"
+          disabled={imported}
           label="Hora do prazo"
           type="time"
           defaultValue={task?.dueLocal.time ?? "23:59"}
@@ -163,6 +179,7 @@ export function TaskForm({
       </label>
       <Field
         id="tarefa-link"
+        disabled={imported}
         label="Link da atividade (opcional)"
         type="url"
         inputMode="url"

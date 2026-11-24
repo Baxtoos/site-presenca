@@ -112,6 +112,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         description="Suas entregas no tempo: o que vence, o que atrasou e o que já foi feito, com as semanas de prova e os feriados do semestre."
         actions={
           <>
+            <ButtonLink href="/conta/moodle" variant="ghost">
+              Moodle
+            </ButtonLink>
             <ButtonLink href="/tarefas" variant="ghost">
               Ver em lista
             </ButtonLink>

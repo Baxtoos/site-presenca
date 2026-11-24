@@ -377,6 +377,40 @@ Tudo dentro da API, sem serviço externo de identidade.
   `/tarefas`). No menu, "Calendário" ocupa o lugar de "Tarefas"; a lista continua em `/tarefas`
   ("Ver em lista"). O push e o e-mail do aviso de prazo abrem o calendário.
 
+## Moodle (Conta → Moodle)
+
+- **Modo base, link do calendário:** o aluno cola o link de "Exportar calendário → Obter URL do
+  calendário". A API testa antes de guardar, cifra (AES-256-GCM, `packages/integrations`) e
+  importa. Funciona em qualquer Moodle, sem pedir senha.
+- **Upgrade opcional, chave de segurança (wstoken):** com o endereço do Moodle e a chave do
+  _Moodle mobile web service_, a sincronização consulta `mod_assign_get_assignments` e
+  `mod_assign_get_submission_status`. Traz o link direto da atividade e marca a tarefa como
+  concluída (`status_source = 'sync'`) quando o aluno envia no Moodle, cancelando os avisos.
+- **Reconciliação** (`reconcileDeadlines`, a mesma na API e no worker), idempotente por
+  `(user_id, source, external_uid)`:
+  - prazo novo e futuro vira tarefa pendente, já na fila de avisos;
+  - prazo alterado pelo professor atualiza a tarefa e cancela os envios do prazo antigo;
+  - marcação do aluno nunca é desfeita;
+  - turma ignorada não importa;
+  - aberturas ("Questionário abre") e prazos já passados são ignorados.
+- **Turmas:** `moodle_course_mappings` liga o código da turma (CATEGORIES do .ics) à matéria. Casa
+  sozinho quando o código da matéria aparece no da turma; o aluno ajusta ou ignora na tela.
+- **Tarefa importada:** título, prazo e link seguem o Moodle (a API recusa mudar, `TASK_IMPORTED`)
+  e ela não pode ser apagada. Matéria, aviso, observações e status ficam com o aluno.
+- **Worker:** a cada ciclo, reserva até 10 conexões vencidas (`FOR UPDATE SKIP LOCKED`), busca fora
+  da transação e grava cada aluno numa transação. Próxima rodada em ~45 min, ou 90 min depois de
+  uma falha, com a mensagem em `last_sync_error`.
+- **Rotas:**
+  - `GET /v1/moodle`: estado, sem link nem chave;
+  - `PUT /v1/moodle`: conecta ou atualiza (10/h);
+  - `POST /v1/moodle/sync`: sincroniza na hora, com Idempotency-Key (6/h);
+  - `PATCH /v1/moodle/courses/:id`: muda a turma, com If-Match;
+  - `DELETE /v1/moodle?keepTasks=`: desconecta, com If-Match. As tarefas viram manuais, ou as
+    futuras pendentes são apagadas.
+- **Segurança:** busca anti-SSRF, chave `INTEGRATION_ENCRYPTION_KEY` só no Render e no GitHub, e
+  RLS forçado. Detalhes em `docs/seguranca-asvs.md`; deploy no passo 14 de
+  `docs/deploy-gratuito.md`.
+
 ## App instalável e modo offline
 
 - **Instalável (PWA):** `app/manifest.ts` (ícones normais e "maskable", atalho para "Aulas de

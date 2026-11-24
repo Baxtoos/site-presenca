@@ -100,6 +100,26 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
    - **Senha mínima de 8 caracteres** no cadastro e na nova senha (era 12; reduzida a pedido do
      dono em 23/11/2026, ver riscos aceitos); o login continua aceitando senhas antigas mais curtas.
 
+## Conector do Moodle (24/11/2026)
+
+- **SSRF (ASVS V12.6.1, OWASP API7):** o link .ics e o endereço do Moodle vêm do aluno. A busca
+  (`packages/integrations/src/safe-fetch.ts`) só aceita https (portas 443/8443), recusa usuário e
+  senha na URL, resolve o DNS antes e prende a conexão ao IP validado (sem troca de DNS no meio),
+  recusa loopback, RFC 1918, link-local/metadados de nuvem (169.254.0.0/16), CGNAT, multicast e
+  IPv6 privado (inclusive IPv4 embutido em IPv6), revalida cada redirecionamento (no máximo 3),
+  corta em 8 s e em 2 MB. O mesmo código roda na API e no worker.
+- **Credenciais em repouso (V6.2, V6.4):** link .ics e wstoken cifrados com AES-256-GCM, IV
+  aleatório e AAD `moodle:{conta}:{campo}` (copiar a cifra para outra conta ou outro campo não
+  abre). A chave (`INTEGRATION_ENCRYPTION_KEY`) fica só no Render e no GitHub; o backup leva só a
+  cifra. A API nunca devolve o link nem a chave, só o domínio.
+- **Menor privilégio (V1.4, V4.1):** o worker só cria e atualiza tarefas importadas
+  (`source <> 'manual'`) de quem tem a conexão ligada (RLS), em colunas listadas; não lê
+  observações, não apaga, não mexe no vínculo turma → matéria.
+- **Abuso:** conectar 10 vezes/hora e sincronizar na hora 6 vezes/hora por conta; o worker
+  sincroniza cada conexão a cada ~45 min.
+- O token do Moodle vai no corpo do POST (nunca na URL) e as mensagens de erro guardadas não têm
+  link nem token.
+
 ## Recomendações (riscos aceitos por enquanto)
 
 - **Senha mínima de 8 caracteres (ASVS 4.0.3 V2.1.1 pede 12) e senhas comuns aceitas (V2.1.7 pede

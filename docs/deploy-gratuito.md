@@ -176,6 +176,7 @@ Em _Settings → Secrets and variables → Actions_, crie os segredos:
 | `MAIL_TRANSPORT`                                         | `smtp`                                                                               |
 | `SMTP_URL`, `MAIL_FROM`                                  | Os mesmos do passo 6.                                                                |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Passo 5; o assunto é `mailto:seu-email@exemplo.com`. Opcionais, mas só valem juntos. |
+| `INTEGRATION_ENCRYPTION_KEY`                             | A mesma do Render (passo 14). Opcional: liga a sincronização com o Moodle.           |
 
 Depois, em _Actions → Worker (pontual) → Run workflow_, rode uma vez à mão e veja o log: tem de
 aparecer "ciclo único concluído". A partir daí ele roda sozinho a cada 15 minutos.
@@ -297,6 +298,23 @@ credenciais.
 
 Erro `redirect_uri_mismatch` = a URI do passo 3 não bate com o `WEB_ORIGIN` (barra no fim,
 `http`, endereço de preview).
+
+## 14. Moodle (opcional)
+
+O conector do Moodle (Conta → Moodle) importa as entregas com prazo pelo link do calendário (.ics)
+de cada aluno. O link e a chave do Moodle ficam cifrados no banco com uma chave que só a API e o
+worker conhecem.
+
+1. Gere a chave no seu computador: `openssl rand -base64 32`.
+2. Render → serviço da API → _Environment_: crie `INTEGRATION_ENCRYPTION_KEY` com esse valor.
+3. GitHub → _Settings → Secrets and variables → Actions_: crie o segredo
+   `INTEGRATION_ENCRYPTION_KEY` com **o mesmo valor** (o worker sincroniza a cada ~45 min).
+4. Guarde a chave em `~/presenca-producao.env`. **Não troque depois**: com outra chave, os alunos
+   precisam colar o link do Moodle de novo.
+
+Sem a chave, a página Conta → Moodle diz que a integração não está ligada e nada mais muda.
+`INTEGRATIONS_ALLOW_INSECURE_FETCH` é só para os testes (a API e o worker recusam fora de
+`NODE_ENV=test`).
 
 ## Problemas comuns
 
