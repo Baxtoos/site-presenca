@@ -30,6 +30,17 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
     "false",
   );
 
+  // Sem chamada: a aula conta como dada, mas não tira do saldo; depois desfaz.
+  await aula.getByRole("button", { name: "Sem chamada" }).click();
+  await expect(page.getByText("Aula de Física I sem chamada (sem falta).")).toBeVisible();
+  await expect(aula.getByRole("button", { name: "Sem chamada" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(aula).toContainText("Ainda pode faltar 18 aulas");
+  await page.getByRole("button", { name: "Desfazer" }).click();
+  await expect(page.getByText("Desfeito.")).toBeVisible();
+
   // Parcial de uma aula de 2 tempos: perde 1, sem perguntar.
   await aula.getByRole("button", { name: "Faltei parcial" }).click();
   await expect(aula).toContainText("Faltei 1 de 2");

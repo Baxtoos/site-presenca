@@ -19,6 +19,7 @@ import {
   formatDayLabel,
   plural,
   REASON_LABEL,
+  STATUS_HINT,
   STATUS_LABEL,
   STATUS_STYLE,
   SUBJECT_COLOR_CLASS,
@@ -67,6 +68,8 @@ function successMessage(mark: Mark, subject: string) {
       return `Falta de ${plural(mark.unitsMissed ?? 1, "aula", "aulas")} em ${subject}.`;
     case "cancelled":
       return `Aula de ${subject} marcada como cancelada.`;
+    case "no_call":
+      return `Aula de ${subject} sem chamada (sem falta).`;
   }
 }
 
@@ -341,11 +344,11 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
               ) : (
                 <>
                   <div
-                    className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+                    className="grid grid-cols-2 gap-2 sm:grid-cols-3"
                     role="group"
                     aria-label={`Registrar ${c.subject.name}`}
                   >
-                    {(["present", "absent", "partial", "cancelled"] as const)
+                    {(["present", "absent", "partial", "no_call", "cancelled"] as const)
                       .filter((s) => s !== "partial" || canPartial)
                       .map((s) => {
                         const active = shown?.status === s && (s !== "partial" || picking !== key);
@@ -355,6 +358,7 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                             type="button"
                             disabled={isBusy}
                             aria-pressed={active}
+                            title={STATUS_HINT[s]}
                             onClick={() => {
                               if (s !== "partial") return void mark(c, { status: s });
                               // Com 2 tempos, parcial só pode ser 1; com mais, pergunta quantos.

@@ -18,11 +18,13 @@ export const countingMode = app.enum("counting_mode", ["class_count", "workload"
 export const excusedPolicy = app.enum("excused_policy", ["track_only", "deduct"]);
 export const exceptionKind = app.enum("exception_kind", ["holiday", "no_classes", "exam_week"]);
 
+/** no_call: a aula aconteceu, mas o professor não fez chamada (conta como dada, sem falta). */
 export const attendanceStatus = app.enum("attendance_status", [
   "present",
   "absent",
   "partial",
   "cancelled",
+  "no_call",
 ]);
 export const absenceReason = app.enum("absence_reason", [
   "health",

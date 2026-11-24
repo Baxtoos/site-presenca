@@ -299,8 +299,9 @@ Tudo dentro da API, sem serviço externo de identidade.
 - **Aulas do dia** (`GET /v1/today?date=`): as aulas da grade do dia (hoje no fuso do aluno, por
   padrão) de todos os semestres ativos, com o registro já feito, o resumo de cada matéria e os
   feriados que bloqueiam a aula. Dias futuros são recusados (422 `FUTURE_DATE`).
-- **Registrar** (`POST /v1/attendance`): presente, falta, falta parcial (`unitsMissed`) ou aula
-  cancelada. Sem `scheduleId`, vira aula extra (`unitsScheduled`). A resposta traz o registro e o
+- **Registrar** (`POST /v1/attendance`): presente, falta, falta parcial (`unitsMissed`), aula
+  cancelada (não aconteceu: sai das aulas dadas) ou **sem chamada** (`no_call`: a aula aconteceu
+  sem chamada, conta como dada e sem falta; migration `0016_sem_chamada`). Sem `scheduleId`, vira aula extra (`unitsScheduled`). A resposta traz o registro e o
   `summary` recalculado. Mesma aula duas vezes → 409 `ATTENDANCE_CONFLICT`.
 - **Idempotency-Key obrigatória no POST** (428 sem ela). Repetir a mesma chave com o mesmo corpo
   devolve a resposta original (`Idempotent-Replayed: true`) sem gravar de novo; mesma chave com

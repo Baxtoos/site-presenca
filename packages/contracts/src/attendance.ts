@@ -7,7 +7,14 @@ import {
   timeSchema,
 } from "./academic";
 
-export const attendanceStatusSchema = z.enum(["present", "absent", "partial", "cancelled"]);
+/** no_call: a aula aconteceu sem chamada (conta como dada, sem falta). */
+export const attendanceStatusSchema = z.enum([
+  "present",
+  "absent",
+  "partial",
+  "cancelled",
+  "no_call",
+]);
 export type AttendanceStatus = z.infer<typeof attendanceStatusSchema>;
 
 export const absenceReasonSchema = z.enum(["health", "work", "transport", "personal", "other"]);

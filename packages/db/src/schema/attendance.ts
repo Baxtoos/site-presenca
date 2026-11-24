@@ -57,7 +57,8 @@ export const attendanceLogs = app.table(
       sql`(${t.status} = 'present' and ${t.unitsMissed} = 0)
        or (${t.status} = 'absent' and ${t.unitsMissed} = ${t.unitsScheduled})
        or (${t.status} = 'partial' and ${t.unitsMissed} between 1 and ${t.unitsScheduled} - 1)
-       or (${t.status} = 'cancelled' and ${t.unitsMissed} = 0 and not ${t.isExcused})`,
+       or (${t.status} = 'cancelled' and ${t.unitsMissed} = 0 and not ${t.isExcused})
+       or (${t.status}::text = 'no_call' and ${t.unitsMissed} = 0 and not ${t.isExcused})`,
     ),
     check(
       "attendance_logs_excused_chk",

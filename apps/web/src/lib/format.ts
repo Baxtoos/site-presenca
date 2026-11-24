@@ -88,13 +88,23 @@ export function formatDayLabel(iso: string): string {
   return `${WEEKDAYS_SHORT[isoWeekdayOf(iso)]!.toLowerCase()}, ${d}/${m}`;
 }
 
-export type AttendanceStatusKey = "present" | "absent" | "partial" | "cancelled";
+export type AttendanceStatusKey = "present" | "absent" | "partial" | "cancelled" | "no_call";
 
 export const STATUS_LABEL: Record<AttendanceStatusKey, string> = {
   present: "Compareci",
   absent: "Faltei",
   partial: "Faltei (parcial)",
   cancelled: "Aula cancelada",
+  no_call: "Sem chamada",
+};
+
+/** Explicação curta de cada status (dica dos botões). */
+export const STATUS_HINT: Record<AttendanceStatusKey, string> = {
+  present: "Você foi à aula.",
+  absent: "Você faltou à aula inteira.",
+  partial: "Você perdeu parte das aulas do dia.",
+  cancelled: "A aula não aconteceu: sai da conta de aulas dadas.",
+  no_call: "A aula aconteceu, mas o professor não fez chamada: conta como dada, sem falta.",
 };
 
 /** Classes por status (literais, para o Tailwind gerar). */
@@ -103,6 +113,7 @@ export const STATUS_STYLE: Record<AttendanceStatusKey, string> = {
   absent: "bg-fail-soft text-fail",
   partial: "bg-warn-soft text-warn",
   cancelled: "bg-surface-2 text-muted",
+  no_call: "bg-accent-soft text-accent",
 };
 
 export const REASON_LABEL: Record<string, string> = {

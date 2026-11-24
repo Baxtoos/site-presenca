@@ -269,6 +269,23 @@ describe("registrar presença", () => {
     expect(summary).toMatchObject({ absentUnits: 0, heldUnits: 2 }); // só a segunda conta como dada
   });
 
+  it("sem chamada: a aula conta como dada, mas sem falta; não aceita tempos perdidos nem atestado", async () => {
+    const c = await setup();
+    await registered(c, { classDate: MONDAY, scheduleId: c.mon.id, status: "present" });
+    const { record, summary } = await registered(c, {
+      classDate: TODAY,
+      scheduleId: c.wed.id,
+      status: "no_call",
+    });
+    expect(record).toMatchObject({ status: "no_call", unitsMissed: 0, isExcused: false });
+    expect(summary).toMatchObject({ absentUnits: 0, heldUnits: 4 }); // as duas contam como dadas
+
+    const withMissed = await register(c, { classDate: MONDAY, status: "no_call", unitsMissed: 1 });
+    expect(withMissed.statusCode).toBe(422);
+    const excused = await register(c, { classDate: MONDAY, status: "no_call", isExcused: true });
+    expect(excused.statusCode).toBe(422);
+  });
+
   it("atestado: com a política 'conta no limite' soma; com 'abona' não soma, mas fica registrado", async () => {
     const track = await setup();
     const t = await registered(track, {

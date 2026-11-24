@@ -22,6 +22,7 @@ const FILTERS: { value: AttendanceStatusKey | ""; label: string }[] = [
   { value: "partial", label: "Parciais" },
   { value: "present", label: "Presenças" },
   { value: "cancelled", label: "Canceladas" },
+  { value: "no_call", label: "Sem chamada" },
 ];
 
 /** Histórico de chamadas da matéria, do mais recente para o mais antigo, com edição e exclusão. */

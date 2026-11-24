@@ -16,6 +16,7 @@ import { api, ApiError } from "@/lib/api-client";
 import {
   formatDayLabel,
   plural,
+  STATUS_HINT,
   STATUS_LABEL,
   STATUS_STYLE,
   type AttendanceStatusKey,
@@ -41,7 +42,8 @@ const WEEK_HEADER = ["D", "S", "T", "Q", "Q", "S", "S"];
 const WEEK_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 type Mark = { status: AttendanceStatusKey; unitsMissed?: number };
-type DayState = "present" | "absent" | "partial" | "cancelled" | "blocked" | "todo" | "future";
+type DayState =
+  "present" | "absent" | "partial" | "no_call" | "cancelled" | "blocked" | "todo" | "future";
 
 const classKey = (c: CalendarClass) => c.scheduleId ?? `extra-${c.record?.id}`;
 
@@ -50,6 +52,7 @@ const DAY_STYLE: Record<DayState, string> = {
   present: "bg-ok-soft text-ok border-transparent",
   absent: "bg-fail-soft text-fail border-transparent",
   partial: "bg-warn-soft text-warn border-transparent",
+  no_call: "bg-accent-soft text-accent border-transparent",
   cancelled: "bg-surface-2 text-muted border-transparent",
   blocked: "bg-surface-2 text-muted border-transparent line-through",
   todo: "bg-surface text-ink border-accent border-2",
@@ -60,6 +63,7 @@ const LEGEND: { state: DayState; label: string }[] = [
   { state: "present", label: "Presença" },
   { state: "absent", label: "Falta" },
   { state: "partial", label: "Falta parcial" },
+  { state: "no_call", label: "Sem chamada" },
   { state: "todo", label: "Falta marcar" },
   { state: "blocked", label: "Feriado / sem aula" },
   { state: "future", label: "Ainda vai acontecer" },
@@ -73,6 +77,7 @@ function dayState(classes: CalendarClass[], date: string, today: string): DaySta
   if (records.some((r) => r.status === "absent")) return "absent";
   if (records.some((r) => r.status === "partial")) return "partial";
   if (records.some((r) => r.status === "present")) return "present";
+  if (records.some((r) => r.status === "no_call")) return "no_call";
   if (records.length > 0) return "cancelled";
   return "blocked";
 }
@@ -87,6 +92,8 @@ function successMessage(mark: Mark): string {
       return `Falta de ${plural(mark.unitsMissed ?? 1, "aula", "aulas")} registrada.`;
     case "cancelled":
       return "Aula marcada como cancelada.";
+    case "no_call":
+      return "Aula marcada como sem chamada (sem falta).";
   }
 }
 
@@ -426,11 +433,11 @@ export function SubjectCalendar({
                 ) : (
                   <>
                     <div
-                      className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+                      className="grid grid-cols-2 gap-2 sm:grid-cols-3"
                       role="group"
                       aria-label={`Registrar a aula de ${formatDayLabel(selected)}`}
                     >
-                      {(["present", "absent", "partial", "cancelled"] as const)
+                      {(["present", "absent", "partial", "no_call", "cancelled"] as const)
                         .filter((st) => st !== "partial" || canPartial)
                         .map((st) => {
                           const active = r?.status === st && (st !== "partial" || picking !== key);
@@ -440,6 +447,7 @@ export function SubjectCalendar({
                               type="button"
                               disabled={isBusy}
                               aria-pressed={active}
+                              title={STATUS_HINT[st]}
                               onClick={() => {
                                 if (st !== "partial") return void mark(selected, c, { status: st });
                                 if (c.units === 2)
