@@ -43,6 +43,7 @@ export const notificationKind = app.enum("notification_kind", [
   "checkin_reminder",
   "system",
   "task_due",
+  "grade_posted",
 ]);
 export const notificationChannel = app.enum("notification_channel", ["email", "push", "in_app"]);
 export const notificationStatus = app.enum("notification_status", [

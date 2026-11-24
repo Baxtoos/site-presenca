@@ -170,7 +170,10 @@ describe("validação", () => {
     ]);
     expect(validateGrading({ ...base, passing: 1100 }, items)[0]?.path).toBe("passing");
     expect(
-      validateGrading({ ...base, exam: { minToTake: 400, formula: "MEDIA + P1", passing: 500 } }, items)[0],
+      validateGrading(
+        { ...base, exam: { minToTake: 400, formula: "MEDIA + P1", passing: 500 } },
+        items,
+      )[0],
     ).toMatchObject({ path: "exam.formula" });
     expect(validateGrading({ ...base, formula: "P1 / (P2 - P2)" }, items)).toEqual([
       { path: "formula", message: "A fórmula divide por zero." },
@@ -201,8 +204,10 @@ describe("propriedades", () => {
       fc.property(score, score, fc.integer({ min: 0, max: 200 }), (a, b, bump) => {
         const rules = { ...base, formula: "0.4*P1 + 0.6*P2" };
         const lower = summarizeGrades(rules, [item("P1", a), item("P2", b)]).final!;
-        const higher = summarizeGrades(rules, [item("P1", Math.min(1000, a + bump)), item("P2", b)])
-          .final!;
+        const higher = summarizeGrades(rules, [
+          item("P1", Math.min(1000, a + bump)),
+          item("P2", b),
+        ]).final!;
         expect(higher).toBeGreaterThanOrEqual(lower);
         const partial = summarizeGrades(rules, [item("P1", a), item("P2", null)]);
         expect(partial.guaranteed).toBeLessThanOrEqual(partial.maxPossible);
@@ -236,7 +241,10 @@ describe("formato", () => {
       "0,05",
     ]);
     expect([parseGrade("7,5"), parseGrade("7.25"), parseGrade("10"), parseGrade("x")]).toEqual([
-      750, 725, 1000, null,
+      750,
+      725,
+      1000,
+      null,
     ]);
   });
 });

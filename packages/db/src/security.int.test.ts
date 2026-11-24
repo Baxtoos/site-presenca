@@ -292,6 +292,152 @@ describe("tarefas (FKs compostas e restrições)", () => {
   });
 });
 
+describe("notas (FKs compostas, mesma matéria e restrições)", () => {
+  const itemOf = async (userId: string) =>
+    (
+      await db.admin.query<{ id: string; subject_id: string }>(
+        "select id, subject_id from app.evaluation_items where user_id = $1 limit 1",
+        [userId],
+      )
+    ).rows[0]!;
+
+  it("avaliação e regra não usam a matéria de outra pessoa", async () => {
+    await expect(
+      inTx(api(), { userId: bob.userId }, (c) =>
+        c.query(
+          `insert into evaluation_items (user_id, subject_id, key, name, max_score) values ($1, $2, 'X', 'X', 1000)`,
+          [bob.userId, alice.subjectId],
+        ),
+      ),
+    ).rejects.toThrow(/foreign key/);
+    await expect(
+      inTx(api(), { userId: bob.userId }, (c) =>
+        c.query(`insert into grading_schemes (user_id, subject_id, rules) values ($1, $2, '{}')`, [
+          bob.userId,
+          alice.subjectId,
+        ]),
+      ),
+    ).rejects.toThrow(/foreign key|duplicate key/);
+  });
+
+  it("tarefa só liga a avaliação da mesma matéria; trocar a matéria desfaz a ligação", async () => {
+    const item = await itemOf(alice.userId);
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      await c.query("update tasks set evaluation_item_id = $2 where id = $1", [
+        alice.taskId,
+        item.id,
+      ]);
+      const other = (
+        await c.query<{ id: string }>(
+          `insert into subjects (user_id, semester_id, name, counting_mode, total_classes)
+           values ($1, $2, 'Outra', 'class_count', 10) returning id`,
+          [alice.userId, alice.semesterId],
+        )
+      ).rows[0]!.id;
+      const foreignTask = (
+        await c.query<{ id: string }>(
+          `insert into tasks (user_id, subject_id, title, due_at) values ($1, $2, 'De outra', now()) returning id`,
+          [alice.userId, other],
+        )
+      ).rows[0]!.id;
+      await c.query("savepoint s");
+      await expect(
+        c.query("update tasks set evaluation_item_id = $2 where id = $1", [foreignTask, item.id]),
+      ).rejects.toThrow(/mesma matéria/);
+      await c.query("rollback to savepoint s");
+      // Mudou a matéria da tarefa: a ligação some, sem erro.
+      await c.query("update tasks set subject_id = $2 where id = $1", [alice.taskId, other]);
+      const after = (
+        await c.query("select evaluation_item_id from tasks where id = $1", [alice.taskId])
+      ).rows[0];
+      expect(after).toEqual({ evaluation_item_id: null });
+      throw new Error("desfaz");
+    }).catch((e: Error) => expect(e.message).toBe("desfaz"));
+  });
+
+  it("apagar a avaliação só desliga a tarefa", async () => {
+    await inTx(api(), { userId: alice.userId }, async (c) => {
+      const id = (
+        await c.query<{ id: string }>(
+          `insert into evaluation_items (user_id, subject_id, key, name, max_score) values ($1, $2, 'T9', 'Trabalho', 1000) returning id`,
+          [alice.userId, alice.subjectId],
+        )
+      ).rows[0]!.id;
+      await c.query("update tasks set evaluation_item_id = $2 where id = $1", [alice.taskId, id]);
+      await c.query("delete from evaluation_items where id = $1", [id]);
+      const after = (
+        await c.query("select evaluation_item_id from tasks where id = $1", [alice.taskId])
+      ).rows[0];
+      expect(after).toEqual({ evaluation_item_id: null });
+      throw new Error("desfaz");
+    }).catch((e: Error) => expect(e.message).toBe("desfaz"));
+  });
+
+  it.each([
+    ["nota acima da máxima", "score = 1001, scored_at = now()"],
+    ["nota sem data", "score = 500"],
+    ["papel inválido", "role = 'bonus'"],
+    ["nome repetido (sem diferenciar maiúsculas)", "key = 'p1'"],
+  ])("recusa %s", async (_name, set) => {
+    const item = await itemOf(alice.userId);
+    await expect(
+      inTx(api(), { userId: alice.userId }, async (c) => {
+        if (set.startsWith("key")) {
+          await c.query(
+            `insert into evaluation_items (user_id, subject_id, key, name, max_score) values ($1, $2, 'P1x', 'x', 1000)`,
+            [alice.userId, alice.subjectId],
+          );
+          await c.query(`update evaluation_items set key = 'p1' where key = 'P1x'`);
+        } else {
+          await c.query(`update evaluation_items set ${set} where id = $1`, [item.id]);
+        }
+      }),
+    ).rejects.toThrow(/violates|duplicate key/);
+  });
+
+  it("worker: não vê a regra; só importa nota do Moodle em avaliação ligada e nunca por cima do aluno", async () => {
+    const worker = db.pools.app_worker;
+    await expect(worker.query("select * from grading_schemes")).rejects.toThrow(
+      /permission denied/,
+    );
+    const item = await itemOf(alice.userId);
+    // Nota do aluno (score_source = 'user'): invisível para a escrita do worker.
+    expect(
+      (
+        await worker.query(
+          "update evaluation_items set score = 900, scored_at = now(), score_source = 'moodle' where id = $1",
+          [item.id],
+        )
+      ).rowCount,
+    ).toBe(0);
+    await db.admin.query(
+      "update app.evaluation_items set external_grade_item_id = 'gi-1', score_source = 'moodle' where id = $1",
+      [item.id],
+    );
+    try {
+      expect(
+        (
+          await worker.query(
+            "update evaluation_items set score = 800, scored_at = now() where id = $1",
+            [item.id],
+          )
+        ).rowCount,
+      ).toBe(1);
+      await expect(
+        worker.query("update evaluation_items set score_source = 'user' where id = $1", [item.id]),
+      ).rejects.toThrow(/row-level security/);
+      await expect(
+        worker.query("update evaluation_items set name = 'x' where id = $1", [item.id]),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await db.admin.query(
+        "update app.evaluation_items set external_grade_item_id = null, score_source = 'user', score = null, scored_at = null where id = $1",
+        [item.id],
+      );
+    }
+  });
+});
+
 describe("restrições de dados", () => {
   const insertLog = (status: string, scheduled: number, missed: number, excused = false) =>
     inTx(api(), { userId: alice.userId }, (c) =>

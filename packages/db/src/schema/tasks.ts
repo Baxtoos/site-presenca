@@ -42,6 +42,8 @@ export const tasks = app.table(
     externalUrl: text(),
     /** Turma de origem no Moodle (moodle_course_mappings.course_key), para trocar a matéria em lote. */
     externalCourseKey: text(),
+    /** Avaliação da matéria a que a entrega corresponde (FK composta na migration de segurança). */
+    evaluationItemId: uuid(),
     /** Quando virou concluída ou não concluída (null enquanto pendente). */
     resolvedAt: timestamp({ withTimezone: true }),
     version: version(),

@@ -174,6 +174,14 @@ export async function seedUser(api: pg.Pool, email: string): Promise<SeededUser>
       `insert into moodle_course_mappings (user_id, course_key, subject_id) values ($1, 'TURMA1', $2)`,
       [userId, subjectId],
     );
+    await c.query(
+      `insert into grading_schemes (user_id, subject_id, rules) values ($1, $2, '{"scale": 10}')`,
+      [userId, subjectId],
+    );
+    await c.query(
+      `insert into evaluation_items (user_id, subject_id, key, name, max_score) values ($1, $2, 'P1', 'Prova 1', 1000)`,
+      [userId, subjectId],
+    );
     await c.query("insert into notification_preferences (user_id) values ($1)", [userId]);
     await c.query(
       `insert into push_subscriptions (user_id, endpoint, p256dh, auth)
@@ -250,4 +258,6 @@ export const OWNED_TABLES: ReadonlyArray<readonly [table: string, ownerColumn: s
   ["tasks", "user_id"],
   ["moodle_connections", "user_id"],
   ["moodle_course_mappings", "user_id"],
+  ["grading_schemes", "user_id"],
+  ["evaluation_items", "user_id"],
 ];

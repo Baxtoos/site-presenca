@@ -218,7 +218,7 @@ As senhas em `.env.example` e `infra/postgres/init` servem só para desenvolvime
 
 ## Banco de dados
 
-- **Schema:** `packages/db/src/schema` (Drizzle), 22 tabelas no schema `app`.
+- **Schema:** `packages/db/src/schema` (Drizzle), 24 tabelas no schema `app`.
 - **Migrations:** `packages/db/migrations`. A `0001_tables` é gerada pelo Drizzle; `0000_foundation`
   (UUID v7, funções de trigger) e `0002_security` (FKs compostas, view `subject_totals`, triggers,
   RLS forçado e permissões de cada papel) são escritas à mão. Depois: `0003_auth` (funções de

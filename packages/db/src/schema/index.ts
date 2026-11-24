@@ -7,5 +7,6 @@ export * from "./sharing";
 export * from "./notifications";
 export * from "./tasks";
 export * from "./moodle";
+export * from "./grades";
 export * from "./reliability";
 export * from "./views";
