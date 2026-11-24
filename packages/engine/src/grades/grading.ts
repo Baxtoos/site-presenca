@@ -230,7 +230,7 @@ function evalScenario(p: Prepared, missing: (it: EvaluationItem) => Rational): R
     values.set(norm(it.key), it.score === null ? missing(it) : fromCenti(it.score));
   }
   // Substitutiva: troca a menor das avaliações indicadas, se for maior.
-  if (p.substitute?.score != null && p.rules.substitute) {
+  if (p.substitute && p.substitute.score !== null && p.rules.substitute) {
     const subScore = fromCenti(p.substitute.score);
     let lowest: string | null = null;
     for (const k of p.rules.substitute.replaces.map(norm)) {
@@ -347,7 +347,7 @@ export function summarizeGrades(rules: GradingRules, items: EvaluationItem[]): G
   if (final !== null) {
     if (final >= rules.passing) status = "aprovado_por_nota";
     else if (canExam(final)) {
-      if (p.exam?.score != null) {
+      if (p.exam && p.exam.score !== null) {
         afterExam = examResult(p, final, p.exam.score);
         status = afterExam >= rules.exam!.passing ? "aprovado_por_nota" : "reprovado_por_nota";
       } else {
