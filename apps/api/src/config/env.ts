@@ -106,6 +106,23 @@ const envSchema = z
     ),
 
     /**
+     * Chave (32 bytes em base64) que cifra o link .ics e a chave do Moodle em repouso. A mesma no
+     * worker. Vazia: a integração com o Moodle fica desligada (a tela explica). Gerar:
+     * `openssl rand -base64 32`. Trocar a chave obriga os alunos a conectar o Moodle de novo.
+     */
+    INTEGRATION_ENCRYPTION_KEY: z.preprocess(
+      emptyToUndefined,
+      z
+        .string()
+        .refine((v) => Buffer.from(v, "base64").length === 32, {
+          message: "precisa ser 32 bytes em base64 (openssl rand -base64 32)",
+        })
+        .optional(),
+    ),
+    /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
+    INTEGRATIONS_ALLOW_INSECURE_FETCH: optionalBool,
+
+    /**
      * Recusa senhas que aparecem em vazamentos (Have I Been Pwned, por k-anonimato). Desligado por
      * padrão desde 23/11/2026 (o dono preferiu aceitar senhas comuns); `true` liga de novo.
      */
@@ -123,6 +140,10 @@ const envSchema = z
   .refine((env) => !(env.NODE_ENV === "production" && env.MFA_ENCRYPTION_KEY === DEV_MFA_KEY), {
     path: ["MFA_ENCRYPTION_KEY"],
     message: "em produção gere uma chave própria (a do .env.example é pública)",
+  })
+  .refine((env) => !env.INTEGRATIONS_ALLOW_INSECURE_FETCH || env.NODE_ENV === "test", {
+    path: ["INTEGRATIONS_ALLOW_INSECURE_FETCH"],
+    message: "só com NODE_ENV=test (fora dos testes abriria brecha de SSRF)",
   })
   .refine((env) => !(env.NODE_ENV === "production" && env.RATE_LIMIT_FACTOR !== 1), {
     path: ["RATE_LIMIT_FACTOR"],

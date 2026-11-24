@@ -254,6 +254,21 @@ export class TasksService {
       if (!current) throw taskNotFound();
       if (body.subjectId !== undefined) await this.assertSubject(tx, body.subjectId);
       const tz = await this.timezone(tx);
+      if (current.source !== "manual") {
+        // Título, prazo e link de tarefa importada seguem o Moodle (a próxima sincronização
+        // desfaria a mudança). Matéria, observações, aviso e status continuam com o aluno.
+        const locked = (["title", "dueAt", "externalUrl"] as const).find(
+          (field) => body[field] !== undefined,
+        );
+        if (locked) {
+          throw new UnprocessableEntityException({
+            code: "TASK_IMPORTED",
+            errors: [
+              { path: locked, message: "Vem do Moodle: título, prazo e link seguem o Moodle." },
+            ],
+          });
+        }
+      }
 
       const patch: Partial<typeof tasks.$inferInsert> = {};
       if (body.title !== undefined) patch.title = body.title.trim();
@@ -306,6 +321,13 @@ export class TasksService {
     return this.db.tx(async (tx) => {
       const current = await this.load(tx, id);
       if (!current) throw taskNotFound();
+      if (current.source !== "manual") {
+        throw new UnprocessableEntityException({
+          code: "TASK_IMPORTED",
+          detail:
+            "Tarefa do Moodle não pode ser apagada (voltaria na próxima sincronização). Marque como concluída ou ignore a turma em Conta → Moodle.",
+        });
+      }
       if (current.version !== expectedVersion) {
         await assertVersioned([], async () => true, "Tarefa não encontrada.");
       }

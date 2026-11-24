@@ -25,6 +25,7 @@
     "@presenca/contracts": "workspace:*",
     "@presenca/db": "workspace:*",
     "@presenca/emails": "workspace:*",
+    "@presenca/integrations": "workspace:*",
     "@presenca/engine": "workspace:*",
     "@presenca/observability": "workspace:*",
     "arctic": "catalog:",

@@ -9,6 +9,7 @@
 #   SMTP_URL / RESEND_API_KEY / MAIL_FROM   conforme o transporte
 #   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT   (opcionais; juntos, para o push)
 #   SENTRY_DSN            (opcional) rastreamento de erros
+#   INTEGRATION_ENCRYPTION_KEY  (opcional) a MESMA chave da API; liga a sincronização do Moodle
 #
 # Envio que falha faz a execução sair como FALHA: o GitHub manda e-mail ao dono do repositório.
 #
@@ -71,4 +72,5 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          INTEGRATION_ENCRYPTION_KEY: ${{ secrets.INTEGRATION_ENCRYPTION_KEY }}
         run: node apps/worker/dist/main.js

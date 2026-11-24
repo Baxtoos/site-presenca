@@ -254,6 +254,9 @@ importers:
       '@presenca/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@presenca/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@presenca/observability':
         specifier: workspace:*
         version: link:../../packages/observability

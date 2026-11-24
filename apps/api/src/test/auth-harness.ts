@@ -54,6 +54,9 @@ export interface AuthTestEnv {
   stop(): Promise<void>;
 }
 
+/** Chave das credenciais do Moodle nos testes (32 bytes fixos, só para teste). */
+export const TEST_INTEGRATION_KEY = Buffer.alloc(32, 7).toString("base64");
+
 /** Sobe Postgres + Valkey reais e a API completa contra eles. */
 export async function startAuthTestEnv(): Promise<AuthTestEnv> {
   const [db, redis] = await Promise.all([
@@ -70,6 +73,8 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
       REDIS_URL: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
       VAPID_PUBLIC_KEY: TEST_VAPID_PUBLIC_KEY,
       MFA_ENCRYPTION_KEY: DEV_MFA_KEY,
+      INTEGRATION_ENCRYPTION_KEY: TEST_INTEGRATION_KEY,
+      INTEGRATIONS_ALLOW_INSECURE_FETCH: "true",
       FEEDBACK_TO: "dono@exemplo.com",
     },
     override: (builder) =>

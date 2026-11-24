@@ -51,6 +51,10 @@ services:
       # Vazia = a verificação em duas etapas fica indisponível. Trocar invalida os apps já ligados.
       - key: MFA_ENCRYPTION_KEY
         sync: false
+      # Chave que cifra o link .ics e a chave do Moodle (openssl rand -base64 32). A MESMA no
+      # worker (segredo do GitHub). Vazia = integração com o Moodle desligada.
+      - key: INTEGRATION_ENCRYPTION_KEY
+        sync: false
       # E-mail que recebe as sugestões e os problemas da página Conta. Vazio = desligado.
       - key: FEEDBACK_TO
         sync: false

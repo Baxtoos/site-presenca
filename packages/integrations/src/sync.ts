@@ -29,6 +29,16 @@ export interface FetchedDeadlines {
  * enriquece pela API. Roda fora de transação (rede). Falha no .ics é erro; falha só na API vira
  * aviso e a sincronização segue com o .ics.
  */
+/** Baixa e lê o .ics (link em texto, já aberto). */
+export async function fetchIcsDeadlines(
+  icsUrl: string,
+  timezone: string,
+  fetchOptions: SafeFetchOptions = {},
+): Promise<MoodleDeadline[]> {
+  const res = await safeFetch(icsUrl, fetchOptions);
+  return deadlinesFromIcs(parseIcs(res.body, timezone));
+}
+
 export async function fetchMoodleDeadlines(
   conn: ConnectionCredentials,
   key: Buffer,
@@ -36,8 +46,7 @@ export async function fetchMoodleDeadlines(
   fetchOptions: SafeFetchOptions = {},
 ): Promise<FetchedDeadlines> {
   const icsUrl = openSecret(conn.icsUrlEnc, key, secretAad(conn.userId, "ics_url"));
-  const res = await safeFetch(icsUrl, fetchOptions);
-  const deadlines = deadlinesFromIcs(parseIcs(res.body, conn.timezone));
+  const deadlines = await fetchIcsDeadlines(icsUrl, conn.timezone, fetchOptions);
   if (!conn.wstokenEnc || !conn.baseUrl) return { deadlines, warning: null };
   try {
     const token = openSecret(conn.wstokenEnc, key, secretAad(conn.userId, "wstoken"));

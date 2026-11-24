@@ -33,6 +33,26 @@ describe("loadEnv da API", () => {
     expect(loadEnv({ ...base, ...extra }).APP_VERSION).toBe(expected);
   });
 
+  it("Moodle: chave de 32 bytes; busca insegura só nos testes", () => {
+    const key = Buffer.alloc(32, 1).toString("base64");
+    expect(
+      loadEnv({ ...production, INTEGRATION_ENCRYPTION_KEY: key }).INTEGRATION_ENCRYPTION_KEY,
+    ).toBe(key);
+    expect(() =>
+      loadEnv({ ...production, INTEGRATION_ENCRYPTION_KEY: Buffer.alloc(16).toString("base64") }),
+    ).toThrow(/INTEGRATION_ENCRYPTION_KEY/);
+    expect(() => loadEnv({ ...production, INTEGRATIONS_ALLOW_INSECURE_FETCH: "true" })).toThrow(
+      /INTEGRATIONS_ALLOW_INSECURE_FETCH/,
+    );
+    expect(() => loadEnv({ ...base, INTEGRATIONS_ALLOW_INSECURE_FETCH: "true" })).toThrow(
+      /INTEGRATIONS_ALLOW_INSECURE_FETCH/,
+    );
+    expect(
+      loadEnv({ ...base, NODE_ENV: "test", INTEGRATIONS_ALLOW_INSECURE_FETCH: "true" })
+        .INTEGRATIONS_ALLOW_INSECURE_FETCH,
+    ).toBe(true);
+  });
+
   it("aceita a configuração mínima de produção", () => {
     expect(() => loadEnv(production)).not.toThrow();
   });
