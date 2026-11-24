@@ -238,5 +238,8 @@ export function describeSyncError(error: unknown): string {
         : "O Moodle recusou a consulta.";
   }
   if (error instanceof Error && error.name === "IcsError") return error.message;
+  if (error instanceof Error && error.name === "SecretError") {
+    return "Não foi possível abrir os dados da conexão. Conecte o Moodle de novo.";
+  }
   return "Falha inesperada ao sincronizar.";
 }

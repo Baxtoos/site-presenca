@@ -24,6 +24,17 @@ const envSchema = z
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
 
+    /**
+     * Chave (32 bytes em base64) que abre as credenciais do Moodle. A mesma da API. Vazia = a
+     * sincronização com o Moodle fica desligada.
+     */
+    INTEGRATION_ENCRYPTION_KEY: optionalString,
+    /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
+    INTEGRATIONS_ALLOW_INSECURE_FETCH: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
+
     /** Rastreamento de erros (Sentry). Vazio = desligado. */
     SENTRY_DSN: optionalString,
 
@@ -50,6 +61,10 @@ const envSchema = z
   .refine((env) => env.MAIL_TRANSPORT !== "resend" || env.RESEND_API_KEY !== undefined, {
     path: ["RESEND_API_KEY"],
     message: "obrigatória com MAIL_TRANSPORT=resend",
+  })
+  .refine((env) => !env.INTEGRATIONS_ALLOW_INSECURE_FETCH || env.NODE_ENV === "test", {
+    path: ["INTEGRATIONS_ALLOW_INSECURE_FETCH"],
+    message: "só com NODE_ENV=test (fora dos testes abriria brecha de SSRF)",
   })
   .refine((env) => (env.VAPID_PUBLIC_KEY === undefined) === (env.VAPID_PRIVATE_KEY === undefined), {
     path: ["VAPID_PRIVATE_KEY"],

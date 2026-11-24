@@ -21,6 +21,26 @@ describe("loadEnv do worker", () => {
     expect(() => loadEnv({ ...base, WORKER_MODE: "cron" })).toThrow(/WORKER_MODE/);
   });
 
+  it("Moodle: sem chave fica desligado; busca insegura só nos testes", () => {
+    expect(loadEnv(base).INTEGRATION_ENCRYPTION_KEY).toBeUndefined();
+    expect(loadEnv(base).INTEGRATIONS_ALLOW_INSECURE_FETCH).toBe(false);
+    expect(
+      loadEnv({ ...base, NODE_ENV: "test", INTEGRATIONS_ALLOW_INSECURE_FETCH: "true" })
+        .INTEGRATIONS_ALLOW_INSECURE_FETCH,
+    ).toBe(true);
+    for (const NODE_ENV of ["development", "production"]) {
+      expect(() =>
+        loadEnv({
+          ...base,
+          NODE_ENV,
+          INTEGRATIONS_ALLOW_INSECURE_FETCH: "true",
+          MAIL_TRANSPORT: "resend",
+          RESEND_API_KEY: "re_x",
+        }),
+      ).toThrow(/INTEGRATIONS_ALLOW_INSECURE_FETCH/);
+    }
+  });
+
   it("recusa subir sem a URL do banco ou do app", () => {
     expect(() => loadEnv({})).toThrow(/WORKER_DATABASE_URL[\s\S]*WEB_ORIGIN/);
   });

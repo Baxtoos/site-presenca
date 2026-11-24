@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { createDb, isConnectionLost } from "@presenca/db";
 import { createMailer } from "@presenca/emails/transport";
+import { parseIntegrationKey } from "@presenca/integrations";
 import { flushErrors, initErrorReporting, reportError } from "@presenca/observability";
 import { type CycleDeps, didWork, runCycle } from "./cycle";
 import { loadEnv } from "./env";
@@ -59,6 +60,16 @@ async function main(): Promise<void> {
     appUrl: env.WEB_ORIGIN,
     log: (level, msg, extra) => log(level, msg, extra),
   };
+  const integrationKey = parseIntegrationKey(env.INTEGRATION_ENCRYPTION_KEY);
+  if (integrationKey) {
+    deps.moodle = {
+      db: handle.db,
+      key: integrationKey,
+      fetchOptions: env.INTEGRATIONS_ALLOW_INSECURE_FETCH
+        ? { allowHttp: true, allowPrivate: true }
+        : undefined,
+    };
+  }
 
   // Modo pontual: um ciclo e sai. Sem escuta do outbox, sem timers. Falhou → código de saída 1,
   // para o agendador mostrar a execução como falha.
@@ -76,6 +87,7 @@ async function main(): Promise<void> {
       failed = result.delivery.failed;
       log("info", "ciclo único concluído", {
         reminders: result.reminders,
+        moodle: result.moodle,
         ...result.delivery,
         cleanup: result.cleanup,
       });
@@ -114,7 +126,11 @@ async function main(): Promise<void> {
       if (due) lastCleanup = Date.now();
       const result = await runCycle(deps, { cleanup: due });
       if (didWork(result)) {
-        log("info", "ciclo do outbox", { reminders: result.reminders, ...result.delivery });
+        log("info", "ciclo do outbox", {
+          reminders: result.reminders,
+          moodle: result.moodle,
+          ...result.delivery,
+        });
       }
       if (result.cleanup) log("info", "limpeza de dados expirados", { ...result.cleanup });
     } catch (error) {
@@ -158,6 +174,7 @@ async function main(): Promise<void> {
     pollIntervalMs: env.WORKER_POLL_INTERVAL_MS,
     mail: env.MAIL_TRANSPORT,
     push: push.configured ? "vapid" : "desligado",
+    moodle: integrationKey ? "ligado" : "desligado",
   });
   await listener.start();
   await cycle();

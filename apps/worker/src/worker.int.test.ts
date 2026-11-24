@@ -1,5 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import { createDb, type DbHandle } from "@presenca/db";
 import { inTx, startTestDb, type TestDb } from "@presenca/db/testing";
+import { reconcileDeadlines, sealSecret, secretAad } from "@presenca/integrations";
 import { CaptureMailer } from "@presenca/emails/transport";
 import type { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -10,6 +14,7 @@ import { OutboxListener } from "./listener";
 import type { PushMessage, PushOutcome, PushSender, PushTarget } from "./push";
 import { enqueueReminders } from "./reminders";
 import { enqueueTaskReminders } from "./task-reminders";
+import { syncMoodleConnections } from "./moodle-sync";
 import { MAX_ATTEMPTS } from "./time";
 
 let db: TestDb;
@@ -761,5 +766,262 @@ describe("aviso de tarefa (task_due)", () => {
     // O prazo novo gera outro aviso (outra chave) quando entrar na janela.
     await enqueueTaskReminders(worker, hours(20));
     expect((await logsOf(moved)).filter((l) => l.channel === "in_app")).toHaveLength(2);
+  });
+});
+
+describe("sincronização com o Moodle", () => {
+  const NOW = new Date("2026-11-24T15:00:00Z");
+  const key = randomBytes(32);
+  const fetchOptions = { allowHttp: true, allowPrivate: true };
+  let server: Server;
+  let base: string;
+  let feed = "";
+  let status = 200;
+  let workerDb: DbHandle;
+
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      if (req.url?.startsWith("/calendar/export_execute.php")) {
+        res.writeHead(status, { "content-type": "text/calendar" }).end(feed);
+      } else res.writeHead(404).end();
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    workerDb = createDb({ connectionString: db.urls.app_worker, applicationName: "teste-moodle" });
+  });
+  afterAll(async () => {
+    server.close();
+    await workerDb?.close();
+  });
+
+  const ics = (events: { uid: string; summary: string; due: string; course?: string }[]) =>
+    [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      ...events.flatMap((e) => [
+        "BEGIN:VEVENT",
+        `UID:${e.uid}`,
+        `SUMMARY:${e.summary}`,
+        `DTSTART:${e.due}`,
+        `DTEND:${e.due}`,
+        ...(e.course ? [`CATEGORIES:${e.course}`] : []),
+        "END:VEVENT",
+      ]),
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+  async function connect(s: Student, opts: { enabled?: boolean } = {}) {
+    await db.admin.query("update app.subjects set code = 'FIS1' where id = $1", [s.subjectId]);
+    const sealed = sealSecret(
+      `${base}/calendar/export_execute.php?userid=1&authtoken=segredo`,
+      key,
+      secretAad(s.userId, "ics_url"),
+    );
+    await db.admin.query(
+      `insert into app.moodle_connections (user_id, ics_host, ics_url_enc, sync_enabled, next_sync_at)
+       values ($1, '127.0.0.1', $2, $3, $4)`,
+      [s.userId, sealed, opts.enabled ?? true, NOW],
+    );
+  }
+  const sync = (now: Date) =>
+    syncMoodleConnections({ pool: worker, db: workerDb.db, key, now, fetchOptions });
+  const tasksOf = async (userId: string) =>
+    (
+      await db.admin.query<{
+        id: string;
+        title: string;
+        due_at: Date;
+        status: string;
+        status_source: string;
+        source: string;
+        subject_id: string | null;
+        external_course_key: string | null;
+      }>(
+        `select id, title, due_at, status, status_source, source, subject_id, external_course_key
+           from app.tasks where user_id = $1 and source <> 'manual' order by due_at`,
+        [userId],
+      )
+    ).rows;
+  const connection = async (userId: string) =>
+    (
+      await db.admin.query<{
+        last_sync_at: Date | null;
+        last_sync_error: string | null;
+        next_sync_at: Date;
+      }>(
+        "select last_sync_at, last_sync_error, next_sync_at from app.moodle_connections where user_id = $1",
+        [userId],
+      )
+    ).rows[0]!;
+
+  it("importa os prazos futuros, casa a turma pelo código e agenda a próxima rodada", async () => {
+    const s = await student();
+    await connect(s);
+    feed = ics([
+      {
+        uid: "1@moodle",
+        summary: "Lista 3 está para ser entregue",
+        due: "20261125T025900Z",
+        course: "FIS1 - 2026-2",
+      },
+      {
+        uid: "2@moodle",
+        summary: "Questionário 2 abre",
+        due: "20261125T120000Z",
+        course: "FIS1 - 2026-2",
+      },
+      {
+        uid: "3@moodle",
+        summary: "Relatório antigo está para ser entregue",
+        due: "20261101T025900Z",
+        course: "FIS1 - 2026-2",
+      },
+      {
+        uid: "4@moodle",
+        summary: "Seminário is due",
+        due: "20261210T025900Z",
+        course: "OUTRA - 2026-2",
+      },
+    ]);
+    status = 200;
+    expect(await sync(NOW)).toBeGreaterThanOrEqual(1);
+
+    const imported = await tasksOf(s.userId);
+    expect(imported.map((t) => [t.title, t.subject_id, t.status, t.source])).toEqual([
+      ["Lista 3", s.subjectId, "pending", "moodle_ics"],
+      ["Seminário", null, "pending", "moodle_ics"],
+    ]);
+    const mappings = await db.admin.query<{ course_key: string; subject_id: string | null }>(
+      "select course_key, subject_id from app.moodle_course_mappings where user_id = $1 order by course_key",
+      [s.userId],
+    );
+    expect(mappings.rows).toEqual([
+      { course_key: "FIS1 - 2026-2", subject_id: s.subjectId },
+      { course_key: "OUTRA - 2026-2", subject_id: null },
+    ]);
+    const conn = await connection(s.userId);
+    expect(conn.last_sync_error).toBeNull();
+    expect(conn.last_sync_at?.toISOString()).toBe(NOW.toISOString());
+    const wait = (conn.next_sync_at.getTime() - NOW.getTime()) / 60_000;
+    expect(wait).toBeGreaterThanOrEqual(45);
+    expect(wait).toBeLessThanOrEqual(55);
+
+    // Rodar de novo antes da hora não pega a conexão; e a importação é idempotente.
+    expect(await sync(new Date(NOW.getTime() + 60_000))).toBe(0);
+
+    // A tarefa importada entra na fila normal de avisos (prazo em menos de 24 h).
+    await enqueueTaskReminders(worker, NOW);
+    const due = await db.admin.query(
+      "select channel from app.notification_logs where task_id = $1 order by channel",
+      [imported[0]!.id],
+    );
+    expect(due.rows.map((r) => r.channel)).toEqual(["email", "in_app"]);
+  });
+
+  it("professor adiou: o prazo muda e o aviso pendente do prazo antigo é cancelado", async () => {
+    const s = await student();
+    await connect(s);
+    feed = ics([
+      {
+        uid: "10@moodle",
+        summary: "Trabalho está para ser entregue",
+        due: "20261125T025900Z",
+        course: "FIS1 - 2026-2",
+      },
+    ]);
+    await sync(NOW);
+    const [task] = await tasksOf(s.userId);
+    await enqueueTaskReminders(worker, NOW);
+
+    feed = ics([
+      {
+        uid: "10@moodle",
+        summary: "Trabalho está para ser entregue",
+        due: "20261202T025900Z",
+        course: "FIS1 - 2026-2",
+      },
+    ]);
+    const later = new Date(NOW.getTime() + 2 * 3_600_000);
+    expect(await sync(later)).toBeGreaterThanOrEqual(1);
+    const [moved] = await tasksOf(s.userId);
+    expect(moved!.id).toBe(task!.id);
+    expect(moved!.due_at.toISOString()).toBe("2026-12-02T02:59:00.000Z");
+    const email = await db.admin.query(
+      "select status, last_error from app.notification_logs where task_id = $1 and channel = 'email'",
+      [task!.id],
+    );
+    expect(email.rows).toEqual([{ status: "skipped", last_error: "prazo alterado no Moodle" }]);
+  });
+
+  it("turma ignorada não importa; conexão desligada não sincroniza; link recusado vira erro legível", async () => {
+    const s = await student();
+    await connect(s);
+    await db.admin.query(
+      `insert into app.moodle_course_mappings (user_id, course_key, ignored) values ($1, 'IGNORADA', true)`,
+      [s.userId],
+    );
+    feed = ics([
+      {
+        uid: "20@moodle",
+        summary: "Ignorar está para ser entregue",
+        due: "20261201T025900Z",
+        course: "IGNORADA",
+      },
+    ]);
+    await sync(NOW);
+    expect(await tasksOf(s.userId)).toEqual([]);
+
+    const off = await student();
+    await connect(off, { enabled: false });
+    await sync(NOW);
+    expect((await connection(off.userId)).last_sync_at).toBeNull();
+
+    status = 404;
+    const later = new Date(NOW.getTime() + 2 * 3_600_000);
+    await sync(later);
+    status = 200;
+    const failed = await connection(s.userId);
+    expect(failed.last_sync_error).toBe(
+      "O Moodle recusou o link. Gere um novo link do calendário e cole de novo.",
+    );
+    expect((failed.next_sync_at.getTime() - later.getTime()) / 60_000).toBe(90);
+  });
+
+  it("entrega vista no Moodle conclui a tarefa, mas nunca desfaz o que o aluno marcou", async () => {
+    const s = await student();
+    await connect(s);
+    const deadline = (uid: string, submitted: boolean) => ({
+      source: "moodle_ics" as const,
+      externalUid: uid,
+      title: uid,
+      dueAt: new Date("2026-12-01T02:59:00Z"),
+      courseKey: "FIS1 - 2026-2",
+      url: "https://moodle.exemplo.edu.br/mod/assign/view.php?id=9",
+      submitted,
+    });
+    const run = (deadlines: ReturnType<typeof deadline>[]) =>
+      workerDb.db.transaction((tx) =>
+        reconcileDeadlines(tx, { userId: s.userId, deadlines, now: NOW }),
+      );
+    await run([deadline("a", false), deadline("b", false)]);
+    // O aluno marcou "b" como não concluída.
+    await db.admin.query(
+      "update app.tasks set status = 'not_completed', resolved_at = now(), status_source = 'user' where user_id = $1 and external_uid = 'b'",
+      [s.userId],
+    );
+    const result = await run([deadline("a", true), deadline("b", true)]);
+    expect(result.completed).toBe(1);
+    const rows = await db.admin.query<{
+      external_uid: string;
+      status: string;
+      status_source: string;
+    }>(
+      "select external_uid, status, status_source from app.tasks where user_id = $1 and source <> 'manual' order by external_uid",
+      [s.userId],
+    );
+    expect(rows.rows).toEqual([
+      { external_uid: "a", status: "completed", status_source: "sync" },
+      { external_uid: "b", status: "not_completed", status_source: "user" },
+    ]);
   });
 });

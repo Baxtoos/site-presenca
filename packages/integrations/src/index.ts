@@ -27,3 +27,5 @@ export {
   sealSecret,
   secretAad,
 } from "./secrets";
+export { detachImportedTasks, reconcileDeadlines, type ReconcileResult } from "./reconcile";
+export { fetchMoodleDeadlines, type ConnectionCredentials, type FetchedDeadlines } from "./sync";
