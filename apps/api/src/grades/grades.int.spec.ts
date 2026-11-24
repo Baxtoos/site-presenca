@@ -228,3 +228,116 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
     expect(steal.statusCode).toBe(404);
   });
 });
+
+describe("Assistente de IA (/v1/subjects/:id/grading/assistant)", () => {
+  const scheme = {
+    scale: 10,
+    passing: 6,
+    formula: "0.4*P1 + 0.6*P2",
+    groups: [],
+    exam: null,
+    substitute: null,
+    roundingStep: 0,
+    items: [
+      { key: "P1", name: "Prova 1", maxScore: 10, group: null, role: "regular" },
+      { key: "P2", name: "Prova 2", maxScore: 10, group: null, role: "regular" },
+    ],
+  };
+  const ask = (b: Browser, subjectId: string, conversationId: string, texts: string[]) =>
+    b.request("POST", `/v1/subjects/${subjectId}/grading/assistant`, {
+      conversationId,
+      messages: texts.map((text, i) => ({ role: i % 2 === 0 ? "user" : "assistant", text })),
+    });
+
+  it("pergunta, depois devolve a regra em centésimos para conferir (sem salvar)", async () => {
+    const eva = await student();
+    const conv = randomUUID();
+    env.ai.queue.push(
+      {
+        kind: "question",
+        question: "Qual a nota mínima para passar?",
+        summary: null,
+        scheme: null,
+      },
+      { kind: "scheme", question: null, summary: "P1 vale 40% e P2 60%; passa com 6.", scheme },
+    );
+    const q = await ask(eva.b, eva.calc.id, conv, ["Duas provas, P1 vale 40% e P2 60%"]);
+    expect(q.statusCode, q.body).toBe(200);
+    expect(q.json()).toEqual({
+      type: "question",
+      text: "Qual a nota mínima para passar?",
+      remaining: 9,
+    });
+    const s = await ask(eva.b, eva.calc.id, conv, [
+      "Duas provas, P1 vale 40% e P2 60%",
+      "Qual a nota mínima para passar?",
+      "6",
+    ]);
+    const body = s.json<{
+      type: string;
+      proposal: { rules: { passing: number }; items: { maxScore: number }[] };
+    }>();
+    expect(body).toMatchObject({ type: "scheme", remaining: 8 });
+    expect(body.proposal.rules.passing).toBe(600);
+    expect(body.proposal.items.map((i) => i.maxScore)).toEqual([1000, 1000]);
+    // Nada foi salvo: o aluno confere e salva pelo PUT.
+    const g = subjectGradingSchema.parse(
+      (await eva.b.request("GET", `/v1/subjects/${eva.calc.id}/grading`)).json(),
+    );
+    expect(g).toMatchObject({ scheme: null, assistantAvailable: true });
+    // A matéria e o limite de perguntas vão no pedido à IA.
+    expect(env.ai.calls.at(-1)?.system).toContain("Matéria: Cálculo.");
+    expect(env.ai.calls.at(-1)?.system).toContain(
+      "Perguntas que ainda pode fazer nesta conversa: 8.",
+    );
+  });
+
+  it("regra com problema: pede conserto uma vez; erro ou recusa da IA cai no editor manual", async () => {
+    const fred = await student();
+    env.ai.queue.push(
+      {
+        kind: "scheme",
+        question: null,
+        summary: "x",
+        scheme: { ...scheme, formula: "0.4*P1 + 0.6*P9" },
+      },
+      { kind: "scheme", question: null, summary: "Corrigido.", scheme },
+    );
+    const fixed = await ask(fred.b, fred.calc.id, randomUUID(), ["Duas provas"]);
+    expect(fixed.json()).toMatchObject({ type: "scheme", summary: "Corrigido." });
+    expect(String(env.ai.calls.at(-1)?.messages.at(-1)?.content)).toContain(
+      '"P9" não é uma avaliação',
+    );
+
+    env.ai.queue.push(new Error("timeout"));
+    expect((await ask(fred.b, fred.calc.id, randomUUID(), ["Oi"])).json()).toMatchObject({
+      type: "fallback",
+      reason: "error",
+    });
+    env.ai.queue.push({ refusal: true });
+    expect((await ask(fred.b, fred.calc.id, randomUUID(), ["Oi"])).json()).toMatchObject({
+      type: "fallback",
+      reason: "error",
+    });
+  });
+
+  it("no máximo 10 chamadas por conversa; depois, editor manual", async () => {
+    const gabi = await student();
+    const conv = randomUUID();
+    for (let i = 0; i < 10; i++) {
+      env.ai.queue.push({
+        kind: "question",
+        question: `Pergunta ${i + 1}?`,
+        summary: null,
+        scheme: null,
+      });
+    }
+    let last: unknown;
+    for (let i = 0; i < 10; i++) last = (await ask(gabi.b, gabi.calc.id, conv, ["Não sei"])).json();
+    // Na 10ª, sem perguntas restantes, a IA não pode mais perguntar: vai para o editor.
+    expect(last).toMatchObject({ type: "fallback", reason: "limit" });
+    const over = await ask(gabi.b, gabi.calc.id, conv, ["Não sei"]);
+    expect(over.json()).toMatchObject({ type: "fallback", reason: "limit" });
+    expect(env.ai.queue).toHaveLength(0); // a 11ª nem chegou à IA
+  });
+});

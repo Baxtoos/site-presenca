@@ -127,6 +127,8 @@ export type EvaluationItemDto = z.infer<typeof evaluationItemSchema>;
 
 export const subjectGradingSchema = z.object({
   subjectId: z.uuid(),
+  /** O assistente de IA está ligado neste servidor (sem a chave, só o editor manual). */
+  assistantAvailable: z.boolean(),
   scheme: z
     .object({
       rules: gradingRulesSchema,
@@ -157,3 +159,47 @@ export const GRADE_STATUS_LABEL: Record<GradeStatusDto, string> = {
   sem_chance_direta: "Só pelo exame",
   reprovado_por_nota: "Reprovado por nota",
 };
+
+// ---------------------------------------------------------------- assistente de IA
+
+/** Máximo de chamadas à IA por conversa (perguntas + a resposta final). */
+export const GRADING_AI_MAX_TURNS = 10;
+
+export const gradingAssistantRequestSchema = z.object({
+  /** Gerado pelo navegador ao abrir o assistente; o limite de 10 conta por conversa. */
+  conversationId: z.uuid(),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        text: z.string().trim().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(2 * GRADING_AI_MAX_TURNS + 1)
+    .refine((m) => m.at(-1)?.role === "user", { error: "A última mensagem precisa ser sua." }),
+});
+export type GradingAssistantRequest = z.infer<typeof gradingAssistantRequestSchema>;
+
+export const gradingAssistantResponseSchema = z.discriminatedUnion("type", [
+  /** A IA precisa saber mais: mostra a pergunta. */
+  z.object({ type: z.literal("question"), text: z.string(), remaining: z.number().int() }),
+  /** Regra pronta para o aluno conferir (nada é salvo sem ele confirmar). */
+  z.object({
+    type: z.literal("scheme"),
+    summary: z.string(),
+    proposal: saveGradingBodySchema,
+    remaining: z.number().int(),
+  }),
+  /**
+   * Não deu (limite de perguntas, erro ou demora da IA): a tela abre o editor manual, já com o
+   * rascunho do que a IA entendeu, se houver.
+   */
+  z.object({
+    type: z.literal("fallback"),
+    reason: z.enum(["limit", "error", "unavailable"]),
+    message: z.string(),
+    draft: saveGradingBodySchema.partial().nullable(),
+  }),
+]);
+export type GradingAssistantResponse = z.infer<typeof gradingAssistantResponseSchema>;

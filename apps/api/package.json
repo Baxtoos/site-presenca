@@ -16,6 +16,7 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.13.0",
     "@fastify/cookie": "catalog:",
     "@fastify/helmet": "catalog:",
     "@nestjs/common": "catalog:",
@@ -25,8 +26,8 @@
     "@presenca/contracts": "workspace:*",
     "@presenca/db": "workspace:*",
     "@presenca/emails": "workspace:*",
-    "@presenca/integrations": "workspace:*",
     "@presenca/engine": "workspace:*",
+    "@presenca/integrations": "workspace:*",
     "@presenca/observability": "workspace:*",
     "arctic": "catalog:",
     "drizzle-orm": "catalog:",

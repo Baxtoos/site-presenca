@@ -5,6 +5,7 @@ import { GenericContainer } from "testcontainers";
 import { GOOGLE_OAUTH, type GoogleOAuth, type GoogleProfile } from "../auth/google.provider";
 import { BackgroundTasks } from "../common/background-tasks";
 import { ClockService } from "../common/clock";
+import { ANTHROPIC_CLIENT } from "../grades/assistant.service";
 import { CaptureMailer, MAILER } from "../mail/mailer";
 import { buildTestApp, TEST_ORIGIN } from "./build-test-app";
 
@@ -43,7 +44,26 @@ export class FakeClock extends ClockService {
   }
 }
 
+/** IA de mentira: devolve as respostas da fila, na ordem; um Error na fila vira falha da API. */
+export class FakeAnthropic {
+  readonly calls: { system: string; messages: { role: string; content: unknown }[] }[] = [];
+  queue: (Record<string, unknown> | Error | { refusal: true })[] = [];
+  readonly beta = {
+    messages: {
+      parse: async (params: { system: string; messages: { role: string; content: unknown }[] }) => {
+        this.calls.push({ system: params.system, messages: params.messages });
+        const next = this.queue.shift();
+        if (!next) throw new Error("fila da IA falsa vazia");
+        if (next instanceof Error) throw next;
+        if ("refusal" in next) return { stop_reason: "refusal", parsed_output: null };
+        return { stop_reason: "end_turn", parsed_output: next };
+      },
+    },
+  };
+}
+
 export interface AuthTestEnv {
+  ai: FakeAnthropic;
   clock: FakeClock;
   app: NestFastifyApplication;
   db: TestDb;
@@ -66,6 +86,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
   const mail = new CaptureMailer();
   const google = new FakeGoogle();
   const clock = new FakeClock();
+  const ai = new FakeAnthropic();
   const app = await buildTestApp({
     fullApp: true,
     env: {
@@ -84,11 +105,14 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
         .overrideProvider(GOOGLE_OAUTH)
         .useValue(google)
         .overrideProvider(ClockService)
-        .useValue(clock),
+        .useValue(clock)
+        .overrideProvider(ANTHROPIC_CLIENT)
+        .useValue(ai),
   });
   const tasks = app.get(BackgroundTasks);
   return {
     app,
+    ai,
     db,
     clock,
     mail,

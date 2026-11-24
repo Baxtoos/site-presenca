@@ -1,6 +1,8 @@
 import { idParamsSchema } from "./academic";
 import {
   evaluationItemParamsSchema,
+  gradingAssistantRequestSchema,
+  gradingAssistantResponseSchema,
   saveGradingBodySchema,
   scoreBodySchema,
   subjectGradingSchema,
@@ -36,6 +38,23 @@ export const gradeRoutes = {
       412: { description: "Outra edição salvou antes" },
       422: { description: "Regra inválida (GRADING_INVALID), com o campo" },
       428: { description: "Falta o If-Match (a regra já existe)" },
+    },
+  },
+  gradingAssistant: {
+    method: "POST",
+    path: "/v1/subjects/:id/grading/assistant",
+    summary:
+      "Assistente de IA: conversa até 10 vezes e devolve uma pergunta, a regra para conferir ou o aviso para usar o editor manual",
+    tag: "Notas",
+    auth: true,
+    request: { params: idParamsSchema, body: gradingAssistantRequestSchema },
+    responses: {
+      200: {
+        description: "Pergunta, regra proposta ou fallback",
+        schema: gradingAssistantResponseSchema,
+      },
+      404: notFound,
+      429: { description: "Conversas demais hoje" },
     },
   },
   setScore: {

@@ -1,6 +1,20 @@
-import { Body, Controller, Get, Headers, Param, Patch, Put, Res } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Res,
+} from "@nestjs/common";
 import {
   evaluationItemParamsSchema,
+  type GradingAssistantRequest,
+  gradingAssistantRequestSchema,
+  type GradingAssistantResponse,
   idParamsSchema,
   type SaveGradingBody,
   saveGradingBodySchema,
@@ -10,12 +24,28 @@ import {
 import type { FastifyReply } from "fastify";
 import { IfMatchVersion, setEtag } from "../common/versioning";
 import { ZodPipe } from "../common/zod.pipe";
+import { RateLimit } from "../rate-limit/rate-limit";
+import { GradingAssistantService } from "./assistant.service";
 import { GradesService } from "./grades.service";
 
 /** Notas das matérias do aluno logado (o RLS só deixa ver e mexer nas próprias). */
 @Controller("v1")
 export class GradesController {
-  constructor(private readonly grades: GradesService) {}
+  constructor(
+    private readonly grades: GradesService,
+    private readonly assistant: GradingAssistantService,
+  ) {}
+
+  /** Cada chamada custa (IA paga): até 10 por conversa e 30 por dia por aluno. */
+  @Post("subjects/:id/grading/assistant")
+  @HttpCode(200)
+  @RateLimit({ bucket: "grading-ai", by: "user", limit: 30, windowSeconds: 86_400 })
+  assist(
+    @Param(new ZodPipe(idParamsSchema)) { id }: { id: string },
+    @Body(new ZodPipe(gradingAssistantRequestSchema)) body: GradingAssistantRequest,
+  ): Promise<GradingAssistantResponse> {
+    return this.assistant.turn(id, body);
+  }
 
   @Get("subjects/:id/grading")
   async get(

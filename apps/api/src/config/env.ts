@@ -119,6 +119,13 @@ const envSchema = z
         })
         .optional(),
     ),
+    /**
+     * Chave da API da Anthropic para o assistente de notas (Conta → console.anthropic.com).
+     * Vazia: o assistente fica desligado e a tela usa só o editor manual.
+     */
+    ANTHROPIC_API_KEY: optionalString,
+    /** Modelo do assistente de notas. */
+    GRADING_AI_MODEL: z.preprocess(emptyToUndefined, z.string().min(1).default("claude-opus-5-5")),
     /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
     INTEGRATIONS_ALLOW_INSECURE_FETCH: optionalBool,
 
