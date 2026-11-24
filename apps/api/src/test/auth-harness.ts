@@ -5,7 +5,7 @@ import { GenericContainer } from "testcontainers";
 import { GOOGLE_OAUTH, type GoogleOAuth, type GoogleProfile } from "../auth/google.provider";
 import { BackgroundTasks } from "../common/background-tasks";
 import { ClockService } from "../common/clock";
-import { ANTHROPIC_CLIENT } from "../grades/assistant.service";
+import { GRADING_AI, type GradingAi } from "../grades/assistant.service";
 import { CaptureMailer, MAILER } from "../mail/mailer";
 import { buildTestApp, TEST_ORIGIN } from "./build-test-app";
 
@@ -45,23 +45,20 @@ export class FakeClock extends ClockService {
 }
 
 /** IA de mentira: devolve as respostas da fila, na ordem; um Error na fila vira falha da API. */
-export class FakeAnthropic {
+export class FakeGradingAi implements GradingAi {
   readonly calls: { system: string; messages: { role: string; content: unknown }[] }[] = [];
   queue: (Record<string, unknown> | Error | { refusal: true })[] = [];
-  readonly messages = {
-    parse: async (params: { system: string; messages: { role: string; content: unknown }[] }) => {
-      this.calls.push({ system: params.system, messages: params.messages });
-      const next = this.queue.shift();
-      if (!next) throw new Error("fila da IA falsa vazia");
-      if (next instanceof Error) throw next;
-      if ("refusal" in next) return { stop_reason: "refusal", parsed_output: null };
-      return { stop_reason: "end_turn", parsed_output: next };
-    },
-  };
+  async generate(params: { system: string; messages: { role: string; content: unknown }[] }) {
+    this.calls.push({ system: params.system, messages: params.messages });
+    const next = this.queue.shift();
+    if (!next) throw new Error("fila da IA falsa vazia");
+    if (next instanceof Error) throw next;
+    return "refusal" in next ? null : next;
+  }
 }
 
 export interface AuthTestEnv {
-  ai: FakeAnthropic;
+  ai: FakeGradingAi;
   clock: FakeClock;
   app: NestFastifyApplication;
   db: TestDb;
@@ -84,7 +81,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
   const mail = new CaptureMailer();
   const google = new FakeGoogle();
   const clock = new FakeClock();
-  const ai = new FakeAnthropic();
+  const ai = new FakeGradingAi();
   const app = await buildTestApp({
     fullApp: true,
     env: {
@@ -104,7 +101,7 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
         .useValue(google)
         .overrideProvider(ClockService)
         .useValue(clock)
-        .overrideProvider(ANTHROPIC_CLIENT)
+        .overrideProvider(GRADING_AI)
         .useValue(ai),
   });
   const tasks = app.get(BackgroundTasks);

@@ -120,12 +120,12 @@ const envSchema = z
         .optional(),
     ),
     /**
-     * Chave da API da Anthropic para o assistente de notas (Conta → console.anthropic.com).
+     * Chave da API do Google Gemini para o assistente de notas (aistudio.google.com → API key).
      * Vazia: o assistente fica desligado e a tela usa só o editor manual.
      */
-    ANTHROPIC_API_KEY: optionalString,
+    GEMINI_API_KEY: optionalString,
     /** Modelo do assistente de notas. */
-    GRADING_AI_MODEL: z.preprocess(emptyToUndefined, z.string().min(1).default("claude-haiku-5-5")),
+    GRADING_AI_MODEL: z.preprocess(emptyToUndefined, z.string().min(1).default("gemini-3.8-flash")),
     /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
     INTEGRATIONS_ALLOW_INSECURE_FETCH: optionalBool,
 

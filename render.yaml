@@ -55,9 +55,9 @@ services:
       # worker (segredo do GitHub). Vazia = integração com o Moodle desligada.
       - key: INTEGRATION_ENCRYPTION_KEY
         sync: false
-      # Chave da API da Anthropic para o assistente de notas (console.anthropic.com). Vazia = só o
-      # editor manual. O custo de cada conversa sai da conta da Anthropic dona da chave.
-      - key: ANTHROPIC_API_KEY
+      # Chave da API do Google Gemini para o assistente de notas (aistudio.google.com). Vazia = só
+      # o editor manual. O uso sai da conta do Google dona da chave.
+      - key: GEMINI_API_KEY
         sync: false
       # E-mail que recebe as sugestões e os problemas da página Conta. Vazio = desligado.
       - key: FEEDBACK_TO

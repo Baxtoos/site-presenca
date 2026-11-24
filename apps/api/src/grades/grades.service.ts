@@ -23,7 +23,7 @@ import { and, asc, eq, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 import { ClockService } from "../common/clock";
 import { assertVersioned, parseIfMatch } from "../common/versioning";
 import { DbService } from "../database/db.service";
-import { ANTHROPIC_CLIENT, type AnthropicLike } from "./assistant.service";
+import { GRADING_AI, type GradingAi } from "./assistant.service";
 
 const { gradingSchemes, evaluationItems, subjects, tasks, users } = schema;
 
@@ -51,7 +51,7 @@ export class GradesService {
   constructor(
     private readonly db: DbService,
     private readonly clock: ClockService,
-    @Inject(ANTHROPIC_CLIENT) private readonly ai: AnthropicLike | null,
+    @Inject(GRADING_AI) private readonly ai: GradingAi | null,
   ) {}
 
   get(subjectId: string): Promise<SubjectGrading> {

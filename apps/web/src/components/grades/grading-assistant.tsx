@@ -111,8 +111,8 @@ export function GradingAssistant({
             {messages.length === 0 ? "Enviar" : "Responder"}
           </Button>
           <span className="text-xs text-muted">
-            {remaining} de {GRADING_AI_MAX_TURNS} perguntas restantes · o texto vai para a IA da
-            Anthropic
+            {remaining} de {GRADING_AI_MAX_TURNS} perguntas restantes · o texto vai para a IA do
+            Google (Gemini)
           </span>
         </div>
       </form>

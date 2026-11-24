@@ -1,5 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   GRADING_AI_MAX_TURNS,
@@ -17,14 +15,63 @@ import { ENV, type Env } from "../config/env";
 import { DbService } from "../database/db.service";
 import { REDIS } from "../redis/redis.module";
 
-/** Cliente da Anthropic (null sem chave). Trocado por um falso nos testes. */
-export const ANTHROPIC_CLIENT = Symbol("ANTHROPIC_CLIENT");
-export type AnthropicLike = Pick<Anthropic, "messages">;
+type ChatMessage = { role: "user" | "assistant"; content: string };
 
-export function anthropicClientFactory(env: Env): AnthropicLike | null {
-  if (!env.ANTHROPIC_API_KEY) return null;
-  // Timeout curto e uma repetição só: se a IA demorar, a tela cai no editor manual.
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 45_000, maxRetries: 1 });
+/**
+ * IA que devolve um JSON no formato pedido (ou null se recusou, cortou ou veio fora do formato).
+ * null sem chave. Trocada por uma falsa nos testes.
+ */
+export interface GradingAi {
+  generate(req: { system: string; messages: ChatMessage[]; schema: object }): Promise<unknown>;
+}
+export const GRADING_AI = Symbol("GRADING_AI");
+
+/** Google Gemini pela API REST (generateContent com saída em JSON Schema). */
+export function gradingAiFactory(env: Env): GradingAi | null {
+  const key = env.GEMINI_API_KEY;
+  if (!key) return null;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GRADING_AI_MODEL)}:generateContent`;
+  return {
+    async generate({ system, messages, schema }) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents: messages.map((m) => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }],
+          })),
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseJsonSchema: schema,
+            maxOutputTokens: 8192,
+          },
+        }),
+        // Se a IA demorar, a tela cai no editor manual.
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (!res.ok) throw new Error(`Gemini respondeu ${res.status}`);
+      const data = (await res.json()) as {
+        candidates?: {
+          finishReason?: string;
+          content?: { parts?: { text?: string; thought?: boolean }[] };
+        }[];
+      };
+      const candidate = data.candidates?.[0];
+      // Sem candidato = bloqueado (promptFeedback); SAFETY, MAX_TOKENS etc. = sem resposta útil.
+      if (!candidate || candidate.finishReason !== "STOP") return null;
+      const text = (candidate.content?.parts ?? [])
+        .filter((p) => !p.thought)
+        .map((p) => p.text ?? "")
+        .join("");
+      try {
+        return JSON.parse(text) as unknown;
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
 /** Formato que a IA devolve (em pontos, que é como as pessoas falam; a API converte). */
@@ -34,7 +81,7 @@ const aiTurnSchema = z.object({
   summary: z.string().nullable(),
   scheme: z
     .object({
-      scale: z.union([z.literal(10), z.literal(100)]),
+      scale: z.number().describe("10 ou 100"),
       passing: z.number(),
       formula: z.string(),
       groups: z.array(
@@ -63,6 +110,8 @@ const aiTurnSchema = z.object({
     .nullable(),
 });
 type AiTurn = z.infer<typeof aiTurnSchema>;
+// Sem "$schema": o Gemini aceita só um subconjunto do JSON Schema (ver assistant.spec.ts).
+export const { $schema: _, ...AI_TURN_JSON_SCHEMA } = z.toJSONSchema(aiTurnSchema);
 type Proposal = z.output<typeof saveGradingBodySchema>;
 
 const SYSTEM = `Você ajuda um aluno universitário brasileiro a registrar COMO o professor calcula a nota de uma matéria, para o app Monitor de Presenças fazer as contas. Cada professor calcula de um jeito: nunca suponha uma regra que o aluno não disse. Você só COLETA a regra: não calcule notas, médias nem quanto falta (o app faz as contas).
@@ -96,7 +145,7 @@ const centi = (points: number) => Math.max(0, Math.round(points * 100));
 function toProposal(s: NonNullable<AiTurn["scheme"]>): Proposal {
   return {
     rules: {
-      scale: s.scale,
+      scale: s.scale as 10 | 100, // o contrato confere em problemsOf
       passing: centi(s.passing),
       formula: s.formula,
       groups: s.groups.map((g) => ({ ...g, dropLowest: Math.max(0, g.dropLowest) })),
@@ -146,7 +195,7 @@ const FALLBACK_MESSAGE = {
 } as const;
 
 /**
- * Assistente de notas: conversa com o aluno (Claude Haiku, saída estruturada) só para coletar a
+ * Assistente de notas: conversa com o aluno (Google Gemini, saída em JSON) só para coletar a
  * regra de cálculo; as contas são do motor (@presenca/engine). No máximo 10 chamadas por conversa (contadas no Redis). Em limite, erro, demora ou
  * recusa, devolve "fallback" e a tela abre o editor manual com o rascunho. Nunca salva sozinho.
  */
@@ -157,7 +206,7 @@ export class GradingAssistantService {
   constructor(
     private readonly db: DbService,
     @Inject(REDIS) private readonly redis: Redis,
-    @Inject(ANTHROPIC_CLIENT) private readonly client: AnthropicLike | null,
+    @Inject(GRADING_AI) private readonly client: GradingAi | null,
     @Inject(ENV) env: Env,
   ) {
     this.model = env.GRADING_AI_MODEL;
@@ -198,7 +247,7 @@ export class GradingAssistantService {
       return { type: "fallback", reason: "limit", message: FALLBACK_MESSAGE.limit, draft: null };
     }
 
-    const history: Anthropic.MessageParam[] = req.messages.map((m) => ({
+    const history: ChatMessage[] = req.messages.map((m) => ({
       role: m.role,
       content: m.text,
     }));
@@ -273,17 +322,15 @@ export class GradingAssistantService {
 
   private async ask(
     subjectName: string,
-    messages: Anthropic.MessageParam[],
+    messages: ChatMessage[],
     remaining: number,
   ): Promise<AiTurn | null> {
-    const response = await this.client!.messages.parse({
-      model: this.model,
-      max_tokens: 4000,
+    const out = await this.client!.generate({
       system: `${SYSTEM}\n\nMatéria: ${subjectName}.\nPerguntas que ainda pode fazer nesta conversa: ${remaining}. Com 0 restantes, responda kind="scheme" com a melhor regra possível.`,
       messages,
-      output_config: { format: zodOutputFormat(aiTurnSchema) },
+      schema: AI_TURN_JSON_SCHEMA,
     });
-    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") return null;
-    return response.parsed_output ?? null;
+    const parsed = aiTurnSchema.safeParse(out);
+    return parsed.success ? parsed.data : null;
   }
 }

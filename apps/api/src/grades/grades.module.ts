@@ -1,11 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ClockService } from "../common/clock";
 import { ENV, type Env } from "../config/env";
-import {
-  ANTHROPIC_CLIENT,
-  anthropicClientFactory,
-  GradingAssistantService,
-} from "./assistant.service";
+import { GRADING_AI, GradingAssistantService, gradingAiFactory } from "./assistant.service";
 import { GradesController } from "./grades.controller";
 import { GradesService } from "./grades.service";
 
@@ -17,8 +13,8 @@ import { GradesService } from "./grades.service";
     GradingAssistantService,
     ClockService,
     {
-      provide: ANTHROPIC_CLIENT,
-      useFactory: (env: Env) => anthropicClientFactory(env),
+      provide: GRADING_AI,
+      useFactory: (env: Env) => gradingAiFactory(env),
       inject: [ENV],
     },
   ],
