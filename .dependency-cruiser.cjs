@@ -20,6 +20,14 @@ module.exports = {
       },
     },
     {
+      name: "web-nao-usa-integracoes",
+      severity: "error",
+      comment:
+        "packages/integrations abre credenciais e faz buscas externas: só API e worker, nunca o navegador.",
+      from: { path: "^apps/web" },
+      to: { path: "^packages/integrations" },
+    },
+    {
       name: "pacotes-nao-dependem-de-apps",
       severity: "error",
       comment: "Pacotes compartilhados não podem importar código de apps.",
