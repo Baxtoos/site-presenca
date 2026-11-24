@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { exceptionKindSchema } from "./academic";
+import { exceptionKindSchema, subjectColorSchema } from "./academic";
 import { taskSchema, taskStatusSchema } from "./tasks";
 
 /** Maior intervalo do calendário/linha do tempo (o mesmo do calendário de aulas). */
@@ -16,6 +16,8 @@ export const calendarQuerySchema = z
     subjectId: z.uuid({ error: "Matéria inválida." }).optional(),
     /** Filtra só as tarefas; exceções e chamadas pendentes vêm sempre. */
     status: taskStatusSchema.optional(),
+    /** true: inclui as aulas da grade de cada dia (o calendário mensal pede; a linha do tempo não). */
+    classes: z.stringbool().default(false),
   })
   .superRefine((q, ctx) => {
     const days = (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000;
@@ -40,11 +42,25 @@ export const calendarDayExceptionSchema = z.object({
 });
 export type CalendarDayException = z.infer<typeof calendarDayExceptionSchema>;
 
+export const calendarDayClassSchema = z.object({
+  subjectId: z.uuid(),
+  subjectName: z.string(),
+  color: subjectColorSchema.nullable(),
+  startsAt: z.string(),
+  endsAt: z.string(),
+  units: z.number().int(),
+  /** done = chamada registrada; pending = já passou sem registro; upcoming = hoje ou depois. */
+  state: z.enum(["done", "pending", "upcoming"]),
+});
+export type CalendarDayClass = z.infer<typeof calendarDayClassSchema>;
+
 export const calendarDaySchema = z.object({
   date: z.iso.date(),
   /** Tarefas cujo prazo cai neste dia no fuso do aluno, por horário. */
   tasks: z.array(taskSchema),
   exceptions: z.array(calendarDayExceptionSchema),
+  /** Aulas da grade (só com `classes=true`), por horário. Dia de feriado/sem aula não tem aulas. */
+  classes: z.array(calendarDayClassSchema),
   /** Dias que já passaram: aulas da grade sem chamada registrada. */
   pendingClasses: z.number().int().min(0),
 });

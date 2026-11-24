@@ -554,6 +554,24 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     );
     expect(onlyDone.days.flatMap((d) => d.tasks).map((t) => t.title)).toEqual(["Lista feita"]);
 
+    // Sem `classes`, a lista de aulas vem vazia (a linha do tempo não precisa).
+    expect(cal.days.every((d) => d.classes.length === 0)).toBe(true);
+    const withClasses = calendarResponseSchema.parse(
+      (
+        await ana.b.request("GET", "/v1/calendar?from=2026-11-09&to=2026-11-22&classes=true")
+      ).json(),
+    );
+    const classesOf = (date: string) =>
+      withClasses.days
+        .find((d) => d.date === date)
+        ?.classes.map((c) => [c.subjectName, c.startsAt, c.endsAt, c.state]) ?? [];
+    expect(classesOf("2026-11-09")).toEqual([["Redes", "19:00", "20:40", "done"]]);
+    expect(classesOf("2026-11-11")).toEqual([]); // dia sem aula: só a exceção
+    expect(classesOf("2026-11-16")).toEqual([["Redes", "19:00", "20:40", "pending"]]);
+    expect(classesOf("2026-11-18")).toEqual([["Redes", "19:00", "20:40", "upcoming"]]);
+    expect(classesOf("2026-11-17")).toEqual([]); // terça: sem aula na grade
+    expect(withClasses.days.find((d) => d.date === "2026-11-09")?.classes[0]?.color).toBe("teal");
+
     const bad = await ana.b.request("GET", "/v1/calendar?from=2026-01-01&to=2027-03-01");
     expect(bad.statusCode).toBe(422);
     const backwards = await ana.b.request("GET", "/v1/calendar?from=2026-11-22&to=2026-11-09");

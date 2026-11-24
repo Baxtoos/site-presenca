@@ -369,7 +369,9 @@ Tudo dentro da API, sem serviço externo de identidade.
   matéria, no navegador. Cada linha: horário, cor e "Status · Matéria · Código · Semestre", selo
   Moodle e as ações Concluída / Não concluída / Reabrir / Editar / Abrir.
 - **Calendário mensal** (`monthGrid` do motor, segunda a domingo): filtro de matéria e de status,
-  ◀ mês ▶ e "Hoje", opção para mostrar exceções e chamadas pendentes na grade. No computador, as
+  ◀ mês ▶ e "Hoje". Mostra as **aulas da grade** (horário, matéria e se a chamada foi feita;
+  `classes=true` na rota) e os **feriados, dias sem aula e semanas de prova** sempre; "Mostrar
+  aulas" esconde as aulas da grade. No computador, as
   tarefas aparecem como etiquetas nos dias; no celular, como bolinhas. Escolher um dia mostra a lista
   dele com as ações e "Nova tarefa neste dia" (data já preenchida).
 - Janela, status, mês, matéria e situação ficam na URL (`janela`, `status`, `mes`, `materia`,

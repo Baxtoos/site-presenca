@@ -81,7 +81,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const [timeline, calendar, subjects] = await Promise.all([
     apiGet(query(range.from, range.to, { status: timelineStatus }), calendarResponseSchema),
     apiGet(
-      query(grid.gridFrom, grid.gridTo, { subjectId: materia, status: situacao.status }),
+      query(grid.gridFrom, grid.gridTo, {
+        subjectId: materia,
+        status: situacao.status,
+        classes: "true",
+      }),
       calendarResponseSchema,
     ),
     currentSubjects(),

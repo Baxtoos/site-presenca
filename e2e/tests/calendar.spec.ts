@@ -114,6 +114,20 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await page.getByRole("link", { name: "Voltar para o mês de hoje" }).click();
   const todayButton = month.locator(`button[data-date="${today}"]`);
   await expect(todayButton).toHaveAttribute("aria-current", "date");
+  // As aulas da grade aparecem no dia (o aluno de teste tem aula hoje).
+  await expect(todayButton).toHaveAccessibleName(/1 aula/);
+  await todayButton.click();
+  const todayClass = panel.getByTestId("aula-do-dia");
+  await expect(todayClass).toHaveCount(1);
+  await expect(todayClass).toContainText("Banco de Dados");
+  await expect(todayClass.getByRole("link", { name: "Registrar a chamada" })).toHaveAttribute(
+    "href",
+    `/hoje?data=${today}`,
+  );
+  // Esconder as aulas tira da grade (o painel do dia continua mostrando).
+  await page.getByLabel("Mostrar aulas").uncheck();
+  await expect(todayButton).not.toHaveAccessibleName(/aula/);
+  await page.getByLabel("Mostrar aulas").check();
   await month.locator(`button[data-date="${inTwo}"]`).click();
   await panel.getByRole("link", { name: "Nova tarefa neste dia" }).click();
   await expect(page.getByLabel("Data do prazo")).toHaveValue(inTwo);

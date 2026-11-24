@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type {
+  CalendarDayClass,
   CalendarDay,
   CalendarDayException,
   CalendarQuery,
@@ -38,7 +39,7 @@ export class TaskCalendarService {
       const dayOf = (date: string): CalendarDay => {
         let day = days.get(date);
         if (!day) {
-          day = { date, tasks: [], exceptions: [], pendingClasses: 0 };
+          day = { date, tasks: [], exceptions: [], classes: [], pendingClasses: 0 };
           days.set(date, day);
         }
         return day;
@@ -55,7 +56,7 @@ export class TaskCalendarService {
       ];
       for (const task of tasks) dayOf(task.dueLocal.date).tasks.push(task);
 
-      await this.addSemesterDays(tx, query, today, dayOf);
+      await this.addSemesterDays(tx, query, today, dayOf, () => [...days.values()]);
 
       return {
         from: query.from,
@@ -74,6 +75,7 @@ export class TaskCalendarService {
     query: CalendarQuery,
     today: string,
     dayOf: (date: string) => CalendarDay,
+    daysOf: () => CalendarDay[],
   ) {
     const active = await tx
       .select({
@@ -95,7 +97,12 @@ export class TaskCalendarService {
     const bySemester = new Map(active.map((s) => [s.id, s]));
 
     const subjectRows = await tx
-      .select({ id: subjects.id, name: subjects.name, semesterId: subjects.semesterId })
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        color: subjects.color,
+        semesterId: subjects.semesterId,
+      })
       .from(subjects)
       .where(
         and(
@@ -138,45 +145,54 @@ export class TaskCalendarService {
       }
     }
 
-    // Chamadas pendentes: só dias que já passaram (hoje fica para a tela Hoje).
-    const pastTo = minDate(query.to, addDays(today, -1));
-    if (query.from > pastTo || subjectRows.length === 0) return;
+    // Aulas da grade: as de dias passados sem registro contam como chamadas pendentes (hoje fica
+    // para a tela Hoje); com `classes=true` a lista de aulas de cada dia também vai na resposta.
+    if (subjectRows.length === 0) return;
     const subjectIds = subjectRows.map((s) => s.id);
+    const logsTo = minDate(query.to, today);
     const [schedules, logs] = [
       await tx
         .select({
           id: subjectSchedules.id,
           subjectId: subjectSchedules.subjectId,
           weekday: subjectSchedules.weekday,
+          startsAt: subjectSchedules.startsAt,
+          endsAt: subjectSchedules.endsAt,
           units: subjectSchedules.units,
           validFrom: subjectSchedules.validFrom,
           validUntil: subjectSchedules.validUntil,
         })
         .from(subjectSchedules)
         .where(inArray(subjectSchedules.subjectId, subjectIds)),
-      await tx
-        .select({
-          subjectId: attendanceLogs.subjectId,
-          classDate: attendanceLogs.classDate,
-          scheduleId: attendanceLogs.scheduleId,
-        })
-        .from(attendanceLogs)
-        .where(
-          and(
-            inArray(attendanceLogs.subjectId, subjectIds),
-            gte(attendanceLogs.classDate, query.from),
-            lte(attendanceLogs.classDate, pastTo),
-          ),
-        ),
+      query.from > logsTo
+        ? []
+        : await tx
+            .select({
+              subjectId: attendanceLogs.subjectId,
+              classDate: attendanceLogs.classDate,
+              scheduleId: attendanceLogs.scheduleId,
+            })
+            .from(attendanceLogs)
+            .where(
+              and(
+                inArray(attendanceLogs.subjectId, subjectIds),
+                gte(attendanceLogs.classDate, query.from),
+                lte(attendanceLogs.classDate, logsTo),
+              ),
+            ),
     ];
     const registered = new Set(logs.map((l) => `${l.subjectId}|${l.classDate}|${l.scheduleId}`));
+    const hhmm = (time: string) => time.slice(0, 5);
+    const subjectInfo = new Map(subjectRows.map((s) => [s.id, s]));
     for (const subject of subjectRows) {
       const semester = bySemester.get(subject.semesterId)!;
       const from = maxDate(query.from, semester.startsOn);
-      const to = minDate(pastTo, semester.endsOn);
+      const to = minDate(query.to, semester.endsOn);
       if (from > to) continue;
+      const own = schedules.filter((s) => s.subjectId === subject.id);
+      const slot = new Map(own.map((s) => [s.id, s]));
       const occurrences = classOccurrences({
-        schedules: schedules.filter((s) => s.subjectId === subject.id),
+        schedules: own,
         exceptions: exceptions.filter(
           (e) =>
             e.semesterId === semester.id && (e.subjectId === null || e.subjectId === subject.id),
@@ -185,10 +201,23 @@ export class TaskCalendarService {
         to,
       });
       for (const o of occurrences) {
-        if (!registered.has(`${subject.id}|${o.date}|${o.scheduleId}`)) {
-          dayOf(o.date).pendingClasses += 1;
+        const done = registered.has(`${subject.id}|${o.date}|${o.scheduleId}`);
+        const state = done ? "done" : o.date < today ? "pending" : "upcoming";
+        if (state === "pending") dayOf(o.date).pendingClasses += 1;
+        const when = o.scheduleId ? slot.get(o.scheduleId) : undefined;
+        if (query.classes && when) {
+          dayOf(o.date).classes.push({
+            subjectId: subject.id,
+            subjectName: subject.name,
+            color: subjectInfo.get(subject.id)!.color as CalendarDayClass["color"],
+            startsAt: hhmm(when.startsAt),
+            endsAt: hhmm(when.endsAt),
+            units: o.units,
+            state,
+          });
         }
       }
     }
+    for (const day of daysOf()) day.classes.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   }
 }
