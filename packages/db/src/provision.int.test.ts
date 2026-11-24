@@ -49,13 +49,13 @@ describe("provisionRoles", () => {
 
     await runMigrations(result.urls.app_owner);
 
-    // RLS forçado nas 20 tabelas, como no ensaio de deploy.
+    // RLS forçado nas 22 tabelas, como no ensaio de deploy.
     const rls = await as(result.urls.app_owner, (c) =>
       c.query(
         "select count(*)::int as n from pg_class where relnamespace = 'app'::regnamespace and relkind = 'r' and relforcerowsecurity",
       ),
     );
-    expect(rls.rows[0]).toEqual({ n: 20 });
+    expect(rls.rows[0]).toEqual({ n: 22 });
 
     // A API enxerga o schema app sem prefixo, mas não pode criar nada nem enxergar sem usuário.
     await as(result.urls.app_api, async (c) => {

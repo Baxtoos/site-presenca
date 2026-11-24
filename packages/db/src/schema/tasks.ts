@@ -40,6 +40,8 @@ export const tasks = app.table(
     externalUid: text(),
     /** Link para a atividade original (só https). */
     externalUrl: text(),
+    /** Turma de origem no Moodle (moodle_course_mappings.course_key), para trocar a matéria em lote. */
+    externalCourseKey: text(),
     /** Quando virou concluída ou não concluída (null enquanto pendente). */
     resolvedAt: timestamp({ withTimezone: true }),
     version: version(),
@@ -67,6 +69,10 @@ export const tasks = app.table(
     check(
       "tasks_external_url_chk",
       sql`${t.externalUrl} is null or (${t.externalUrl} ~ '^https://' and char_length(${t.externalUrl}) <= 2000)`,
+    ),
+    check(
+      "tasks_external_course_chk",
+      sql`${t.externalCourseKey} is null or (${t.source} <> 'manual' and char_length(${t.externalCourseKey}) <= 200)`,
     ),
     check(
       "tasks_external_uid_chk",

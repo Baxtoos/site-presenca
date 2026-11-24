@@ -492,25 +492,74 @@ describe("papéis", () => {
     );
   });
 
-  it("o worker lê das tarefas só o necessário para o aviso e não escreve nelas", async () => {
+  it("o worker não lê as observações nem mexe nas tarefas digitadas pelo aluno", async () => {
     const worker = db.pools.app_worker;
     expect(
       await count(
         worker,
-        "select id, user_id, subject_id, title, due_at, remind_before_minutes, status from tasks",
+        "select id, user_id, subject_id, title, due_at, remind_before_minutes, status, source from tasks",
       ),
     ).toBeGreaterThanOrEqual(2);
-    for (const column of ["*", "notes", "resolved_at"]) {
+    for (const column of ["*", "notes"]) {
       await expect(worker.query(`select ${column} from tasks`)).rejects.toThrow(
         /permission denied/,
       );
     }
-    for (const sql of [
-      "update tasks set title = 'x'",
-      "delete from tasks",
-      `insert into tasks (user_id, title, due_at) values ('${alice.userId}', 'x', now())`,
-    ]) {
-      await expect(worker.query(sql)).rejects.toThrow(/permission denied/);
+    await expect(worker.query("delete from tasks")).rejects.toThrow(/permission denied/);
+    await expect(worker.query("update tasks set notes = 'x'")).rejects.toThrow(/permission denied/);
+    // Tarefa manual: invisível para a escrita do worker (RLS), nada muda.
+    const upd = await worker.query("update tasks set title = 'x' where source = 'manual'");
+    expect(upd.rowCount).toBe(0);
+    await expect(
+      worker.query(
+        `insert into tasks (user_id, title, due_at) values ('${alice.userId}', 'x', now())`,
+      ),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("o worker só importa tarefas de quem tem a conexão do Moodle ligada", async () => {
+    const worker = db.pools.app_worker;
+    const insert = (userId: string, uid: string) =>
+      worker.query<{ id: string }>(
+        `insert into tasks (user_id, title, due_at, source, external_uid, external_course_key)
+         values ($1, 'Importada', now() + interval '2 days', 'moodle_ics', $2, 'TURMA1') returning id`,
+        [userId, uid],
+      );
+    // A conexão semeada está desligada.
+    await expect(insert(alice.userId, "uid-desligada")).rejects.toThrow(/row-level security/);
+
+    await db.admin.query(
+      "update app.moodle_connections set sync_enabled = true where user_id = $1",
+      [alice.userId],
+    );
+    try {
+      const id = (await insert(alice.userId, "uid-ligada")).rows[0]!.id;
+      const upd = await worker.query(
+        "update tasks set due_at = now() + interval '3 days', status = 'completed', resolved_at = now(), status_source = 'sync' where id = $1",
+        [id],
+      );
+      expect(upd.rowCount).toBe(1);
+      // Não pode transformar a importada em manual nem trocar a turma.
+      await expect(
+        worker.query("update tasks set source = 'manual' where id = $1", [id]),
+      ).rejects.toThrow(/permission denied/);
+      // Vínculo turma → matéria é do aluno: o worker só registra quando viu a turma.
+      await expect(
+        worker.query("update moodle_course_mappings set ignored = true"),
+      ).rejects.toThrow(/permission denied/);
+      expect(
+        (await worker.query("update moodle_course_mappings set last_seen_at = now()")).rowCount,
+      ).toBeGreaterThan(0);
+      // Credenciais cifradas são legíveis (a chave só existe no processo), mas não alteráveis.
+      await expect(worker.query("update moodle_connections set ics_url_enc = 'x'")).rejects.toThrow(
+        /permission denied/,
+      );
+    } finally {
+      await db.admin.query("delete from app.tasks where external_uid = 'uid-ligada'");
+      await db.admin.query(
+        "update app.moodle_connections set sync_enabled = false where user_id = $1",
+        [alice.userId],
+      );
     }
   });
 

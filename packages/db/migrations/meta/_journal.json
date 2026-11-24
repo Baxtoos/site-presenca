@@ -99,6 +99,20 @@
       "when": 1795479017417,
       "tag": "0013_tarefas_integracao",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795541066337,
+      "tag": "0014_moodle",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1795541088793,
+      "tag": "0015_moodle_seguranca",
+      "breakpoints": true
     }
   ]
 }
