@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../config/env";
-import { AI_TURN_JSON_SCHEMA, gradingAiFactory } from "./assistant.service";
+import {
+  AI_TURN_JSON_SCHEMA,
+  GEMINI_RETRY_DELAYS_MS,
+  GeminiHttpError,
+  gradingAiFactory,
+} from "./assistant.service";
 
 // Palavras do JSON Schema que o responseJsonSchema do Gemini aceita (tipos do @google/genai 3.6).
 const GEMINI_KEYWORDS = new Set([
@@ -119,5 +124,40 @@ describe("cliente do Gemini", () => {
     await expect(
       gradingAiFactory(env)!.generate({ system: "", messages: [], schema: {} }),
     ).rejects.toThrow("429");
+  });
+
+  it("sobrecarga (503) é repetida e a segunda tentativa vale", async () => {
+    const ok = {
+      candidates: [{ finishReason: "STOP", content: { parts: [{ text: '{"kind":"question"}' }] } }],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ok), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      gradingAiFactory(env)!.generate({ system: "", messages: [], schema: {} }),
+    ).resolves.toEqual({ kind: "question" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("503 que não passa: desiste depois das tentativas e o erro traz o status", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const error = await gradingAiFactory(env)!
+      .generate({ system: "", messages: [], schema: {} })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GeminiHttpError);
+    expect((error as GeminiHttpError).status).toBe(503);
+    expect(fetchMock).toHaveBeenCalledTimes(1 + GEMINI_RETRY_DELAYS_MS.length);
+  });
+
+  it("cota (429) e erro de chave não são repetidos", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 429 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      gradingAiFactory(env)!.generate({ system: "", messages: [], schema: {} }),
+    ).rejects.toThrow("429");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

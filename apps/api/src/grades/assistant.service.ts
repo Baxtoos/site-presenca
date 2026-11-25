@@ -31,6 +31,21 @@ export const GRADING_AI_MODEL = "gemini-3.8-flash";
 
 const logger = new Logger("GradingAi");
 
+/** Erro HTTP do Gemini (o status decide se vale tentar de novo e qual aviso mostrar). */
+export class GeminiHttpError extends Error {
+  constructor(
+    readonly status: number,
+    detail: string,
+  ) {
+    super(`Gemini respondeu ${status}: ${detail}`);
+  }
+}
+
+/** Sobrecarga e falhas passageiras do Google: vale repetir. 429 (cota) e 4xx não. */
+const RETRY_STATUS = new Set([500, 503, 504]);
+export const GEMINI_RETRY_DELAYS_MS = [800, 2000];
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** Google Gemini pela API REST (generateContent com saída em JSON Schema). */
 export function gradingAiFactory(env: Env): GradingAi | null {
   const key = env.GEMINI_API_KEY;
@@ -38,28 +53,35 @@ export function gradingAiFactory(env: Env): GradingAi | null {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GRADING_AI_MODEL}:generateContent`;
   return {
     async generate({ system, messages, schema }) {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: messages.map((m) => ({
-            role: m.role === "assistant" ? "model" : "user",
-            parts: [{ text: m.content }],
-          })),
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseJsonSchema: schema,
-            maxOutputTokens: 8192,
-          },
-        }),
-        // Se a IA demorar, a tela cai no editor manual.
-        signal: AbortSignal.timeout(45_000),
-      });
+      const send = () =>
+        fetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: system }] },
+            contents: messages.map((m) => ({
+              role: m.role === "assistant" ? "model" : "user",
+              parts: [{ text: m.content }],
+            })),
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseJsonSchema: schema,
+              maxOutputTokens: 8192,
+            },
+          }),
+          // Se a IA demorar, a tela cai no editor manual.
+          signal: AbortSignal.timeout(25_000),
+        });
+      let res = await send();
+      for (const delay of GEMINI_RETRY_DELAYS_MS) {
+        if (res.ok || !RETRY_STATUS.has(res.status)) break;
+        logger.warn(`Gemini respondeu ${res.status}; tentando de novo em ${delay} ms`);
+        await sleep(delay);
+        res = await send();
+      }
       if (!res.ok) {
         // O corpo do erro do Google diz o motivo (chave inválida, modelo inexistente, cota…).
-        const body = (await res.text().catch(() => "")).slice(0, 400);
-        throw new Error(`Gemini respondeu ${res.status}: ${body}`);
+        throw new GeminiHttpError(res.status, (await res.text().catch(() => "")).slice(0, 400));
       }
       const data = (await res.json()) as {
         promptFeedback?: { blockReason?: string };
@@ -208,6 +230,7 @@ const FALLBACK_MESSAGE = {
     "Chegamos ao limite de perguntas. Complete a regra no editor abaixo (já preenchi o que entendi).",
   error: "O assistente não respondeu agora. Use o editor abaixo para montar a regra.",
   unavailable: "O assistente não está ligado neste servidor. Use o editor abaixo.",
+  busy: "A IA do Google está sobrecarregada agora. Tente de novo em instantes ou use o editor abaixo.",
 } as const;
 
 /**
@@ -278,7 +301,10 @@ export class GradingAssistantService {
         return {
           type: "fallback",
           reason: "error",
-          message: FALLBACK_MESSAGE.error,
+          message:
+            error instanceof GeminiHttpError && RETRY_STATUS.has(error.status)
+              ? FALLBACK_MESSAGE.busy
+              : FALLBACK_MESSAGE.error,
           draft: lastDraft,
         };
       }
