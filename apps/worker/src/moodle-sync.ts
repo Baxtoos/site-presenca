@@ -1,7 +1,10 @@
 import type { Db } from "@presenca/db";
 import {
+  applyMoodleGrades,
   describeSyncError,
   fetchMoodleDeadlines,
+  fetchMoodleGrades,
+  mappedCourses,
   reconcileDeadlines,
   type SafeFetchOptions,
 } from "@presenca/integrations";
@@ -77,6 +80,27 @@ export async function syncMoodleConnections(deps: MoodleSyncDeps): Promise<numbe
       error = warning;
       if (result.created + result.updated + result.completed > 0) {
         deps.log?.("info", "moodle sincronizado", { connection: conn.id, ...result });
+      }
+      // Notas (só com wstoken): turmas ligadas a matérias → avaliações ligadas a itens do Moodle.
+      if (conn.wstokenEnc && conn.baseUrl) {
+        try {
+          const courses = await deps.db.transaction((tx) => mappedCourses(tx, conn.userId));
+          const grades = await fetchMoodleGrades(
+            conn,
+            deps.key,
+            [...courses.keys()],
+            deps.fetchOptions,
+          );
+          const applied = await deps.db.transaction((tx) =>
+            applyMoodleGrades(tx, { userId: conn.userId, grades, courses }),
+          );
+          if (applied.updated > 0) {
+            deps.log?.("info", "notas do moodle importadas", { connection: conn.id, ...applied });
+          }
+        } catch (e) {
+          error ??= `Parcial (notas): ${describeSyncError(e)}`;
+          deps.log?.("warn", "notas do moodle falharam", { connection: conn.id, error });
+        }
       }
     } catch (e) {
       error = describeSyncError(e);

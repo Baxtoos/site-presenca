@@ -129,6 +129,8 @@ export const subjectGradingSchema = z.object({
   subjectId: z.uuid(),
   /** O assistente de IA está ligado neste servidor (sem a chave, só o editor manual). */
   assistantAvailable: z.boolean(),
+  /** Moodle com token e a turma ligada a esta matéria: dá para ligar as avaliações às do Moodle. */
+  moodleLinkable: z.boolean().default(false),
   scheme: z
     .object({
       rules: gradingRulesSchema,
@@ -205,3 +207,41 @@ export const gradingAssistantResponseSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type GradingAssistantResponse = z.infer<typeof gradingAssistantResponseSchema>;
+
+// ---------------------------------------------------------------- notas do Moodle
+
+export const moodleGradeItemSchema = z.object({
+  /** Identificador do item no Moodle (guardado em externalGradeItemId). */
+  externalId: z.string(),
+  name: z.string(),
+  /** Nota na escala do item no Moodle (null = ainda sem nota). */
+  grade: z.number().nullable(),
+  max: z.number(),
+  /** Avaliação do app já ligada a este item. */
+  linkedTo: z.uuid().nullable(),
+  /** Sugestão (mesmo nome) quando ainda não está ligado. */
+  suggested: z.uuid().nullable(),
+});
+export type MoodleGradeItemDto = z.infer<typeof moodleGradeItemSchema>;
+
+export const moodleGradesSchema = z.object({
+  available: z.boolean(),
+  /** Por que não dá para ligar (sem token, turma não ligada, Moodle fora do ar). */
+  reason: z.string().nullable(),
+  courseKey: z.string().nullable(),
+  items: z.array(moodleGradeItemSchema),
+});
+export type MoodleGrades = z.infer<typeof moodleGradesSchema>;
+
+export const moodleGradeLinksBodySchema = z.object({
+  links: z
+    .array(
+      z.object({
+        evaluationItemId: z.uuid({ error: "Avaliação inválida." }),
+        /** null desliga a avaliação do Moodle (a nota fica como do aluno). */
+        externalGradeItemId: z.string().min(1).max(100).nullable(),
+      }),
+    )
+    .max(60),
+});
+export type MoodleGradeLinksBody = z.infer<typeof moodleGradeLinksBodySchema>;

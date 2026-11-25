@@ -3,6 +3,8 @@ import {
   evaluationItemParamsSchema,
   gradingAssistantRequestSchema,
   gradingAssistantResponseSchema,
+  moodleGradeLinksBodySchema,
+  moodleGradesSchema,
   saveGradingBodySchema,
   scoreBodySchema,
   subjectGradingSchema,
@@ -73,6 +75,38 @@ export const gradeRoutes = {
       404: notFound,
       412: { description: "Versão desatualizada" },
       422: { description: "Nota acima da máxima" },
+    },
+  },
+  getMoodleGrades: {
+    method: "GET",
+    path: "/v1/subjects/:id/moodle-grades",
+    summary:
+      "Itens do livro de notas do Moodle da turma ligada a esta matéria, com a avaliação ligada ou sugerida",
+    tag: "Notas",
+    auth: true,
+    request: { params: idParamsSchema },
+    responses: {
+      200: {
+        description: "Itens do Moodle (ou o motivo de não estar disponível)",
+        schema: moodleGradesSchema,
+      },
+      404: notFound,
+      429: { description: "Consultas demais ao Moodle" },
+    },
+  },
+  linkMoodleGrades: {
+    method: "PUT",
+    path: "/v1/subjects/:id/moodle-grades",
+    summary:
+      "Liga (ou desliga) avaliações a itens do Moodle; as ligadas sem nota do aluno passam a seguir o Moodle",
+    tag: "Notas",
+    auth: true,
+    request: { params: idParamsSchema, body: moodleGradeLinksBodySchema },
+    responses: {
+      200: { description: "Itens do Moodle atualizados", schema: moodleGradesSchema },
+      404: notFound,
+      422: { description: "Avaliação de outra matéria" },
+      429: { description: "Consultas demais ao Moodle" },
     },
   },
 } as const satisfies Record<string, RouteDef>;

@@ -1,3 +1,4 @@
+import { fetchCourseGrades } from "./grades";
 import { parseIcs } from "./ics";
 import {
   deadlinesFromIcs,
@@ -5,6 +6,7 @@ import {
   enrichWithApi,
   moodleClient,
   type MoodleDeadline,
+  type MoodleGradeItem,
 } from "./moodle";
 import { safeFetch, type SafeFetchOptions } from "./safe-fetch";
 import { openSecret, secretAad } from "./secrets";
@@ -60,4 +62,19 @@ export async function fetchMoodleDeadlines(
   } catch (error) {
     return { deadlines, warning: `Parcial: ${describeSyncError(error)}` };
   }
+}
+
+/**
+ * Livro de notas das turmas ligadas a matérias (só com wstoken). Roda fora de transação (rede).
+ * Sem wstoken, devolve vazio.
+ */
+export async function fetchMoodleGrades(
+  conn: ConnectionCredentials,
+  key: Buffer,
+  courseKeys: readonly string[],
+  fetchOptions: SafeFetchOptions = {},
+): Promise<Map<string, MoodleGradeItem[]>> {
+  if (!conn.wstokenEnc || !conn.baseUrl || courseKeys.length === 0) return new Map();
+  const token = openSecret(conn.wstokenEnc, key, secretAad(conn.userId, "wstoken"));
+  return fetchCourseGrades(moodleClient(conn.baseUrl, token, fetchOptions), courseKeys);
 }

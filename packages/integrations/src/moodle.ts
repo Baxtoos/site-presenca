@@ -77,6 +77,17 @@ export interface MoodleClient {
   courses(userId: number): Promise<{ id: number; shortname: string; fullname: string }[]>;
   assignments(courseIds: number[]): Promise<MoodleAssignment[]>;
   submitted(assignId: number): Promise<boolean>;
+  /** Itens do livro de notas do aluno numa turma (sem o total do curso e das categorias). */
+  gradeItems(courseId: number, userId: number): Promise<MoodleGradeItem[]>;
+}
+
+export interface MoodleGradeItem {
+  id: number;
+  name: string;
+  /** Nota na escala do item (null = ainda sem nota). */
+  grade: number | null;
+  /** Nota máxima do item no Moodle. */
+  max: number;
 }
 
 /** Endereço base do Moodle normalizado ("https://moodle.x.edu.br" sem barra no fim). */
@@ -154,6 +165,30 @@ export function moodleClient(
         { assignid: String(assignId) },
       );
       return d.lastattempt?.submission?.status === "submitted";
+    },
+    async gradeItems(courseId, userId) {
+      const d = await call<{
+        usergrades?: {
+          gradeitems?: {
+            id: number;
+            itemname: string | null;
+            itemtype: string;
+            graderaw: number | null;
+            grademax: number;
+          }[];
+        }[];
+      }>("gradereport_user_get_grade_items", {
+        courseid: String(courseId),
+        userid: String(userId),
+      });
+      return (d.usergrades?.[0]?.gradeitems ?? [])
+        .filter((g) => g.itemtype !== "course" && g.itemtype !== "category" && g.grademax > 0)
+        .map((g) => ({
+          id: g.id,
+          name: (g.itemname ?? "").trim().slice(0, 120) || `Item ${g.id}`,
+          grade: typeof g.graderaw === "number" ? g.graderaw : null,
+          max: g.grademax,
+        }));
     },
   };
 }

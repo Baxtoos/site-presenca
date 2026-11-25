@@ -8,6 +8,8 @@ import {
 import {
   type MoodleConnectBody,
   type MoodleCourse,
+  type MoodleGradeLinksBody,
+  type MoodleGrades,
   type MoodleCourseBody,
   MoodleErrorCode,
   type MoodleStatus,
@@ -15,7 +17,12 @@ import {
 } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
 import {
+  applyMoodleGrades,
   describeSyncError,
+  fetchCourseGrades,
+  gradeItemKey,
+  type MoodleGradeItem,
+  normalizeTitle,
   detachImportedTasks,
   enrichWithApi,
   fetchIcsDeadlines,
@@ -445,5 +452,183 @@ export class MoodleService {
       // Apaga link e chave (as turmas vão junto, em cascata).
       await tx.delete(moodleConnections).where(eq(moodleConnections.version, expectedVersion));
     });
+  }
+
+  // ---------------------------------------------------------------- notas do Moodle
+
+  /** Itens do livro de notas da turma ligada a esta matéria (busca ao vivo no Moodle). */
+  async subjectGrades(subjectId: string): Promise<MoodleGrades> {
+    const loaded = await this.gradeContext(subjectId);
+    if ("reason" in loaded)
+      return { available: false, reason: loaded.reason, courseKey: null, items: [] };
+    let items: MoodleGradeItem[];
+    try {
+      items = await this.fetchGradeItems(loaded);
+    } catch (error) {
+      return {
+        available: false,
+        reason: `Não foi possível ler as notas do Moodle: ${describeSyncError(error)}`,
+        courseKey: loaded.courseKey,
+        items: [],
+      };
+    }
+    return this.describeGrades(subjectId, loaded.courseKey, items);
+  }
+
+  /**
+   * Liga ou desliga avaliações a itens do Moodle. Ligada e sem nota do aluno: passa a seguir o
+   * Moodle (score_source = 'moodle') e já recebe a nota que estiver lá, sem aviso. Nota lançada
+   * pelo aluno continua dele. Desligar devolve a nota ao aluno.
+   */
+  async linkGrades(subjectId: string, body: MoodleGradeLinksBody): Promise<MoodleGrades> {
+    const loaded = await this.gradeContext(subjectId);
+    if ("reason" in loaded) {
+      throw new UnprocessableEntityException({
+        code: MoodleErrorCode.invalid,
+        detail: loaded.reason,
+      });
+    }
+    const items = await this.fetchGradeItems(loaded);
+    const valid = new Set(items.map((i) => gradeItemKey(i.id)));
+    await this.db.tx(async (tx) => {
+      const own = await tx
+        .select({ id: schema.evaluationItems.id, score: schema.evaluationItems.score })
+        .from(schema.evaluationItems)
+        .where(eq(schema.evaluationItems.subjectId, subjectId));
+      const byId = new Map(own.map((o) => [o.id, o]));
+      for (const link of body.links) {
+        const ev = byId.get(link.evaluationItemId);
+        if (!ev) throw invalid("links", "A avaliação precisa ser desta matéria.");
+        if (link.externalGradeItemId !== null && !valid.has(link.externalGradeItemId)) {
+          throw invalid("links", "Item do Moodle não encontrado nesta turma.");
+        }
+        await tx
+          .update(schema.evaluationItems)
+          .set(
+            link.externalGradeItemId === null
+              ? { externalGradeItemId: null, scoreSource: "user" }
+              : {
+                  externalGradeItemId: link.externalGradeItemId,
+                  ...(ev.score === null ? { scoreSource: "moodle" } : {}),
+                },
+          )
+          .where(eq(schema.evaluationItems.id, ev.id));
+      }
+      await applyMoodleGrades(tx, {
+        userId: loaded.userId,
+        grades: new Map([[loaded.courseKey, items]]),
+        courses: new Map([[loaded.courseKey, subjectId]]),
+        notify: false,
+      });
+    });
+    return this.describeGrades(subjectId, loaded.courseKey, items);
+  }
+
+  private async gradeContext(
+    subjectId: string,
+  ): Promise<
+    { reason: string } | { userId: string; courseKey: string; baseUrl: string; wstoken: string }
+  > {
+    const key = this.requireKey();
+    const userId = this.userId();
+    const found = await this.db.tx(async (tx) => {
+      const [subject] = await tx
+        .select({ id: subjects.id })
+        .from(subjects)
+        .where(eq(subjects.id, subjectId));
+      if (!subject) throw new NotFoundException({ detail: "Matéria não encontrada." });
+      const [row] = await tx
+        .select({
+          icsUrlEnc: moodleConnections.icsUrlEnc,
+          baseUrl: moodleConnections.baseUrl,
+          wstokenEnc: moodleConnections.wstokenEnc,
+        })
+        .from(moodleConnections);
+      const [mapping] = await tx
+        .select({ courseKey: moodleCourseMappings.courseKey })
+        .from(moodleCourseMappings)
+        .where(
+          and(
+            eq(moodleCourseMappings.subjectId, subjectId),
+            eq(moodleCourseMappings.ignored, false),
+          ),
+        )
+        .limit(1);
+      return { row, mapping };
+    });
+    if (!found.row) return { reason: "Conecte o Moodle em Conta → Moodle." };
+    if (!found.row.wstokenEnc || !found.row.baseUrl) {
+      return {
+        reason:
+          "Para trazer as notas, conecte o Moodle com o token do aplicativo (Conta → Moodle).",
+      };
+    }
+    if (!found.mapping) {
+      return { reason: "Ligue a turma do Moodle a esta matéria em Conta → Moodle." };
+    }
+    const creds = this.open(found.row, userId, key);
+    if (!creds?.wstoken || !creds.baseUrl) {
+      return { reason: "Não foi possível abrir os dados da conexão. Conecte o Moodle de novo." };
+    }
+    return {
+      userId,
+      courseKey: found.mapping.courseKey,
+      baseUrl: creds.baseUrl,
+      wstoken: creds.wstoken,
+    };
+  }
+
+  private async fetchGradeItems(ctx: {
+    courseKey: string;
+    baseUrl: string;
+    wstoken: string;
+  }): Promise<MoodleGradeItem[]> {
+    const grades = await fetchCourseGrades(
+      moodleClient(ctx.baseUrl, ctx.wstoken, this.fetchOptions),
+      [ctx.courseKey],
+    );
+    return grades.get(ctx.courseKey) ?? [];
+  }
+
+  private async describeGrades(
+    subjectId: string,
+    courseKey: string,
+    items: MoodleGradeItem[],
+  ): Promise<MoodleGrades> {
+    const evaluations = await this.db.tx((tx) =>
+      tx
+        .select({
+          id: schema.evaluationItems.id,
+          name: schema.evaluationItems.name,
+          externalGradeItemId: schema.evaluationItems.externalGradeItemId,
+        })
+        .from(schema.evaluationItems)
+        .where(eq(schema.evaluationItems.subjectId, subjectId)),
+    );
+    const linkedIds = new Set(evaluations.map((e) => e.externalGradeItemId).filter(Boolean));
+    return {
+      available: true,
+      reason: null,
+      courseKey,
+      items: items.map((item) => {
+        const externalId = gradeItemKey(item.id);
+        const linked = evaluations.find((e) => e.externalGradeItemId === externalId);
+        const suggested =
+          linked || linkedIds.has(externalId)
+            ? undefined
+            : evaluations.find(
+                (e) =>
+                  !e.externalGradeItemId && normalizeTitle(e.name) === normalizeTitle(item.name),
+              );
+        return {
+          externalId,
+          name: item.name,
+          grade: item.grade,
+          max: item.max,
+          linkedTo: linked?.id ?? null,
+          suggested: suggested?.id ?? null,
+        };
+      }),
+    };
   }
 }

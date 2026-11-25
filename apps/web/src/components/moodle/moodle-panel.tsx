@@ -138,12 +138,13 @@ function ConnectForm({ editing, onDone }: { editing?: MoodleConnection; onDone?:
       />
       <details className="grid gap-3 rounded-lg border border-line p-3 text-sm">
         <summary className="cursor-pointer font-medium">
-          Opcional: marcar como concluída quando eu enviar no Moodle
+          Opcional: marcar como concluída quando eu enviar e trazer as notas do Moodle
         </summary>
         <p className="mt-2 text-muted">
           No Moodle, abra <strong>Preferências → Chaves de segurança</strong> e copie a chave do{" "}
           <em>Moodle mobile web service</em>. Se essa opção não aparecer, a instituição não liberou:
-          o link do calendário já basta.
+          o link do calendário já basta. Com a chave, as notas lançadas pelo professor também chegam
+          (ligue as avaliações na seção Notas de cada matéria).
         </p>
         <div className="mt-3 grid gap-3">
           <Field

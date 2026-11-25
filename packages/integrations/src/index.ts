@@ -11,6 +11,7 @@ export {
   type MoodleAssignment,
   type MoodleClient,
   type MoodleDeadline,
+  type MoodleGradeItem,
 } from "./moodle";
 export {
   isBlockedAddress,
@@ -31,6 +32,15 @@ export { detachImportedTasks, reconcileDeadlines, type ReconcileResult } from ".
 export {
   fetchIcsDeadlines,
   fetchMoodleDeadlines,
+  fetchMoodleGrades,
   type ConnectionCredentials,
   type FetchedDeadlines,
 } from "./sync";
+export {
+  applyMoodleGrades,
+  fetchCourseGrades,
+  gradeItemKey,
+  mappedCourses,
+  moodleScoreToCenti,
+  type ApplyGradesResult,
+} from "./grades";

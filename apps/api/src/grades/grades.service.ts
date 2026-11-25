@@ -130,9 +130,26 @@ export class GradesService {
         }
       }
     }
+    // Moodle com token e turma ligada a esta matéria: a tela oferece ligar as avaliações.
+    const [linkable] = await tx
+      .select({ id: schema.moodleCourseMappings.id })
+      .from(schema.moodleCourseMappings)
+      .innerJoin(
+        schema.moodleConnections,
+        eq(schema.moodleConnections.userId, schema.moodleCourseMappings.userId),
+      )
+      .where(
+        and(
+          eq(schema.moodleCourseMappings.subjectId, subjectId),
+          eq(schema.moodleCourseMappings.ignored, false),
+          isNotNull(schema.moodleConnections.wstokenEnc),
+        ),
+      )
+      .limit(1);
     return {
       subjectId,
       assistantAvailable: this.ai !== null,
+      moodleLinkable: linkable !== undefined,
       scheme:
         scheme && rules
           ? { rules, source: scheme.source as "manual" | "ai", version: scheme.version }

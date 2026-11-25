@@ -14,6 +14,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { GRADE_STATUS_STYLE } from "@/lib/grades";
 import { type EditorDraft, GradingEditor } from "./grading-editor";
 import { GradingAssistant } from "./grading-assistant";
+import { MoodleLinks, moodleDraftItems } from "./moodle-links";
 
 type Setup = { draft: EditorDraft; notice?: string; rev: number };
 
@@ -26,6 +27,30 @@ type Setup = { draft: EditorDraft; notice?: string; rev: number };
 export function GradesPanel({ initial }: { initial: SubjectGrading }) {
   const [setup, setSetup] = useState<Setup | null>(initial.scheme ? null : { draft: null, rev: 0 });
   const open = () => setSetup({ draft: null, rev: 0 });
+  const [fromMoodle, setFromMoodle] = useState(false);
+  async function draftFromMoodle() {
+    setFromMoodle(true);
+    try {
+      const res = await moodleDraftItems(initial.subjectId, initial.scheme?.rules.scale ?? 10);
+      setSetup((s) => ({
+        draft: res.items.length ? { items: res.items } : (s?.draft ?? null),
+        notice:
+          res.reason ??
+          (res.items.length
+            ? "Avaliações trazidas do Moodle. Confira a nota máxima de cada uma e escreva a fórmula."
+            : "O Moodle ainda não tem itens de nota nesta turma."),
+        rev: (s?.rev ?? 0) + 1,
+      }));
+    } catch {
+      setSetup((s) => ({
+        draft: s?.draft ?? null,
+        notice: "Não foi possível ler o Moodle agora.",
+        rev: (s?.rev ?? 0) + 1,
+      }));
+    } finally {
+      setFromMoodle(false);
+    }
+  }
 
   return (
     <section className="grid gap-4 card p-5 sm:p-6" aria-labelledby="notas" id="notas">
@@ -50,6 +75,17 @@ export function GradesPanel({ initial }: { initial: SubjectGrading }) {
               }
             />
           ) : null}
+          {initial.moodleLinkable ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-fit"
+              loading={fromMoodle}
+              onClick={() => void draftFromMoodle()}
+            >
+              Trazer avaliações do Moodle
+            </Button>
+          ) : null}
           <GradingEditor
             // Cada resposta da IA recria o editor com o rascunho novo.
             key={setup.rev}
@@ -61,7 +97,12 @@ export function GradesPanel({ initial }: { initial: SubjectGrading }) {
           />
         </>
       ) : (
-        <GradesView grading={initial} />
+        <>
+          <GradesView grading={initial} />
+          {initial.moodleLinkable ? (
+            <MoodleLinks subjectId={initial.subjectId} items={initial.items} />
+          ) : null}
+        </>
       )}
     </section>
   );

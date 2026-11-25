@@ -3,7 +3,13 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createDb, type DbHandle } from "@presenca/db";
 import { inTx, startTestDb, type TestDb } from "@presenca/db/testing";
-import { reconcileDeadlines, sealSecret, secretAad } from "@presenca/integrations";
+import {
+  applyMoodleGrades,
+  mappedCourses,
+  reconcileDeadlines,
+  sealSecret,
+  secretAad,
+} from "@presenca/integrations";
 import { CaptureMailer } from "@presenca/emails/transport";
 import type { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -1023,5 +1029,73 @@ describe("sincronização com o Moodle", () => {
       { external_uid: "a", status: "completed", status_source: "sync" },
       { external_uid: "b", status: "not_completed", status_source: "user" },
     ]);
+  });
+
+  it("notas do Moodle: importa só nas avaliações ligadas que seguem o Moodle e avisa uma vez", async () => {
+    const s = await student();
+    await connect(s);
+    await db.admin.query(
+      "insert into app.moodle_course_mappings (user_id, course_key, subject_id) values ($1, 'FIS1 - 2026-2', $2)",
+      [s.userId, s.subjectId],
+    );
+    await db.admin.query(
+      "insert into app.notification_preferences (user_id, push_enabled, email_enabled) values ($1, true, false) on conflict (user_id) do update set push_enabled = true, email_enabled = false",
+      [s.userId],
+    );
+    const item = async (
+      key: string,
+      external: string | null,
+      source: string,
+      score: number | null,
+    ) =>
+      (
+        await db.admin.query<{ id: string }>(
+          `insert into app.evaluation_items
+             (user_id, subject_id, key, name, max_score, external_grade_item_id, score_source, score, scored_at)
+           values ($1, $2, $3, $3, 1000, $4, $5, $6, case when $6::int is null then null else now() end)
+           returning id`,
+          [s.userId, s.subjectId, key, external, source, score],
+        )
+      ).rows[0]!.id;
+    const p1 = await item("P1", "gi:900", "moodle", null); // segue o Moodle
+    const p2 = await item("P2", "gi:901", "user", 300); // aluno lançou à mão: não muda
+    const p3 = await item("P3", null, "moodle", null); // não ligada
+    const courses = await workerDb.db.transaction((tx) => mappedCourses(tx, s.userId));
+    expect([...courses.entries()]).toEqual([["FIS1 - 2026-2", s.subjectId]]);
+    const grades = new Map([
+      [
+        "FIS1 - 2026-2",
+        [
+          { id: 900, name: "Prova 1", grade: 7.5, max: 10 },
+          { id: 901, name: "Prova 2", grade: 9, max: 10 },
+        ],
+      ],
+    ]);
+    const apply = () =>
+      workerDb.db.transaction((tx) => applyMoodleGrades(tx, { userId: s.userId, grades, courses }));
+    expect(await apply()).toEqual({ updated: 1, posted: 1 });
+    expect(await apply()).toEqual({ updated: 0, posted: 0 }); // idempotente
+
+    const scores = await db.admin.query<{ id: string; score: number | null; score_source: string }>(
+      "select id, score, score_source from app.evaluation_items where user_id = $1",
+      [s.userId],
+    );
+    const byId = new Map(scores.rows.map((r) => [r.id, r]));
+    expect(byId.get(p1)).toMatchObject({ score: 750, score_source: "moodle" });
+    expect(byId.get(p2)).toMatchObject({ score: 300, score_source: "user" });
+    expect(byId.get(p3)?.score).toBeNull();
+    const logs = await db.admin.query<{ channel: string; status: string; payload: unknown }>(
+      "select channel, status, payload from app.notification_logs where user_id = $1 and kind = 'grade_posted' order by channel",
+      [s.userId],
+    );
+    expect(logs.rows.map((r) => [r.channel, r.status]).sort()).toEqual([
+      ["in_app", "sent"],
+      ["push", "pending"],
+    ]);
+    expect(logs.rows.find((r) => r.channel === "in_app")!.payload).toMatchObject({
+      itemName: "P1",
+      score: 750,
+      maxScore: 1000,
+    });
   });
 });

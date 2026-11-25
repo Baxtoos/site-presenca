@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { fetchCourseGrades, moodleScoreToCenti } from "./grades";
 import { enrichWithApi, type MoodleClient, type MoodleDeadline } from "./moodle";
 
 const NOW = new Date("2026-11-24T15:00:00Z");
@@ -36,6 +37,13 @@ function fakeClient(submittedIds: number[]): MoodleClient & { statusCalls: numbe
       client.statusCalls++;
       return submittedIds.includes(id);
     },
+    gradeItems: async (courseId: number) =>
+      courseId === 10
+        ? [
+            { id: 900, name: "Prova 1", grade: 7.5, max: 10 },
+            { id: 901, name: "Seminário", grade: null, max: 100 },
+          ]
+        : [],
   };
   return client;
 }
@@ -76,5 +84,24 @@ describe("upgrade com wstoken", () => {
   it("não altera a lista original", async () => {
     await enrichWithApi(ics, fakeClient([100]), "https://moodle.exemplo.edu.br", NOW);
     expect(ics[0]!.url).toBeNull();
+  });
+});
+
+describe("notas do Moodle", () => {
+  it("converte a nota do Moodle para a nota máxima da avaliação, em centésimos", () => {
+    expect(moodleScoreToCenti(7.5, 10, 1000)).toBe(750);
+    expect(moodleScoreToCenti(80, 100, 500)).toBe(400); // seminário de 100 pontos valendo 5
+    expect(moodleScoreToCenti(2, 3, 1000)).toBe(667);
+    expect(moodleScoreToCenti(12, 10, 1000)).toBe(1000); // nunca passa da máxima
+  });
+
+  it("busca o livro de notas só das turmas ligadas (casando a chave da turma)", async () => {
+    const grades = await fetchCourseGrades(fakeClient([]), ["si.tesd5 - 2026-2", "Outra turma"]);
+    expect([...grades.keys()]).toEqual(["si.tesd5 - 2026-2"]);
+    expect(grades.get("si.tesd5 - 2026-2")?.map((g) => [g.name, g.grade])).toEqual([
+      ["Prova 1", 7.5],
+      ["Seminário", null],
+    ]);
+    expect(await fetchCourseGrades(fakeClient([]), [])).toEqual(new Map());
   });
 });

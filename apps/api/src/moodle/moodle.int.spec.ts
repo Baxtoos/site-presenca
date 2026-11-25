@@ -4,30 +4,65 @@ import type { AddressInfo } from "node:net";
 import {
   meResponseSchema,
   moodleCourseSchema,
+  moodleGradesSchema,
   moodleStatusSchema,
   moodleSyncResultSchema,
   problemSchema,
+  subjectGradingSchema,
   subjectSchema,
   taskListSchema,
   taskSchema,
 } from "@presenca/contracts";
+import { sealSecret, secretAad } from "@presenca/integrations";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   type AuthTestEnv,
   Browser,
   registerAndConfirm,
   startAuthTestEnv,
+  TEST_INTEGRATION_KEY,
 } from "../test/auth-harness";
 
 let env: AuthTestEnv;
 let server: Server;
 let base: string;
+const WSTOKEN = "tokenmoodlefalso1234";
+/** Livro de notas que o Moodle falso devolve (muda entre os passos do teste). */
+let gradeItems: {
+  id: number;
+  itemname: string | null;
+  itemtype: string;
+  graderaw: number | null;
+  grademax: number;
+}[] = [];
 /** Calendário que cada aluno "tem" no Moodle falso, por authtoken. */
 const feeds = new Map<string, string>();
 
 beforeAll(async () => {
   env = await startAuthTestEnv();
   server = createServer((req, res) => {
+    if (req.url?.startsWith("/webservice/rest/server.php")) {
+      let raw = "";
+      req.on("data", (c: Buffer) => (raw += c.toString()));
+      req.on("end", () => {
+        const form = new URLSearchParams(raw);
+        const json = (body: unknown) =>
+          res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(body));
+        if (form.get("wstoken") !== WSTOKEN)
+          return json({ exception: "x", errorcode: "invalidtoken" });
+        switch (form.get("wsfunction")) {
+          case "core_webservice_get_site_info":
+            return json({ userid: 7, sitename: "Moodle falso" });
+          case "core_enrol_get_users_courses":
+            return json([{ id: 10, shortname: "RED1 - 2026-2", fullname: "Redes" }]);
+          case "gradereport_user_get_grade_items":
+            return json({ usergrades: [{ gradeitems: gradeItems }] });
+          default:
+            return json({ courses: [] });
+        }
+      });
+      return;
+    }
     const token = new URL(req.url ?? "/", "http://x").searchParams.get("authtoken") ?? "";
     const feed = feeds.get(token);
     if (!feed) return res.writeHead(403).end("acesso negado");
@@ -345,5 +380,122 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       );
       expect(rows.rowCount).toBe(0);
     }
+  });
+
+  it("notas do Moodle: lista os itens, sugere pelo nome, liga e traz a nota; nota do aluno vence", async () => {
+    const lia = await student();
+    feeds.set("SEGREDO-LIA", FEED);
+    await lia.b.request("PUT", "/v1/moodle", { icsUrl: icsLink("SEGREDO-LIA") });
+    // Sem token: explica o que falta.
+    const noToken = moodleGradesSchema.parse(
+      (await lia.b.request("GET", `/v1/subjects/${lia.subject.id}/moodle-grades`)).json(),
+    );
+    expect(noToken).toMatchObject({ available: false, items: [] });
+    expect(noToken.reason).toMatch(/token/);
+
+    // Token (o endereço http do Moodle falso só entra direto no banco).
+    const key = Buffer.from(TEST_INTEGRATION_KEY, "base64");
+    // O banco exige https no endereço; só neste banco de teste a regra sai para o update e volta
+    // (NOT VALID: continua valendo para o que for gravado depois).
+    const admin = await env.db.admin.connect();
+    try {
+      await admin.query("begin");
+      await admin.query(
+        "alter table app.moodle_connections drop constraint moodle_connections_base_url_chk",
+      );
+      await admin.query(
+        "update app.moodle_connections set base_url = $2, wstoken_enc = $3 where user_id = $1",
+        [lia.userId, base, sealSecret(WSTOKEN, key, secretAad(lia.userId, "wstoken"))],
+      );
+      await admin.query(
+        `alter table app.moodle_connections add constraint moodle_connections_base_url_chk
+           check (base_url is null or (base_url ~ '^https://' and char_length(base_url) <= 300)) not valid`,
+      );
+      await admin.query("commit");
+    } finally {
+      admin.release();
+    }
+    const grading = subjectGradingSchema.parse(
+      (
+        await lia.b.request("PUT", `/v1/subjects/${lia.subject.id}/grading`, {
+          rules: { scale: 10, passing: 600, formula: "(P1 + Seminario) / 2" },
+          items: [
+            { key: "P1", name: "Prova 1", maxScore: 1000 },
+            { key: "Seminario", name: "Seminário", maxScore: 1000 },
+          ],
+          source: "manual",
+        })
+      ).json(),
+    );
+    expect(grading.moodleLinkable).toBe(true);
+    const [p1, sem] = grading.items;
+
+    gradeItems = [
+      { id: 0, itemname: null, itemtype: "course", graderaw: 70, grademax: 100 },
+      { id: 900, itemname: "Prova 1", itemtype: "mod", graderaw: 7.5, grademax: 10 },
+      { id: 901, itemname: "Seminário", itemtype: "mod", graderaw: null, grademax: 100 },
+    ];
+    const listed = moodleGradesSchema.parse(
+      (await lia.b.request("GET", `/v1/subjects/${lia.subject.id}/moodle-grades`)).json(),
+    );
+    expect(listed).toMatchObject({ available: true, courseKey: "RED1 - 2026-2" });
+    expect(listed.items.map((i) => [i.externalId, i.name, i.suggested])).toEqual([
+      ["gi:900", "Prova 1", p1!.id],
+      ["gi:901", "Seminário", sem!.id],
+    ]);
+
+    // O aluno já lançou a nota do seminário à mão: ligar não muda a nota dele.
+    await lia.b.request(
+      "PATCH",
+      `/v1/evaluation-items/${sem!.id}`,
+      { score: 500 },
+      { headers: ifMatch(sem!.version) },
+    );
+    const linked = await lia.b.request("PUT", `/v1/subjects/${lia.subject.id}/moodle-grades`, {
+      links: [
+        { evaluationItemId: p1!.id, externalGradeItemId: "gi:900" },
+        { evaluationItemId: sem!.id, externalGradeItemId: "gi:901" },
+      ],
+    });
+    expect(linked.statusCode, linked.body).toBe(200);
+    expect(moodleGradesSchema.parse(linked.json()).items.map((i) => i.linkedTo)).toEqual([
+      p1!.id,
+      sem!.id,
+    ]);
+    const after = subjectGradingSchema.parse(
+      (await lia.b.request("GET", `/v1/subjects/${lia.subject.id}/grading`)).json(),
+    );
+    expect(after.items.map((i) => [i.key, i.score, i.scoreSource, i.externalGradeItemId])).toEqual([
+      ["P1", 750, "moodle", "gi:900"],
+      ["Seminario", 500, "user", "gi:901"],
+    ]);
+    // Ligar pela tela não gera aviso de "nota nova".
+    const notices = await env.db.admin.query(
+      "select 1 from app.notification_logs where user_id = $1 and kind = 'grade_posted'",
+      [lia.userId],
+    );
+    expect(notices.rowCount).toBe(0);
+
+    // Item de outra turma (ou inventado) e avaliação de outra matéria são recusados.
+    const bad = await lia.b.request("PUT", `/v1/subjects/${lia.subject.id}/moodle-grades`, {
+      links: [{ evaluationItemId: p1!.id, externalGradeItemId: "gi:12345" }],
+    });
+    expect(bad.statusCode).toBe(422);
+    const other = await student();
+    const stranger = await other.b.request("GET", `/v1/subjects/${lia.subject.id}/moodle-grades`);
+    expect(stranger.statusCode).toBe(404);
+
+    // Desligar devolve a nota ao aluno.
+    await lia.b.request("PUT", `/v1/subjects/${lia.subject.id}/moodle-grades`, {
+      links: [{ evaluationItemId: p1!.id, externalGradeItemId: null }],
+    });
+    const unlinked = subjectGradingSchema.parse(
+      (await lia.b.request("GET", `/v1/subjects/${lia.subject.id}/grading`)).json(),
+    );
+    expect(unlinked.items[0]).toMatchObject({
+      score: 750,
+      scoreSource: "user",
+      externalGradeItemId: null,
+    });
   });
 });
