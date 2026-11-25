@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import {
   GRADING_AI_MAX_TURNS,
   type GradingAssistantRequest,
@@ -29,6 +29,8 @@ export const GRADING_AI = Symbol("GRADING_AI");
 /** Modelo fixo de propósito: sem variável para trocar, ninguém liga um modelo mais caro. */
 export const GRADING_AI_MODEL = "gemini-3.8-flash";
 
+const logger = new Logger("GradingAi");
+
 /** Google Gemini pela API REST (generateContent com saída em JSON Schema). */
 export function gradingAiFactory(env: Env): GradingAi | null {
   const key = env.GEMINI_API_KEY;
@@ -54,8 +56,13 @@ export function gradingAiFactory(env: Env): GradingAi | null {
         // Se a IA demorar, a tela cai no editor manual.
         signal: AbortSignal.timeout(45_000),
       });
-      if (!res.ok) throw new Error(`Gemini respondeu ${res.status}`);
+      if (!res.ok) {
+        // O corpo do erro do Google diz o motivo (chave inválida, modelo inexistente, cota…).
+        const body = (await res.text().catch(() => "")).slice(0, 400);
+        throw new Error(`Gemini respondeu ${res.status}: ${body}`);
+      }
       const data = (await res.json()) as {
+        promptFeedback?: { blockReason?: string };
         candidates?: {
           finishReason?: string;
           content?: { parts?: { text?: string; thought?: boolean }[] };
@@ -63,7 +70,12 @@ export function gradingAiFactory(env: Env): GradingAi | null {
       };
       const candidate = data.candidates?.[0];
       // Sem candidato = bloqueado (promptFeedback); SAFETY, MAX_TOKENS etc. = sem resposta útil.
-      if (!candidate || candidate.finishReason !== "STOP") return null;
+      if (!candidate || candidate.finishReason !== "STOP") {
+        logger.warn(
+          `Gemini sem resposta útil: finishReason=${candidate?.finishReason ?? "nenhum"} blockReason=${data.promptFeedback?.blockReason ?? "nenhum"}`,
+        );
+        return null;
+      }
       const text = (candidate.content?.parts ?? [])
         .filter((p) => !p.thought)
         .map((p) => p.text ?? "")
@@ -71,6 +83,7 @@ export function gradingAiFactory(env: Env): GradingAi | null {
       try {
         return JSON.parse(text) as unknown;
       } catch {
+        logger.warn("Gemini devolveu um texto que não é JSON");
         return null;
       }
     },
@@ -204,6 +217,7 @@ const FALLBACK_MESSAGE = {
  */
 @Injectable()
 export class GradingAssistantService {
+  private readonly logger = new Logger(GradingAssistantService.name);
   constructor(
     private readonly db: DbService,
     @Inject(REDIS) private readonly redis: Redis,
@@ -257,7 +271,10 @@ export class GradingAssistantService {
       let turn: AiTurn | null;
       try {
         turn = await this.ask(subject.name, history, remaining);
-      } catch {
+      } catch (error) {
+        this.logger.warn(
+          `Falha ao chamar a IA: ${error instanceof Error ? error.message : String(error)}`,
+        );
         return {
           type: "fallback",
           reason: "error",
@@ -266,6 +283,7 @@ export class GradingAssistantService {
         };
       }
       if (!turn) {
+        this.logger.warn("A IA respondeu fora do formato esperado ou sem resposta útil.");
         return {
           type: "fallback",
           reason: "error",
