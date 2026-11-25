@@ -69,12 +69,21 @@ export default function LandingPage() {
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-line bg-paper/90 px-4 pt-[env(safe-area-inset-top)] backdrop-blur sm:px-6">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-2">
-          <span className="text-base font-semibold tracking-tight">Monitor de Presenças</span>
+          <span className="text-base font-semibold tracking-tight">
+            <span className="sm:hidden">Presenças</span>
+            <span className="hidden sm:inline">Monitor de Presenças</span>
+          </span>
           <span className="flex-1" />
-          <ButtonLink href="/entrar" variant="ghost">
-            Entrar
+          <InstallApp variant="header" />
+          {/* Celular: "Entrar" fica no "Já tenho conta" logo abaixo, para o topo caber numa linha. */}
+          <span className="hidden sm:block">
+            <ButtonLink href="/entrar" variant="ghost">
+              Entrar
+            </ButtonLink>
+          </span>
+          <ButtonLink href="/cadastro" className="whitespace-nowrap">
+            Criar conta
           </ButtonLink>
-          <ButtonLink href="/cadastro">Criar conta</ButtonLink>
         </div>
       </header>
 

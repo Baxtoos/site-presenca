@@ -69,7 +69,7 @@ const DISMISS_DAYS = 30;
  * - `signup`: aviso curto no cadastro;
  * - `home`: convite no Início, que dá para dispensar por 30 dias.
  */
-export function InstallApp({ variant }: { variant: "landing" | "signup" | "home" }) {
+export function InstallApp({ variant }: { variant: "landing" | "signup" | "home" | "header" }) {
   const device = useDevice();
   const canPrompt = useSyncExternalStore(
     subscribe,
@@ -99,6 +99,27 @@ export function InstallApp({ variant }: { variant: "landing" | "signup" | "home"
       emit();
     });
   };
+  if (variant === "header") {
+    // Com o diálogo do navegador, instala na hora; sem ele, leva ao passo a passo da página.
+    return (
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() =>
+          canPrompt
+            ? install()
+            : document
+                .getElementById("app")
+                ?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+      >
+        <PhoneIcon size={16} />
+        <span className="hidden sm:inline">Instalar app</span>
+        <span className="sm:hidden">App</span>
+      </Button>
+    );
+  }
+
   const action = canPrompt ? (
     <Button type="button" onClick={install}>
       <PhoneIcon size={16} />

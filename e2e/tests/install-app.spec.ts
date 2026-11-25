@@ -14,6 +14,9 @@ test("deixa claro que também é um app e mostra como instalar (apresentação, 
   const landing = page.getByTestId("instalar-app");
   await expect(landing).toBeVisible();
   await expect(landing).toContainText(/Instalar|Compartilhar|menu ⋮|barra de endereço/);
+  // Botão do topo: sem o diálogo do navegador, leva ao passo a passo.
+  await page.getByRole("banner").getByRole("button", { name: /app/i }).click();
+  await expect(landing).toBeInViewport();
 
   // Cadastro: aviso curto.
   await page.goto("/cadastro");
