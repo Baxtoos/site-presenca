@@ -749,6 +749,17 @@ describe("papel de backup (app_backup)", () => {
     expect(rows.map((r) => r.tablename).sort()).toEqual(await appTables());
   });
 
+  it("toda tabela com RLS tem owner_maintenance (senão a restauração do backup falha)", async () => {
+    const { rows } = await db.admin.query<{ relname: string }>(
+      `select c.relname from pg_class c
+        where c.relnamespace = 'app'::regnamespace and c.relkind = 'r' and c.relrowsecurity
+          and not exists (select 1 from pg_policy p
+                           where p.polrelid = c.oid and p.polname = 'owner_maintenance')
+        order by 1`,
+    );
+    expect(rows.map((r) => r.relname)).toEqual([]);
+  });
+
   it("lê as linhas de todos os usuários, sem contexto", async () => {
     expect(await count(backup(), "select 1 from users")).toBeGreaterThanOrEqual(2);
     for (const [table] of OWNED_TABLES) {

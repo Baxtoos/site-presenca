@@ -134,6 +134,13 @@
       "when": 1795547055080,
       "tag": "0018_notas_seguranca",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795627834814,
+      "tag": "0019_backup_restauracao_tabelas_novas",
+      "breakpoints": true
     }
   ]
 }
