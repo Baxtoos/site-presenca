@@ -410,9 +410,45 @@ Tudo dentro da API, sem serviço externo de identidade.
   - `PATCH /v1/moodle/courses/:id`: muda a turma, com If-Match;
   - `DELETE /v1/moodle?keepTasks=`: desconecta, com If-Match. As tarefas viram manuais, ou as
     futuras pendentes são apagadas.
+- **Notas do Moodle (com wstoken):** `gradereport_user_get_grade_items` nas turmas ligadas a
+  matérias. Na seção Notas da matéria, o aluno liga cada avaliação a um item do Moodle (sugestão
+  pelo nome) ou traz os itens como base da regra. Ligada e sem nota do aluno, a avaliação segue o
+  Moodle (`score_source = 'moodle'`): o worker traz as notas novas, convertidas para a nota máxima
+  da avaliação, e avisa "Nota nova" (no app, push e e-mail) uma vez por nota. Nota lançada pelo
+  aluno (`score_source = 'user'`) nunca é trocada. Rotas `GET/PUT /v1/subjects/:id/moodle-grades`.
 - **Segurança:** busca anti-SSRF, chave `INTEGRATION_ENCRYPTION_KEY` só no Render e no GitHub, e
   RLS forçado. Detalhes em `docs/seguranca-asvs.md`; deploy no passo 14 de
   `docs/deploy-gratuito.md`.
+
+## Notas (seção Notas da matéria e aba `/notas`)
+
+- **Regra de cálculo por matéria:** cada professor calcula de um jeito, então o aluno descreve a
+  regra: escala 0–10 ou 0–100, nota mínima, avaliações (nome curto, nota máxima, grupo, tipo),
+  fórmula (`+ - * /`, parênteses, `max`, `min`, `media`), grupos com descarte das piores,
+  substitutiva, exame e arredondamento.
+- **Assistente de IA (opcional):** o aluno conta a regra em texto (ou cola o plano de ensino) e o
+  Google Gemini só **coleta** as informações e preenche o editor ao lado; no máximo 10 perguntas
+  por conversa e 30 conversas por dia. Modelo fixo no código (`gemini-3.8-flash`, reserva
+  `gemini-3.5-flash-lite` quando o principal está lotado), sem variável para trocar. Sem
+  `GEMINI_API_KEY`, só o editor. Nada é salvo sem o aluno conferir.
+- **Contas no motor (`packages/engine/src/grades`):** frações exatas (sem ponto flutuante), parser
+  próprio de fórmula (sem `eval`), nota garantida, média parcial, máximo possível, quanto falta
+  (por avaliação e no exame) e situação (`aprovado_por_nota`, `em_curso`, `em_exame`,
+  `sem_chance_direta`, `reprovado_por_nota`). O "E se eu tirar…?" roda no navegador com o mesmo
+  motor. A nota final nunca é guardada: é sempre calculada.
+- **Tarefa ligada à avaliação:** criar a avaliação com data pode criar a tarefa; uma tarefa
+  existente pode ser ligada ("Vale nota?"). Entregue e sem nota: "Entregue · aguardando nota" com
+  atalho para lançar; não entregue: atalho "Lançar 0"; lançar a nota com a tarefa pendente oferece
+  marcá-la como entregue.
+- **Onde aparece:** seção Notas da matéria, selo da situação no card da matéria (Início) e a aba
+  `/notas` com todas as matérias do semestre.
+- **Compartilhar:** o modelo (versão 2) leva a regra e as avaliações, nunca notas, datas, tarefas
+  ou Moodle; modelos da versão 1 continuam importando.
+- **Rotas:** `GET/PUT /v1/subjects/:id/grading` (If-Match ao editar), `POST
+/v1/subjects/:id/grading/assistant`, `PATCH /v1/evaluation-items/:id` (If-Match, `completeTask`).
+- **Banco:** `grading_schemes` e `evaluation_items` com RLS forçado, FKs compostas
+  `(subject_id, user_id)`; o `app_worker` não vê a regra e só altera notas ligadas ao Moodle que
+  seguem o Moodle.
 
 ## App instalável e modo offline
 

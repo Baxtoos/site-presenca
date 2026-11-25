@@ -316,6 +316,23 @@ Sem a chave, a página Conta → Moodle diz que a integração não está ligada
 `INTEGRATIONS_ALLOW_INSECURE_FETCH` é só para os testes (a API e o worker recusam fora de
 `NODE_ENV=test`).
 
+## 15. Assistente de notas com IA (opcional)
+
+Na seção Notas de cada matéria, o aluno pode contar como o professor calcula a nota e a IA do
+Google (Gemini) preenche o editor. Sem a chave, só o editor manual aparece; o resto funciona igual.
+
+1. Entre em [aistudio.google.com](https://aistudio.google.com) com a sua conta Google → _Get API key_
+   → _Create API key_.
+2. Render → serviço da API → _Environment_: crie `GEMINI_API_KEY` com a chave. A API reinicia
+   sozinha.
+3. Custo: o plano gratuito do Gemini não cobra (no gratuito, o Google pode usar os textos enviados
+   para melhorar os produtos dele). Se ativar o faturamento, crie um alerta em Google Cloud →
+   _Faturamento → Orçamentos e alertas_. O modelo é fixo no código (`gemini-3.8-flash`, reserva
+   `gemini-3.5-flash-lite`), então ninguém liga um modelo mais caro por configuração.
+
+Se a IA não responder, o log da API (Render → _Logs_) mostra a linha `GradingAi` com o motivo que o
+Google devolveu (chave inválida, cota, modelo lotado), sem a chave e sem o texto do aluno.
+
 ## Problemas comuns
 
 | Sintoma                                      | Causa provável                                                                                        |

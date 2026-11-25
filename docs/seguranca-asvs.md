@@ -130,6 +130,25 @@ Legenda: ✅ atende · 🔧 corrigido nesta revisão · ⚠️ recomendação (r
 1. **Estilos com `'unsafe-inline'` na CSP:** necessário para os atributos `style` do React. Não
    executa código; o risco é só de injeção de CSS, que o React já evita ao escapar o conteúdo.
 
+## Notas e assistente de IA (25/11/2026)
+
+- **Dados para terceiros (LGPD):** o texto que o aluno escreve no assistente de notas vai para a
+  API do Google Gemini; a tela avisa isso antes de enviar. Só vai o que o aluno digitou e o nome da
+  matéria; nunca faltas, notas, e-mail ou tokens. A chave (`GEMINI_API_KEY`) fica só no Render, e o
+  log de falha traz o status e a mensagem do Google, nunca a chave nem o texto do aluno.
+- **Abuso e custo (API4):** no máximo 10 chamadas por conversa (contador no Redis) e 30 conversas
+  por aluno por dia (rate limit); modelo fixo no código, sem variável que troque por um mais caro.
+- **Saída da IA não é confiável (LLM02):** a resposta passa pelo contrato (Zod) e pelo motor
+  (`validateGrading`) antes de chegar à tela, e nada é salvo sem o aluno conferir e clicar.
+  A fórmula é lida por um parser próprio (sem `eval`/`Function`), com limite de tamanho e
+  profundidade.
+- **Notas do Moodle:** o `app_worker` não lê a regra de cálculo e só altera `score`,
+  `score_source` e `scored_at` de avaliações ligadas a um item do Moodle que seguem o Moodle
+  (política `worker_moodle_scores`); nota lançada pelo aluno nunca é trocada. Ligar exige um item
+  que exista na turma ligada à matéria. Leitura ao vivo do Moodle limitada a 60/h por aluno.
+- **Compartilhar (versão 2):** o modelo leva só a regra e as avaliações; notas, datas, tarefas e
+  ligações com o Moodle nunca saem da conta (teste em `sharing.int.spec.ts`).
+
 ## Como repetir
 
 - `pnpm test:int` cobre isolamento (RLS), papéis, CSRF, tokens, sessões, push e cache.
