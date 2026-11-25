@@ -23,7 +23,7 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(page.getByText("Falta registrada em Física I.")).toBeVisible();
   await expect(aula).toContainText("Ainda pode faltar 16 aulas");
   await page.getByRole("button", { name: "Desfazer" }).click();
-  await expect(page.getByText("Desfeito.")).toBeVisible();
+  await expect(page.getByText("Desfeito.").last()).toBeVisible();
   await expect(aula).toContainText("Ainda pode faltar 18 aulas");
   await expect(aula.getByRole("button", { name: "Faltei", exact: true })).toHaveAttribute(
     "aria-pressed",
@@ -39,7 +39,7 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   );
   await expect(aula).toContainText("Ainda pode faltar 18 aulas");
   await page.getByRole("button", { name: "Desfazer" }).click();
-  await expect(page.getByText("Desfeito.")).toBeVisible();
+  await expect(page.getByText("Desfeito.").last()).toBeVisible();
 
   // Parcial de uma aula de 2 tempos: perde 1, sem perguntar.
   await aula.getByRole("button", { name: "Faltei parcial" }).click();
