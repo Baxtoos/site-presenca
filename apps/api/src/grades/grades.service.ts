@@ -23,6 +23,7 @@ import { and, asc, eq, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 import { ClockService } from "../common/clock";
 import { assertVersioned, parseIfMatch } from "../common/versioning";
 import { DbService } from "../database/db.service";
+import { cancelTaskNotifications } from "../tasks/tasks.service";
 import { GRADING_AI, type GradingAi } from "./assistant.service";
 
 const { gradingSchemes, evaluationItems, subjects, tasks, users } = schema;
@@ -267,7 +268,12 @@ export class GradesService {
     });
   }
 
-  setScore(itemId: string, expectedVersion: number, score: number | null): Promise<SubjectGrading> {
+  setScore(
+    itemId: string,
+    expectedVersion: number,
+    score: number | null,
+    completeTask = false,
+  ): Promise<SubjectGrading> {
     return this.db.tx(async (tx) => {
       const [item] = await tx
         .select({ subjectId: evaluationItems.subjectId, maxScore: evaluationItems.maxScore })
@@ -287,6 +293,15 @@ export class GradesService {
         .where(and(eq(evaluationItems.id, itemId), eq(evaluationItems.version, expectedVersion)))
         .returning({ id: evaluationItems.id });
       await assertVersioned(rows, async () => true, "Avaliação não encontrada.");
+      if (completeTask && score !== null) {
+        // Nota lançada = entregue: a tarefa ligada que ainda estava pendente vira concluída.
+        const done = await tx
+          .update(schema.tasks)
+          .set({ status: "completed", statusSource: "user", resolvedAt: this.clock.now() })
+          .where(and(eq(schema.tasks.evaluationItemId, itemId), eq(schema.tasks.status, "pending")))
+          .returning({ id: schema.tasks.id });
+        for (const t of done) await cancelTaskNotifications(tx, t.id, "nota lançada");
+      }
       return this.load(tx, item.subjectId);
     });
   }

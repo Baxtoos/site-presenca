@@ -15,6 +15,7 @@ import { ThresholdAlerts } from "../notifications/threshold-alerts";
 import { NO_ATTENDANCE, scheduleColumns, subjectColumns, toSchedule, toSubject } from "./mappers";
 import { SemestersService } from "./semesters.service";
 import { inOrder } from "../common/in-order";
+import { gradeStatusesTx } from "../grades/status";
 
 const { subjects, subjectSchedules, subjectTotals } = schema;
 
@@ -174,6 +175,7 @@ export class SubjectsService {
       tx.select().from(subjectSchedules).where(inArray(subjectSchedules.subjectId, ids)),
       tx.select().from(subjectTotals).where(inArray(subjectTotals.subjectId, ids)),
     ]);
+    const gradeStatuses = await gradeStatusesTx(tx, ids);
     const totalsById = new Map<string, AttendanceTotals>(
       totals.map((t) => [
         t.subjectId,
@@ -185,6 +187,7 @@ export class SubjectsService {
         row,
         sortSchedules(schedules.filter((s) => s.subjectId === row.id)),
         totalsById.get(row.id) ?? NO_ATTENDANCE,
+        gradeStatuses.get(row.id) ?? null,
       ),
     );
   }

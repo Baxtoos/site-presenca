@@ -144,6 +144,8 @@ export type SubjectGrading = z.infer<typeof subjectGradingSchema>;
 export const scoreBodySchema = z.object({
   /** Nota em centésimos; null apaga a nota. */
   score: centi.nullable(),
+  /** Também marca como concluída a tarefa ligada que ainda está pendente. */
+  completeTask: z.boolean().optional(),
 });
 
 export const evaluationItemParamsSchema = z.object({

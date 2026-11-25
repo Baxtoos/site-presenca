@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { SubjectCalendar } from "@/components/attendance/subject-calendar";
+import { GradeBadge } from "@/components/grades/grade-badge";
 import { GradesPanel } from "@/components/grades/grades-panel";
 import { BookIcon, ChevronRightIcon, SettingsIcon } from "@/components/icons";
 import { RiskLine } from "@/components/subject-card";
@@ -107,6 +108,7 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
         }
       >
         <RiskLine summary={s} unitsPerClass={subject.unitsPerClass} className="text-[15px]" />
+        {grading.summary ? <GradeBadge status={grading.summary.status} /> : null}
       </PageHeader>
 
       <section className="card p-5 sm:p-6" aria-label="Resumo de faltas">

@@ -74,8 +74,8 @@ export class GradesController {
   async setScore(
     @Param(new ZodPipe(evaluationItemParamsSchema)) { id }: { id: string },
     @IfMatchVersion() version: number,
-    @Body(new ZodPipe(scoreBodySchema)) body: { score: number | null },
+    @Body(new ZodPipe(scoreBodySchema)) body: { score: number | null; completeTask?: boolean },
   ): Promise<SubjectGrading> {
-    return this.grades.setScore(id, version, body.score);
+    return this.grades.setScore(id, version, body.score, body.completeTask);
   }
 }

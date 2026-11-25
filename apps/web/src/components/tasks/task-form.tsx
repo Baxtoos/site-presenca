@@ -1,8 +1,8 @@
 "use client";
 
-import { DEFAULT_TASK_REMIND, type Task } from "@presenca/contracts";
+import { DEFAULT_TASK_REMIND, type SubjectGrading, type Task } from "@presenca/contracts";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import { Alert, Button, Field, INPUT_CLASS } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
@@ -44,6 +44,22 @@ export function TaskForm({
     task?.subject && !subjects.some((s) => s.id === task.subject!.id)
       ? [...subjects, { id: task.subject.id, name: task.subject.name }]
       : subjects;
+  const [subjectId, setSubjectId] = useState(task?.subjectId ?? "");
+  // Avaliações da matéria escolhida (para ligar a tarefa a uma prova ou trabalho).
+  const [evaluations, setEvaluations] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    if (!subjectId) {
+      setEvaluations([]);
+      return;
+    }
+    api<SubjectGrading>(`/v1/subjects/${subjectId}/grading`)
+      .then((g) => alive && setEvaluations(g.items.map((i) => ({ id: i.id, name: i.name }))))
+      .catch(() => alive && setEvaluations([]));
+    return () => {
+      alive = false;
+    };
+  }, [subjectId]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,6 +67,11 @@ export function TaskForm({
     const common = {
       notes: formText(form, "tarefa-notas"),
       subjectId: formText(form, "tarefa-materia") || null,
+      // Só manda quando o campo apareceu (sem ele, não mexe no vínculo; trocar de matéria já
+      // desfaz o vínculo no banco).
+      evaluationItemId: form.has("tarefa-avaliacao")
+        ? formText(form, "tarefa-avaliacao") || null
+        : undefined,
       // "" = sem aviso.
       remindBeforeMinutes: formText(form, "tarefa-aviso")
         ? Number(formText(form, "tarefa-aviso"))
@@ -117,7 +138,8 @@ export function TaskForm({
         <select
           id="tarefa-materia"
           name="tarefa-materia"
-          defaultValue={task?.subjectId ?? ""}
+          value={subjectId}
+          onChange={(e) => setSubjectId(e.target.value)}
           className={INPUT_CLASS}
         >
           <option value="">Sem matéria</option>
@@ -129,6 +151,32 @@ export function TaskForm({
         </select>
         {fields.subjectId ? <span className="text-sm text-fail">{fields.subjectId}</span> : null}
       </label>
+      {evaluations.length > 0 ? (
+        <label className="grid min-w-0 gap-1.5 text-sm font-medium" htmlFor="tarefa-avaliacao">
+          Vale nota? Avaliação (opcional)
+          <select
+            // Recria ao trocar de matéria: a avaliação precisa ser da mesma matéria.
+            key={subjectId}
+            id="tarefa-avaliacao"
+            name="tarefa-avaliacao"
+            defaultValue={task?.subjectId === subjectId ? (task?.evaluation?.id ?? "") : ""}
+            className={INPUT_CLASS}
+          >
+            <option value="">Não vale nota</option>
+            {evaluations.map((ev) => (
+              <option key={ev.id} value={ev.id}>
+                {ev.name}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs font-normal text-muted">
+            Depois de entregue, a tarefa lembra você de lançar a nota.
+          </span>
+          {fields.evaluationItemId ? (
+            <span className="text-sm text-fail">{fields.evaluationItemId}</span>
+          ) : null}
+        </label>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-3">
         <Field
           id="tarefa-data"

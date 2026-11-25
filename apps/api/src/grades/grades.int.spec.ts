@@ -123,6 +123,51 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
     expect(tooHigh.statusCode).toBe(422);
   });
 
+  it("lançar nota com completeTask conclui a tarefa ligada; a lista de matérias traz a situação", async () => {
+    const bia = await student();
+    const g = subjectGradingSchema.parse(
+      (await bia.b.request("PUT", `/v1/subjects/${bia.calc.id}/grading`, weighted)).json(),
+    );
+    const p2 = g.items.find((i) => i.key === "P2")!;
+    expect(p2.task?.status).toBe("pending");
+
+    const res = await bia.b.request(
+      "PATCH",
+      `/v1/evaluation-items/${p2.id}`,
+      { score: 900, completeTask: true },
+      { headers: ifMatch(p2.version) },
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    const after = subjectGradingSchema.parse(res.json());
+    expect(after.items.find((i) => i.key === "P2")?.task?.status).toBe("completed");
+    const task = taskSchema.parse((await bia.b.request("GET", `/v1/tasks/${p2.task!.id}`)).json());
+    expect(task).toMatchObject({
+      status: "completed",
+      statusSource: "user",
+      evaluation: { score: 900 },
+    });
+
+    // Sem completeTask a tarefa não muda (P1 não tem tarefa; apagar a nota da P2 não reabre).
+    const cleared = await bia.b.request(
+      "PATCH",
+      `/v1/evaluation-items/${p2.id}`,
+      { score: null, completeTask: true },
+      { headers: ifMatch(p2.version + 1) },
+    );
+    expect(
+      subjectGradingSchema.parse(cleared.json()).items.find((i) => i.key === "P2")?.task?.status,
+    ).toBe("completed");
+
+    const list = (
+      await bia.b.request("GET", `/v1/semesters/${bia.calc.semesterId}/subjects`)
+    ).json<{
+      subjects: unknown[];
+    }>();
+    const subjects = list.subjects.map((s) => subjectSchema.parse(s));
+    expect(subjects.find((s) => s.id === bia.calc.id)?.gradeStatus).toBe("em_curso");
+    expect(subjects.find((s) => s.id === bia.fis.id)?.gradeStatus).toBeNull();
+  });
+
   it("valida a regra, exige If-Match ao editar e mantém as notas ao renomear", async () => {
     const bia = await student();
     const bad = await bia.b.request("PUT", `/v1/subjects/${bia.calc.id}/grading`, {

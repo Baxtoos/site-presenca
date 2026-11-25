@@ -177,11 +177,13 @@ function ScoreRow({
   const toast = useToast();
   const [value, setValue] = useState(item.score === null ? "" : formatGrade(item.score));
   const [saving, setSaving] = useState(false);
+  const taskPending = item.task?.status === "pending";
+  const [completeTask, setCompleteTask] = useState(true);
   const id = `nota-${item.id}`;
 
-  async function save() {
-    const score = value.trim() === "" ? null : parseGrade(value);
-    if (value.trim() !== "" && score === null) {
+  async function save(text = value) {
+    const score = text.trim() === "" ? null : parseGrade(text);
+    if (text.trim() !== "" && score === null) {
       toast.push({ tone: "error", message: "Use um número como 7 ou 7,5." });
       return;
     }
@@ -190,7 +192,7 @@ function ScoreRow({
       await api(`/v1/evaluation-items/${item.id}`, {
         method: "PATCH",
         ifMatch: item.version,
-        body: { score },
+        body: { score, completeTask: taskPending && completeTask },
       });
       toast.push({
         tone: "success",
@@ -236,7 +238,23 @@ function ScoreRow({
         <Button type="button" variant="secondary" loading={saving} onClick={() => void save()}>
           {item.score === null ? "Lançar nota" : "Salvar"}
         </Button>
+        {item.score === null && item.task?.status === "not_completed" ? (
+          <Button type="button" variant="ghost" disabled={saving} onClick={() => void save("0")}>
+            Lançar 0 (não entregue)
+          </Button>
+        ) : null}
       </div>
+      {item.score === null && taskPending ? (
+        <label className="flex items-center gap-2 text-xs text-muted sm:col-span-3">
+          <input
+            type="checkbox"
+            checked={completeTask}
+            onChange={(e) => setCompleteTask(e.target.checked)}
+            className="size-4 accent-[var(--color-accent)]"
+          />
+          Ao lançar, marcar a tarefa “{item.task?.title}” como entregue
+        </label>
+      ) : null}
       {item.score === null && item.role === "regular" ? (
         <label className="flex items-center gap-2 text-xs text-muted" htmlFor={`${id}-sim`}>
           E se eu tirar

@@ -81,6 +81,7 @@ export function toSubject(
   row: SubjectRow,
   schedules: ScheduleRow[],
   totals: AttendanceTotals,
+  gradeStatus: Subject["gradeStatus"] = null,
 ): Subject {
   return {
     id: row.id,
@@ -101,6 +102,7 @@ export function toSubject(
     version: row.version,
     schedules: schedules.map(toSchedule),
     summary: summarize(rulesFromRow(row), totals),
+    gradeStatus,
   };
 }
 

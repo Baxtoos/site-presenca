@@ -56,6 +56,39 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
   await page.getByRole("link", { name: "Notas", exact: true }).first().click();
   await expect(card).toBeVisible();
 
+  // Tarefa que vale nota: liga à Prova 2, entrega e lança a nota pelo atalho.
+  await page.goto("/tarefas/nova?voltar=/tarefas");
+  await page.getByLabel("Título").fill("Prova 2 de Cálculo");
+  await page.getByLabel("Matéria (opcional)").selectOption({ label: "Cálculo" });
+  await page.getByLabel(/Avaliação \(opcional\)/).selectOption({ label: "Prova 2" });
+  await page.getByLabel("Hora do prazo").fill("23:59");
+  await page.getByRole("button", { name: "Criar tarefa" }).click();
+  await expect(page.getByText("Tarefa criada.")).toBeVisible();
+  const linked = page.getByTestId("tarefa").filter({ hasText: "Prova 2 de Cálculo" });
+  await linked.getByRole("button", { name: "Concluída", exact: true }).click();
+  await expect(page.getByText("Tarefa marcada como concluída.")).toBeVisible();
+  await page.getByRole("link", { name: "Concluídas", exact: true }).click();
+  await expect(linked.getByTestId("nota-da-tarefa")).toContainText("Entregue · aguardando nota");
+  await linked.getByRole("link", { name: "Lançar nota" }).click();
+  await notes.getByLabel(/^Prova 2/).fill("9");
+  await notes
+    .getByTestId("avaliacao")
+    .filter({ hasText: "Prova 2" })
+    .getByRole("button", { name: "Lançar nota" })
+    .click();
+  await expect(page.getByText("Nota de Prova 2 lançada.")).toBeVisible();
+  await expect(page.getByTestId("selo-nota").first()).toContainText("Aprovado por nota");
+  await page.goto("/tarefas?status=completed");
+  await expect(linked.getByTestId("nota-da-tarefa")).toContainText("nota 9 de 10");
+  // Início: o card da matéria mostra a situação da nota.
+  await page.goto("/");
+  await expect(
+    page
+      .getByRole("main")
+      .getByRole("link", { name: /Cálculo/ })
+      .getByTestId("selo-nota"),
+  ).toContainText("Aprovado por nota");
+
   await page.waitForLoadState("networkidle");
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

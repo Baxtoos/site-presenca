@@ -6,6 +6,7 @@ import { CheckCircleIcon } from "@/components/icons";
 import { Button } from "@/components/ui";
 import { SUBJECT_COLOR_CLASS } from "@/lib/format";
 import { dueLabel, dueRelative, STATUS_LABEL } from "@/lib/tasks";
+import { GradeHint } from "./grade-hint";
 import { useTaskActions } from "./use-task-actions";
 
 /**
@@ -63,6 +64,7 @@ export function TaskCard({ task, now }: { task: Task; now: string }) {
         )}
       </div>
       {task.notes ? <p className="whitespace-pre-wrap text-muted">{task.notes}</p> : null}
+      <GradeHint task={task} />
       {task.overdue ? (
         <p className="font-medium text-fail">O prazo passou. Você entregou?</p>
       ) : task.status === "pending" ? (

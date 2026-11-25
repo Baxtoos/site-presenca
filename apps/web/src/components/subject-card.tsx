@@ -1,6 +1,7 @@
 import type { Subject } from "@presenca/contracts";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { GradeBadge } from "@/components/grades/grade-badge";
 import { AlertIcon } from "@/components/icons";
 import { plural, RISK_STYLE, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } from "@/lib/format";
 
@@ -86,6 +87,7 @@ export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string
             {[subject.professor, days || "sem horário na grade"].filter(Boolean).join(" · ")}
           </p>
         </div>
+        {subject.gradeStatus ? <GradeBadge status={subject.gradeStatus} /> : null}
       </div>
 
       <div className="grid gap-1.5">

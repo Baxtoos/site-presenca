@@ -17,6 +17,20 @@ import { DbService } from "../database/db.service";
 
 const { tasks, subjects, semesters, users, notificationLogs, evaluationItems } = schema;
 
+/** Envios de aviso ainda na fila (push/e-mail) desta tarefa deixam de valer. */
+export async function cancelTaskNotifications(tx: Tx, taskId: string, reason: string) {
+  await tx
+    .update(notificationLogs)
+    .set({ status: "skipped", lastError: reason })
+    .where(
+      and(
+        eq(notificationLogs.taskId, taskId),
+        inArray(notificationLogs.channel, ["push", "email"]),
+        inArray(notificationLogs.status, ["pending", "failed"]),
+      ),
+    );
+}
+
 const FALLBACK_TZ = "America/Sao_Paulo";
 
 const invalid = (path: string, message: string) =>
@@ -154,18 +168,8 @@ export class TasksService {
     }
   }
 
-  /** Envios de aviso ainda na fila (push/e-mail) desta tarefa deixam de valer. */
-  private async cancelPending(tx: Tx, taskId: string, reason: string) {
-    await tx
-      .update(notificationLogs)
-      .set({ status: "skipped", lastError: reason })
-      .where(
-        and(
-          eq(notificationLogs.taskId, taskId),
-          inArray(notificationLogs.channel, ["push", "email"]),
-          inArray(notificationLogs.status, ["pending", "failed"]),
-        ),
-      );
+  private cancelPending(tx: Tx, taskId: string, reason: string) {
+    return cancelTaskNotifications(tx, taskId, reason);
   }
 
   // ---------------------------------------------------------------- criar

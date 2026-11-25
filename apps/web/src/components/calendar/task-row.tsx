@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui";
 import { useTaskActions } from "@/components/tasks/use-task-actions";
 import { TONE, taskTone } from "@/lib/calendar";
+import { GradeHint } from "@/components/tasks/grade-hint";
 import { SUBJECT_COLOR_CLASS } from "@/lib/format";
 
 /**
@@ -50,6 +51,7 @@ export function TaskRow({ task, showDate }: { task: Task; showDate?: string }) {
             ) : null}
           </span>
           <span className="text-xs text-muted">{subtitle.join(" · ")}</span>
+          <GradeHint task={task} />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">

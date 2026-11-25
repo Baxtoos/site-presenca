@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { gradeStatusSchema } from "./grades";
 
 // ---------------------------------------------------------------- tipos básicos
 
@@ -244,8 +245,10 @@ export const subjectSchema = z.object({
   version: z.number().int(),
   schedules: z.array(scheduleSchema),
   summary: subjectSummarySchema,
+  /** Situação da nota (null sem regra de cálculo). Default: tolera API antiga durante o deploy. */
+  gradeStatus: gradeStatusSchema.nullable().default(null),
 });
-export type Subject = z.infer<typeof subjectSchema>;
+export type Subject = z.output<typeof subjectSchema>;
 export const subjectsResponseSchema = z.object({ subjects: z.array(subjectSchema) });
 export type SubjectsResponse = z.infer<typeof subjectsResponseSchema>;
 
