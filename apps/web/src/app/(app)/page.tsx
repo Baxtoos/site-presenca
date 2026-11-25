@@ -12,7 +12,8 @@ import { UpcomingTasks } from "@/components/tasks/upcoming-tasks";
 import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { apiGet, getMe } from "@/lib/api-server";
 import { plural, simulateHint } from "@/lib/format";
-import { InstallPrompt, VerifyEmailBanner } from "./home-client";
+import { InstallApp } from "@/components/install-app";
+import { VerifyEmailBanner } from "./home-client";
 
 export const metadata: Metadata = { title: "Monitor de Presenças" };
 
@@ -75,7 +76,7 @@ export default async function Home() {
       />
 
       {me && !me.emailVerified ? <VerifyEmailBanner email={me.email} /> : null}
-      <InstallPrompt />
+      <InstallApp variant="home" />
       <UpcomingTasks days={7} title="Próximas entregas" />
 
       {!current ? (

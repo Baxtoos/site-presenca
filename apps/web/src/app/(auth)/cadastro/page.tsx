@@ -4,6 +4,7 @@ import { GoogleButton } from "@/components/google-button";
 import { OrDivider, TextLink } from "@/components/ui";
 import { getMe } from "@/lib/api-server";
 import { safeNext, withNext } from "@/lib/next-path";
+import { InstallApp } from "@/components/install-app";
 import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = { title: "Criar conta · Monitor de Presenças" };
@@ -27,6 +28,7 @@ export default async function RegisterPage({
       <p className="text-center text-sm text-muted">
         Já tem conta? <TextLink href={withNext("/entrar", next)}>Entrar</TextLink>
       </p>
+      <InstallApp variant="signup" />
     </>
   );
 }

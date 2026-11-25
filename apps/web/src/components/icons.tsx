@@ -208,3 +208,9 @@ export const GradeIcon = (p: IconProps) => (
     <path d="M8 17v-3M12 17v-6M16 17V8" />
   </Svg>
 );
+export const PhoneIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+    <path d="M11 18.5h2" />
+  </Svg>
+);

@@ -6,10 +6,12 @@ import {
   BellIcon,
   CalendarIcon,
   ChevronRightIcon,
+  PhoneIcon,
   ShareIcon,
   UsersIcon,
   WifiOffIcon,
 } from "@/components/icons";
+import { InstallApp } from "@/components/install-app";
 import { ButtonLink } from "@/components/ui";
 
 export const metadata: Metadata = {
@@ -80,8 +82,13 @@ export default function LandingPage() {
         <section className="px-4 pb-16 pt-12 sm:px-6 lg:pb-24 lg:pt-20">
           <div className="mx-auto grid max-w-5xl gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-center">
             <div className="grid gap-6">
-              <p className="w-fit rounded-md bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
-                Grátis para estudantes
+              <p className="flex flex-wrap gap-2 text-xs font-medium">
+                <span className="rounded-md bg-accent-soft px-2 py-0.5 text-accent">
+                  Grátis para estudantes
+                </span>
+                <span className="rounded-md bg-ok-soft px-2 py-0.5 text-ok">
+                  Site e app: celular e computador
+                </span>
               </p>
               <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">
                 Saiba quanto você ainda pode faltar.
@@ -178,6 +185,34 @@ export default function LandingPage() {
                 </li>
               ))}
             </ol>
+          </div>
+        </section>
+
+        <section aria-labelledby="app" className="px-4 pb-16 sm:px-6 lg:pb-20">
+          <div className="card mx-auto grid max-w-5xl gap-6 p-6 sm:p-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center">
+            <div className="grid gap-3">
+              <p className="flex w-fit items-center gap-2 rounded-md bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
+                <PhoneIcon size={14} />
+                Também é um app
+              </p>
+              <h2 id="app" className="text-2xl font-bold tracking-tight sm:text-3xl">
+                Instale no celular ou no computador
+              </h2>
+              <ul className="grid gap-1.5 text-muted">
+                <li>Abre direto da tela inicial, em tela cheia, como qualquer app.</li>
+                <li>Marca a presença sem internet e envia quando a conexão voltar.</li>
+                <li>Avisa por notificação antes do limite de faltas e dos prazos.</li>
+                <li>Sem loja de aplicativos: instala pelo navegador, em segundos, e é grátis.</li>
+              </ul>
+            </div>
+            <div className="grid gap-3 rounded-xl border border-line bg-surface-2 p-5">
+              <p className="text-sm font-medium">Instalar agora</p>
+              <InstallApp variant="landing" />
+              <p className="text-xs text-muted">
+                Já tem conta? Depois de instalar, é só entrar. Ainda não tem? Crie a conta pelo app
+                mesmo.
+              </p>
+            </div>
           </div>
         </section>
 
