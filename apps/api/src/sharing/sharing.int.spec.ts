@@ -5,6 +5,7 @@ import {
   problemSchema,
   sharedTemplateSchema,
   sharedTemplatesResponseSchema,
+  subjectGradingSchema,
   subjectSchema,
   subjectsResponseSchema,
   templatePreviewSchema,
@@ -463,6 +464,72 @@ describe("importar", () => {
       countingMode: "manual",
       manualMaxUnits: 4,
     });
+  });
+
+  it("regra de notas vai junto (versão 2) sem as notas; modelo antigo (versão 1) continua importando", async () => {
+    const ana = await student();
+    const { semesterId, calc } = await semesterWithSubjects(ana);
+    const saved = subjectGradingSchema.parse(
+      (
+        await ana.b.request("PUT", `/v1/subjects/${calc.id}/grading`, {
+          rules: { scale: 10, passing: 600, formula: "0.4*P1 + 0.6*P2" },
+          items: [
+            { key: "P1", name: "Prova 1", maxScore: 1000, dueOn: "2026-10-01", createTask: true },
+            { key: "P2", name: "Prova 2", maxScore: 1000 },
+          ],
+          source: "ai",
+        })
+      ).json(),
+    );
+    const p1 = saved.items[0]!;
+    await ana.b.request(
+      "PATCH",
+      `/v1/evaluation-items/${p1.id}`,
+      { score: 850 },
+      { headers: { "if-match": `"${p1.version}"` } },
+    );
+    const t = await share(ana, { source: { kind: "semester", semesterId } });
+    const stored = await env.db.admin.query<{ payload_version: number; payload: unknown }>(
+      "select payload_version, payload from app.shared_templates where id = $1",
+      [t.id],
+    );
+    expect(stored.rows[0]!.payload_version).toBe(2);
+    const raw = JSON.stringify(stored.rows[0]!.payload);
+    expect(raw).not.toContain("850"); // nota
+    expect(raw).not.toContain("2026-10-01"); // data da avaliação
+    const shown = templatePreviewSchema.parse((await preview(t.code)).json());
+    expect(shown.subjects.map((s) => [s.name, s.hasGrading])).toEqual([
+      ["Cálculo II", true],
+      ["Laboratório de Física", false],
+    ]);
+
+    const bia = await student();
+    const imported = importTemplateResultSchema.parse((await importIt(bia, t.code)).json());
+    const subjects = subjectsResponseSchema.parse(
+      (await bia.b.request("GET", `/v1/semesters/${imported.semesterId}/subjects`)).json(),
+    ).subjects;
+    const biaCalc = subjects.find((s) => s.name === "Cálculo II")!;
+    const copy = subjectGradingSchema.parse(
+      (await bia.b.request("GET", `/v1/subjects/${biaCalc.id}/grading`)).json(),
+    );
+    expect(copy.scheme).toMatchObject({ source: "manual", rules: { formula: "0.4*P1 + 0.6*P2" } });
+    expect(copy.items.map((i) => [i.key, i.score, i.dueOn, i.task])).toEqual([
+      ["P1", null, null, null],
+      ["P2", null, null, null],
+    ]);
+    const tasks = await bia.b.request("GET", "/v1/tasks");
+    expect(tasks.json<{ tasks: unknown[] }>().tasks).toEqual([]);
+
+    // Modelo antigo (versão 1, sem regra de notas) continua importando.
+    await env.db.admin.query(
+      `update app.shared_templates
+          set payload_version = 1, payload = payload - 'gradings'
+        where id = $1`,
+      [t.id],
+    );
+    const caio = await student();
+    const old = await importIt(caio, t.code);
+    expect(old.statusCode, old.body).toBe(201);
   });
 
   it("importar exige login (a prévia não)", async () => {

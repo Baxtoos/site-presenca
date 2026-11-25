@@ -95,9 +95,13 @@ export function rulesFromTemplate(s: TemplateSubject): SubjectRules {
   }
 }
 
-function previewSubject(s: TemplateSubject): TemplatePreview["subjects"][number] {
+function previewSubject(
+  s: TemplateSubject,
+  hasGrading = false,
+): TemplatePreview["subjects"][number] {
   return {
     name: s.name,
+    hasGrading,
     professor: s.professor ?? null,
     color: s.color ?? null,
     unitsPerClass: s.unitsPerClass,
@@ -122,7 +126,12 @@ export function toPreview(
     return {
       ...head,
       semester: payload.semester,
-      subjects: payload.subjects.map(previewSubject),
+      subjects: payload.subjects.map((s, i) =>
+        previewSubject(
+          s,
+          payload.gradings.some((g) => g.subjectIndex === i),
+        ),
+      ),
       exceptions: payload.exceptions.map((e) => ({
         startsOn: e.startsOn,
         endsOn: e.endsOn,
@@ -130,7 +139,12 @@ export function toPreview(
       })),
     };
   }
-  return { ...head, semester: null, subjects: [previewSubject(payload.subject)], exceptions: [] };
+  return {
+    ...head,
+    semester: null,
+    subjects: [previewSubject(payload.subject, payload.grading !== null)],
+    exceptions: [],
+  };
 }
 
 export function toSharedTemplate(row: TemplateRow, now: Date): SharedTemplate {

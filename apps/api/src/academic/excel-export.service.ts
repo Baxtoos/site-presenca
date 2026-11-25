@@ -628,6 +628,8 @@ export class ExcelExportService {
             label: e.label,
             subjectIndex: e.subjectId === null ? null : subjectIndex.get(e.subjectId)!,
           })),
+        // A planilha leva só presença; a regra de notas não vai.
+        gradings: [],
         attendance: data.allLogs
           .filter((l) => subjectIndex.has(l.subjectId))
           .map((l) => ({

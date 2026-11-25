@@ -17,11 +17,13 @@ import {
   SharingErrorCode,
   type SubjectTemplatePayload,
   subjectTemplatePayloadSchema,
+  type TemplateGrading,
+  templateGradingSchema,
   type TemplatePreview,
   type TemplateSubject,
 } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
-import { and, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { freeSemesterLabel } from "../academic/labels";
 import { scheduleColumns, subjectColumns } from "../academic/mappers";
 import { isUniqueViolation } from "../auth/user-mapper";
@@ -30,6 +32,7 @@ import { type IdempotentResult, IdempotencyService } from "../common/idempotency
 import { DbService } from "../database/db.service";
 import { subjectToTemplate, toPreview, toSharedTemplate } from "./sharing.mapper";
 import { inOrder } from "../common/in-order";
+import { validateGrading } from "@presenca/engine";
 
 const {
   sharedTemplates,
@@ -38,6 +41,8 @@ const {
   subjects,
   subjectSchedules,
   calendarExceptions,
+  gradingSchemes,
+  evaluationItems,
 } = schema;
 
 /** Códigos ativos por aluno: o bastante para compartilhar com várias turmas, pouco para abuso. */
@@ -60,8 +65,11 @@ type Payload =
   | { kind: "subject"; data: SubjectTemplatePayload };
 
 /** O payload guardado é revalidado sempre: um modelo antigo ou corrompido nunca vira dado do aluno. */
+/** Versão 2 = versão 1 + regra de cálculo da nota (os campos novos têm padrão vazio). */
+export const PAYLOAD_VERSION = 2;
+
 function parsePayload(kind: string, version: number, raw: unknown): Payload | null {
-  if (version !== 1) return null;
+  if (version !== 1 && version !== 2) return null;
   if (kind === "semester") {
     const r = semesterTemplatePayloadSchema.safeParse(raw);
     return r.success ? { kind, data: r.data } : null;
@@ -71,6 +79,62 @@ function parsePayload(kind: string, version: number, raw: unknown): Payload | nu
     return r.success ? { kind, data: r.data } : null;
   }
   return null;
+}
+
+/** Regra de cálculo de cada matéria, só regra e avaliações (sem notas, datas nem vínculos). */
+async function gradingsOf(tx: Tx, subjectIds: string[]): Promise<Map<string, TemplateGrading>> {
+  const out = new Map<string, TemplateGrading>();
+  if (subjectIds.length === 0) return out;
+  const schemes = await tx
+    .select({ subjectId: gradingSchemes.subjectId, rules: gradingSchemes.rules })
+    .from(gradingSchemes)
+    .where(inArray(gradingSchemes.subjectId, subjectIds));
+  if (schemes.length === 0) return out;
+  const items = await tx
+    .select({
+      subjectId: evaluationItems.subjectId,
+      key: evaluationItems.key,
+      name: evaluationItems.name,
+      maxScore: evaluationItems.maxScore,
+      group: evaluationItems.groupKey,
+      role: evaluationItems.role,
+    })
+    .from(evaluationItems)
+    .where(inArray(evaluationItems.subjectId, subjectIds))
+    .orderBy(asc(evaluationItems.position));
+  for (const s of schemes) {
+    const parsed = templateGradingSchema.safeParse({
+      rules: s.rules,
+      items: items
+        .filter((i) => i.subjectId === s.subjectId)
+        .map(({ subjectId: _, ...rest }) => rest),
+    });
+    if (parsed.success) out.set(s.subjectId, parsed.data);
+  }
+  return out;
+}
+
+/** Aplica a regra do modelo na matéria importada (regra inválida para o motor é ignorada). */
+async function insertGrading(tx: Tx, subjectId: string, g: TemplateGrading): Promise<void> {
+  if (validateGrading(g.rules, g.items).length > 0) return;
+  await tx.insert(gradingSchemes).values({
+    userId: sql`app.current_user_id()`,
+    subjectId,
+    rules: g.rules,
+    source: "manual",
+  });
+  await tx.insert(evaluationItems).values(
+    g.items.map((item, position) => ({
+      userId: sql`app.current_user_id()`,
+      subjectId,
+      key: item.key,
+      name: item.name,
+      maxScore: item.maxScore,
+      groupKey: item.group,
+      role: item.role,
+      position,
+    })),
+  );
 }
 
 @Injectable()
@@ -124,7 +188,7 @@ export class SharingService {
                 institution: body.institution ?? null,
                 course: body.course ?? null,
                 payload,
-                payloadVersion: 1,
+                payloadVersion: PAYLOAD_VERSION,
                 expiresAt,
                 maxUses: body.maxUses,
               })
@@ -159,7 +223,12 @@ export class SharingService {
       tx.select().from(calendarExceptions).where(eq(calendarExceptions.semesterId, semesterId)),
     ]);
     const index = new Map(ids.map((id, i) => [id, i]));
+    const gradings = await gradingsOf(tx, ids);
     const payload: SemesterTemplatePayload = semesterTemplatePayloadSchema.parse({
+      gradings: ids.flatMap((id, subjectIndex) => {
+        const g = gradings.get(id);
+        return g ? [{ ...g, subjectIndex }] : [];
+      }),
       semester: { label: semester.label, startsOn: semester.startsOn, endsOn: semester.endsOn },
       subjects: subjectRows.map((s) =>
         subjectToTemplate(
@@ -188,7 +257,10 @@ export class SharingService {
       .select()
       .from(subjectSchedules)
       .where(eq(subjectSchedules.subjectId, subjectId));
-    const payload: SubjectTemplatePayload = { subject: subjectToTemplate(subject, schedules) };
+    const payload: SubjectTemplatePayload = {
+      subject: subjectToTemplate(subject, schedules),
+      grading: (await gradingsOf(tx, [subjectId])).get(subjectId) ?? null,
+    };
     return { payload, defaultTitle: subject.name };
   }
 
@@ -310,6 +382,7 @@ export class SharingService {
         payload.data.subject,
         template.template_id,
       );
+      if (payload.data.grading) await insertGrading(tx, subjectId, payload.data.grading);
       await tx.insert(templateImports).values({ templateId: template.template_id, userId });
       return { semesterId: semester.id, subjectIds: [subjectId], createdSemester: false };
     }
@@ -335,6 +408,10 @@ export class SharingService {
     const subjectIds: string[] = [];
     for (const s of data.subjects) {
       subjectIds.push(await this.insertSubject(tx, semester!.id, s, template.template_id));
+    }
+    for (const g of data.gradings) {
+      const subjectId = subjectIds[g.subjectIndex];
+      if (subjectId) await insertGrading(tx, subjectId, g);
     }
     if (data.exceptions.length > 0) {
       await tx.insert(calendarExceptions).values(

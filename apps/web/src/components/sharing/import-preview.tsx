@@ -155,6 +155,7 @@ export function ImportPreview({
               <strong>{s.name}</strong>
               <span className="text-xs text-muted">
                 limite de {plural(s.maxAbsenceUnits, "falta", "faltas")}
+                {s.hasGrading ? " · com a regra de notas" : ""}
               </span>
             </span>
             {s.professor ? <span className="text-xs text-muted">{s.professor}</span> : null}

@@ -6,6 +6,7 @@ import {
   subjectColorSchema,
   timeSchema,
 } from "./academic";
+import { evaluationItemInputSchema, saveGradingBodySchema } from "./grades";
 
 // ---------------------------------------------------------------- código
 
@@ -54,6 +55,27 @@ export const templateExceptionSchema = z.object({
   subjectIndex: z.number().int().min(0).nullable(),
 });
 
+/**
+ * Regra de cálculo da nota de uma matéria do modelo (payload versão 2): só a regra e as avaliações
+ * (nome, nota máxima, grupo, tipo). Nunca notas, datas, tarefas ou ligações com o Moodle.
+ */
+export const templateGradingSchema = z.object({
+  rules: saveGradingBodySchema.shape.rules,
+  items: z
+    .array(
+      evaluationItemInputSchema.pick({
+        key: true,
+        name: true,
+        maxScore: true,
+        group: true,
+        role: true,
+      }),
+    )
+    .min(1)
+    .max(60),
+});
+export type TemplateGrading = z.infer<typeof templateGradingSchema>;
+
 export const semesterTemplatePayloadSchema = z.object({
   semester: z.object({
     label: z.string().min(1).max(60),
@@ -62,10 +84,19 @@ export const semesterTemplatePayloadSchema = z.object({
   }),
   subjects: z.array(templateSubjectSchema).max(30),
   exceptions: z.array(templateExceptionSchema).max(100),
+  /** Versão 2: regra de cálculo por matéria (índice em `subjects`). Versão 1 não tem. */
+  gradings: z
+    .array(templateGradingSchema.extend({ subjectIndex: z.number().int().min(0) }))
+    .max(30)
+    .default([]),
 });
 export type SemesterTemplatePayload = z.infer<typeof semesterTemplatePayloadSchema>;
 
-export const subjectTemplatePayloadSchema = z.object({ subject: templateSubjectSchema });
+export const subjectTemplatePayloadSchema = z.object({
+  subject: templateSubjectSchema,
+  /** Versão 2: regra de cálculo da matéria. Versão 1 não tem. */
+  grading: templateGradingSchema.nullable().default(null),
+});
 export type SubjectTemplatePayload = z.infer<typeof subjectTemplatePayloadSchema>;
 
 export const templateKindSchema = z.enum(["semester", "subject"]);
@@ -150,6 +181,8 @@ export const templatePreviewSchema = z.object({
       professor: z.string().nullable(),
       color: subjectColorSchema.nullable(),
       unitsPerClass: z.number().int(),
+      /** Vem com a regra de cálculo da nota (modelo versão 2). */
+      hasGrading: z.boolean().default(false),
       /** Limite de faltas calculado pelo motor com as regras do modelo. */
       maxAbsenceUnits: z.number().int(),
       schedules: z.array(

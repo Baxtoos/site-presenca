@@ -105,8 +105,9 @@ export function ShareResult({ template }: { template: SharedTemplate }) {
         ) : null}
       </div>
       <p className="text-xs text-muted">
-        Quem importar recebe as matérias, as regras de falta, os horários e os feriados. Suas faltas
-        e anotações nunca vão junto.
+        Quem importar recebe as matérias, as regras de falta, os horários, os feriados e a regra de
+        cálculo da nota (as avaliações e os pesos). Suas faltas, notas, tarefas, anotações e o seu
+        Moodle nunca vão junto.
       </p>
     </div>
   );
