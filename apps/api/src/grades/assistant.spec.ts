@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../config/env";
 import {
   AI_TURN_JSON_SCHEMA,
-  GEMINI_RETRY_DELAYS_MS,
+  GEMINI_ATTEMPTS,
   GeminiHttpError,
   gradingAiFactory,
 } from "./assistant.service";
@@ -149,7 +149,7 @@ describe("cliente do Gemini", () => {
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(GeminiHttpError);
     expect((error as GeminiHttpError).status).toBe(503);
-    expect(fetchMock).toHaveBeenCalledTimes(1 + GEMINI_RETRY_DELAYS_MS.length);
+    expect(fetchMock).toHaveBeenCalledTimes(GEMINI_ATTEMPTS.length);
   });
 
   it("cota (429) e erro de chave não são repetidos", async () => {
@@ -159,5 +159,23 @@ describe("cliente do Gemini", () => {
       gradingAiFactory(env)!.generate({ system: "", messages: [], schema: {} }),
     ).rejects.toThrow("429");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("principal lotado nas duas tentativas: usa o modelo reserva", async () => {
+    const ok = {
+      candidates: [{ finishReason: "STOP", content: { parts: [{ text: '{"kind":"question"}' }] } }],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(ok), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      gradingAiFactory(env)!.generate({ system: "", messages: [], schema: {} }),
+    ).resolves.toEqual({ kind: "question" });
+    const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(urls[1]).toContain("/models/gemini-3.8-flash:");
+    expect(urls[2]).toContain("/models/gemini-3.5-flash-lite:");
   });
 });

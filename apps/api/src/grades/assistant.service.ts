@@ -26,8 +26,10 @@ export interface GradingAi {
 }
 export const GRADING_AI = Symbol("GRADING_AI");
 
-/** Modelo fixo de propósito: sem variável para trocar, ninguém liga um modelo mais caro. */
+/** Modelos fixos de propósito: sem variável para trocar, ninguém liga um modelo mais caro. */
 export const GRADING_AI_MODEL = "gemini-3.8-flash";
+/** Reserva (mais leve e mais barato) para quando o principal está lotado. */
+export const GRADING_AI_RESERVE_MODEL = "gemini-3.5-flash-lite";
 
 const logger = new Logger("GradingAi");
 
@@ -43,18 +45,25 @@ export class GeminiHttpError extends Error {
 
 /** Sobrecarga e falhas passageiras do Google: vale repetir. 429 (cota) e 4xx não. */
 const RETRY_STATUS = new Set([500, 503, 504]);
-export const GEMINI_RETRY_DELAYS_MS = [800, 2000];
+/** Principal, principal de novo, reserva, reserva de novo (espera antes de cada uma). */
+export const GEMINI_ATTEMPTS = [
+  { model: GRADING_AI_MODEL, delayMs: 0 },
+  { model: GRADING_AI_MODEL, delayMs: 800 },
+  { model: GRADING_AI_RESERVE_MODEL, delayMs: 0 },
+  { model: GRADING_AI_RESERVE_MODEL, delayMs: 1500 },
+];
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Google Gemini pela API REST (generateContent com saída em JSON Schema). */
 export function gradingAiFactory(env: Env): GradingAi | null {
   const key = env.GEMINI_API_KEY;
   if (!key) return null;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GRADING_AI_MODEL}:generateContent`;
+  const url = (model: string) =>
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
   return {
     async generate({ system, messages, schema }) {
-      const send = () =>
-        fetch(url, {
+      const send = (model: string) =>
+        fetch(url(model), {
           method: "POST",
           headers: { "content-type": "application/json", "x-goog-api-key": key },
           body: JSON.stringify({
@@ -70,15 +79,18 @@ export function gradingAiFactory(env: Env): GradingAi | null {
             },
           }),
           // Se a IA demorar, a tela cai no editor manual.
-          signal: AbortSignal.timeout(25_000),
+          signal: AbortSignal.timeout(20_000),
         });
-      let res = await send();
-      for (const delay of GEMINI_RETRY_DELAYS_MS) {
-        if (res.ok || !RETRY_STATUS.has(res.status)) break;
-        logger.warn(`Gemini respondeu ${res.status}; tentando de novo em ${delay} ms`);
-        await sleep(delay);
-        res = await send();
+      let res: Response | undefined;
+      for (const { model, delayMs } of GEMINI_ATTEMPTS) {
+        if (res) {
+          if (res.ok || !RETRY_STATUS.has(res.status)) break;
+          logger.warn(`Gemini respondeu ${res.status}; tentando ${model} em ${delayMs} ms`);
+        }
+        await sleep(delayMs);
+        res = await send(model);
       }
+      res = res!;
       if (!res.ok) {
         // O corpo do erro do Google diz o motivo (chave inválida, modelo inexistente, cota…).
         throw new GeminiHttpError(res.status, (await res.text().catch(() => "")).slice(0, 400));

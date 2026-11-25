@@ -2,7 +2,7 @@
 
 import { GRADING_AI_MAX_TURNS, type GradingAssistantResponse } from "@presenca/contracts";
 import { type FormEvent, useRef, useState } from "react";
-import { Button, INPUT_CLASS } from "@/components/ui";
+import { Alert, Button, INPUT_CLASS } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import type { EditorDraft } from "./grading-editor";
 
@@ -25,8 +25,10 @@ export function GradingAssistant({
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [remaining, setRemaining] = useState(GRADING_AI_MAX_TURNS);
-  // Limite ou falha: a conversa para e o editor segue sozinho.
+  // Limite ou assistente desligado: a conversa para e o editor segue sozinho.
   const [stopped, setStopped] = useState(false);
+  // Falha passageira (IA lotada, rede): a mensagem do aluno fica e dá para tentar de novo.
+  const [failed, setFailed] = useState<string | null>(null);
 
   async function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,6 +37,11 @@ export function GradingAssistant({
     const next: Msg[] = [...messages, { role: "user", text: value }];
     setMessages(next);
     setText("");
+    await ask(next);
+  }
+
+  async function ask(next: Msg[]) {
+    setFailed(null);
     setPending(true);
     try {
       const res = await api<GradingAssistantResponse>(
@@ -52,18 +59,19 @@ export function GradingAssistant({
         setMessages([...next, { role: "assistant", text: done }]);
         setRemaining(res.remaining);
         onDraft(res.proposal, "Regra preenchida pelo assistente. Confira antes de salvar.");
+      } else if (res.reason === "error" && !res.draft) {
+        setFailed(res.message);
       } else {
         setStopped(true);
         onDraft(res.draft, res.message);
       }
     } catch (e) {
-      setStopped(true);
-      onDraft(
-        null,
-        e instanceof ApiError && e.problem.status === 429
-          ? "Você usou o assistente muitas vezes hoje. Monte a regra no editor abaixo."
-          : "O assistente não respondeu agora. Use o editor abaixo.",
-      );
+      if (e instanceof ApiError && e.problem.status === 429) {
+        setStopped(true);
+        onDraft(null, "Você usou o assistente muitas vezes hoje. Monte a regra no editor abaixo.");
+      } else {
+        setFailed("O assistente não respondeu agora. Tente de novo ou use o editor abaixo.");
+      }
     } finally {
       setPending(false);
     }
@@ -90,6 +98,20 @@ export function GradingAssistant({
           ))}
         </ol>
       )}
+      {failed ? (
+        <div className="grid gap-2" data-testid="ia-falhou">
+          <Alert>{failed}</Alert>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-fit"
+            loading={pending}
+            onClick={() => void ask(messages)}
+          >
+            Tentar de novo
+          </Button>
+        </div>
+      ) : null}
       <form className="grid gap-2" onSubmit={(e) => void send(e)}>
         <label className="sr-only" htmlFor="ia-mensagem">
           Mensagem para o assistente
@@ -104,10 +126,14 @@ export function GradingAssistant({
             messages.length === 0 ? "Como é calculada a nota desta matéria?" : "Sua resposta"
           }
           className={`${INPUT_CLASS} py-2`}
-          disabled={pending || stopped}
+          disabled={pending || stopped || failed !== null}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" loading={pending} disabled={!text.trim() || stopped}>
+          <Button
+            type="submit"
+            loading={pending}
+            disabled={!text.trim() || stopped || failed !== null}
+          >
             {messages.length === 0 ? "Enviar" : "Responder"}
           </Button>
           <span className="text-xs text-muted">
