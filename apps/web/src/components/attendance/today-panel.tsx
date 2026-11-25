@@ -401,6 +401,15 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                 </>
               )}
 
+              {r?.content && editing !== r.id ? (
+                <p
+                  className="whitespace-pre-wrap rounded-lg bg-surface-2 px-3 py-2 text-sm"
+                  data-testid="conteudo-da-aula"
+                >
+                  <span className="font-medium">Conteúdo: </span>
+                  {r.content}
+                </p>
+              ) : null}
               {r && editing === r.id ? (
                 <RecordEditor
                   record={r}
@@ -428,9 +437,11 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                       onClick={() => setEditing(r.id)}
                       className="min-h-9 rounded-lg px-2 font-medium text-accent hover:bg-accent-soft"
                     >
-                      {r.status === "absent" || r.status === "partial"
-                        ? "Motivo e atestado"
-                        : "Observação"}
+                      {r.content
+                        ? "Editar conteúdo"
+                        : r.status === "absent" || r.status === "partial"
+                          ? "Conteúdo, motivo e atestado"
+                          : "Anotar o conteúdo da aula"}
                     </button>
                   ) : null}
                 </div>

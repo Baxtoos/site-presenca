@@ -65,7 +65,7 @@ for (const scheme of ["light", "dark"] as const) {
       .getByRole("button", { name: "Faltei", exact: true })
       .click();
     await expect(page.getByText("Falta registrada.")).toBeVisible();
-    await page.getByRole("button", { name: "Motivo e atestado" }).click();
+    await page.getByRole("button", { name: "Conteúdo, motivo e atestado" }).click();
     await expectAccessible(page, "matéria (falta registrada e editor aberto)");
     const subjectPath = await realPath(page);
 

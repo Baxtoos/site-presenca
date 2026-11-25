@@ -27,6 +27,14 @@ export const noteSchema = z
   .transform((v) => (v === "" ? null : v))
   .nullable();
 
+/** O que foi passado na aula (opcional). Vazio vira null. */
+export const contentSchema = z
+  .string()
+  .trim()
+  .max(2000, { error: "Use no máximo 2000 caracteres." })
+  .transform((v) => (v === "" ? null : v))
+  .nullable();
+
 // ---------------------------------------------------------------- registro
 
 export const unitsMissedSchema = z
@@ -81,6 +89,7 @@ export const createAttendanceBodySchema = z
     isExcused: z.boolean().default(false),
     reason: absenceReasonSchema.nullable().optional(),
     note: noteSchema.optional(),
+    content: contentSchema.optional(),
   })
   .superRefine(refineAttendance);
 export type CreateAttendanceBody = z.infer<typeof createAttendanceBodySchema>;
@@ -92,6 +101,7 @@ export const updateAttendanceBodySchema = z
     isExcused: z.boolean(),
     reason: absenceReasonSchema.nullable(),
     note: noteSchema,
+    content: contentSchema,
   })
   .partial()
   .refine((b) => Object.keys(b).length > 0, { error: "Nada para atualizar." })
@@ -109,9 +119,11 @@ export const attendanceRecordSchema = z.object({
   isExcused: z.boolean(),
   reason: absenceReasonSchema.nullable(),
   note: z.string().nullable(),
+  /** Conteúdo da aula. Default: tolera API antiga durante o deploy. */
+  content: z.string().nullable().default(null),
   version: z.number().int(),
 });
-export type AttendanceRecord = z.infer<typeof attendanceRecordSchema>;
+export type AttendanceRecord = z.output<typeof attendanceRecordSchema>;
 
 /** Resposta de criar/editar: o registro e o resumo da matéria já recalculado pelo motor. */
 export const attendanceResultSchema = z.object({

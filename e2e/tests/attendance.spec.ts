@@ -46,13 +46,16 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(aula).toContainText("Faltei 1 de 2");
   await expect(aula).toContainText("Ainda pode faltar 17 aulas");
 
-  // Motivo e atestado.
-  await aula.getByRole("button", { name: "Motivo e atestado" }).click();
+  // Conteúdo da aula, motivo e atestado.
+  await aula.getByRole("button", { name: "Conteúdo, motivo e atestado" }).click();
+  await aula.getByLabel("Conteúdo da aula (opcional)").fill("Leis de Newton e lista 2");
   await aula.getByLabel("Motivo").selectOption("health");
   await aula.getByLabel("Observação").fill("Consulta médica");
   await aula.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Detalhes salvos.")).toBeVisible();
   await expect(aula).toContainText("Saúde");
+  await expect(aula.getByTestId("conteudo-da-aula")).toContainText("Leis de Newton e lista 2");
+  await expect(aula.getByRole("button", { name: "Editar conteúdo" })).toBeVisible();
 
   // Na matéria: o calendário já abre no dia de hoje, com a falta parcial marcada.
   await aula.getByRole("link", { name: "Física I" }).click();
@@ -71,6 +74,7 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   const registro = page.getByTestId("registro").first();
   await expect(registro).toContainText("Faltei 1 de 2");
   await expect(registro).toContainText("Consulta médica");
+  await expect(registro.getByTestId("conteudo-da-aula")).toContainText("Leis de Newton");
   await registro.getByRole("button", { name: /^Editar/ }).click();
   await registro.getByLabel("O que aconteceu").selectOption("present");
   await registro.getByRole("button", { name: "Salvar" }).click();

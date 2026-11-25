@@ -36,6 +36,8 @@ export const attendanceLogs = app.table(
     isExcused: boolean().notNull().default(false),
     reason: absenceReason(),
     note: text(),
+    /** O que foi passado na aula (opcional, escrito pelo aluno). */
+    content: text(),
     version: version(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -65,6 +67,7 @@ export const attendanceLogs = app.table(
       sql`not ${t.isExcused} or ${t.status} in ('absent', 'partial')`,
     ),
     check("attendance_logs_note_chk", sql`char_length(${t.note}) <= 500`),
+    check("attendance_logs_content_chk", sql`char_length(${t.content}) <= 2000`),
   ],
 );
 

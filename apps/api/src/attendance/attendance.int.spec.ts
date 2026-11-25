@@ -246,6 +246,37 @@ describe("registrar presença", () => {
     expect(direct.summary).toEqual(summary);
   });
 
+  it("conteúdo da aula: grava ao registrar, edita, apaga com vazio e recusa texto longo demais", async () => {
+    const c = await setup();
+    const r = await registered(c, {
+      classDate: "2026-09-02",
+      status: "present",
+      content: "  Derivadas e regra da cadeia  ",
+    });
+    expect(r.record.content).toBe("Derivadas e regra da cadeia");
+    const edited = await c.b.request(
+      "PATCH",
+      `/v1/attendance/${r.record.id}`,
+      { content: "Derivadas, regra da cadeia e lista 4" },
+      { headers: { "if-match": `"${r.record.version}"` } },
+    );
+    expect(edited.statusCode, edited.body).toBe(200);
+    const after = attendanceResultSchema.parse(edited.json()).record;
+    expect(after).toMatchObject({
+      content: "Derivadas, regra da cadeia e lista 4",
+      status: "present",
+    });
+    const cleared = await c.b.request(
+      "PATCH",
+      `/v1/attendance/${r.record.id}`,
+      { content: "" },
+      { headers: { "if-match": `"${after.version}"` } },
+    );
+    expect(attendanceResultSchema.parse(cleared.json()).record.content).toBeNull();
+    const tooLong = await register(c, { classDate: "2026-09-09", content: "x".repeat(2001) });
+    expect(tooLong.statusCode).toBe(422);
+  });
+
   it("falta parcial perde só os tempos informados", async () => {
     const c = await setup();
     const { record, summary } = await registered(c, {

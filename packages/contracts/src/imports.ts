@@ -3,6 +3,7 @@ import { isoDateSchema } from "./academic";
 import {
   absenceReasonSchema,
   attendanceStatusSchema,
+  contentSchema,
   noteSchema,
   refineAttendance,
   unitsMissedSchema,
@@ -27,6 +28,7 @@ export const importAttendanceSchema = z
     isExcused: z.boolean().default(false),
     reason: absenceReasonSchema.nullable().optional(),
     note: noteSchema.optional(),
+    content: contentSchema.optional(),
   })
   .superRefine(refineAttendance);
 export type ImportAttendance = z.infer<typeof importAttendanceSchema>;

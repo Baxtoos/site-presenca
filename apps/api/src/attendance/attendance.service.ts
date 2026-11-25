@@ -166,6 +166,7 @@ export class AttendanceService {
           isExcused: absence && body.isExcused,
           reason: absence ? (body.reason ?? null) : null,
           note: body.note ?? null,
+          content: body.content ?? null,
         })
         .returning()) as [AttendanceRow];
     } catch (error) {
@@ -226,6 +227,7 @@ export class AttendanceService {
           isExcused: absence && isExcused,
           reason: absence ? (body.reason !== undefined ? body.reason : current.reason) : null,
           note: body.note !== undefined ? body.note : current.note,
+          content: body.content !== undefined ? body.content : current.content,
         })
         .where(and(eq(attendanceLogs.id, id), eq(attendanceLogs.version, expectedVersion)))
         .returning();

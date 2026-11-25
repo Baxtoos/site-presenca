@@ -1,0 +1,2 @@
+ALTER TABLE "app"."attendance_logs" ADD COLUMN "content" text;--> statement-breakpoint
+ALTER TABLE "app"."attendance_logs" ADD CONSTRAINT "attendance_logs_content_chk" CHECK (char_length("app"."attendance_logs"."content") <= 2000);

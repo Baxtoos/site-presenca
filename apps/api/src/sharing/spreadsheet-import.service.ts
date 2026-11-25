@@ -197,6 +197,7 @@ export class SpreadsheetImportService {
         isExcused: absence && a.isExcused,
         reason: absence ? (a.reason ?? null) : null,
         note: a.note ?? null,
+        content: a.content ?? null,
       };
     });
     for (let i = 0; i < logs.length; i += 500) {

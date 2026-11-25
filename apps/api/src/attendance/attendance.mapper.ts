@@ -15,6 +15,7 @@ export function toRecord(row: AttendanceRow): AttendanceRecord {
     isExcused: row.isExcused,
     reason: row.reason,
     note: row.note,
+    content: row.content,
     version: row.version,
   };
 }

@@ -168,6 +168,12 @@ export function AttendanceHistory({
                   </span>
                 )}
               </div>
+              {r.content && editing !== r.id ? (
+                <p className="whitespace-pre-wrap text-sm" data-testid="conteudo-da-aula">
+                  <span className="font-medium">Conteúdo: </span>
+                  {r.content}
+                </p>
+              ) : null}
               {r.note && editing !== r.id ? <p className="text-sm text-muted">{r.note}</p> : null}
               {editing === r.id ? (
                 <RecordEditor

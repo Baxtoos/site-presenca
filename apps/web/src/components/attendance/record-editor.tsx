@@ -31,6 +31,7 @@ export function RecordEditor({
   const [isExcused, setIsExcused] = useState(record.isExcused);
   const [reason, setReason] = useState(record.reason ?? "");
   const [note, setNote] = useState(record.note ?? "");
+  const [content, setContent] = useState(record.content ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -43,7 +44,7 @@ export function RecordEditor({
     setPending(true);
     setError(undefined);
     try {
-      const body: Record<string, unknown> = { note };
+      const body: Record<string, unknown> = { note, content };
       if (allowStatus) body.status = status;
       if (status === "partial") body.unitsMissed = unitsMissed;
       if (absence) {
@@ -140,6 +141,18 @@ export function RecordEditor({
           </label>
         </>
       ) : null}
+      <label className="grid min-w-0 gap-1.5 font-medium" htmlFor={`${id}-conteudo`}>
+        Conteúdo da aula (opcional)
+        <textarea
+          id={`${id}-conteudo`}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          maxLength={2000}
+          rows={3}
+          placeholder="O que foi passado: matéria, exercícios, avisos do professor…"
+          className="w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 py-2 text-base outline-none focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:text-sm"
+        />
+      </label>
       <label className="grid min-w-0 gap-1.5 font-medium" htmlFor={`${id}-obs`}>
         Observação
         <textarea

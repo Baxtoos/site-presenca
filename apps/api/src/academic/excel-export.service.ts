@@ -642,6 +642,7 @@ export class ExcelExportService {
             isExcused: l.isExcused,
             reason: l.reason,
             ...(l.note ? { note: l.note } : {}),
+            ...(l.content ? { content: l.content } : {}),
           })),
       },
     };
