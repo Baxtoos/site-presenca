@@ -3,6 +3,7 @@ import {
   evaluationItemParamsSchema,
   gradingAssistantRequestSchema,
   gradingAssistantResponseSchema,
+  gradesOverviewSchema,
   moodleGradeLinksBodySchema,
   moodleGradesSchema,
   saveGradingBodySchema,
@@ -14,6 +15,15 @@ import type { RouteDef } from "./route-types";
 const notFound = { description: "Matéria ou avaliação não encontrada (ou de outra pessoa)" };
 
 export const gradeRoutes = {
+  gradesOverview: {
+    method: "GET",
+    path: "/v1/grades",
+    summary:
+      "Notas de todas as matérias do semestre atual numa chamada só (situação e quanto falta)",
+    tag: "Notas",
+    auth: true,
+    responses: { 200: { description: "Resumo por matéria", schema: gradesOverviewSchema } },
+  },
   getGrading: {
     method: "GET",
     path: "/v1/subjects/:id/grading",

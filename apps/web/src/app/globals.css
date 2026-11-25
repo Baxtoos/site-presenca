@@ -18,6 +18,8 @@
   --color-accent: #0b6bcb;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #e7f1fb;
+  /* Segunda série dos gráficos (laranja): validada com a azul para daltonismo (dataviz). */
+  --color-chart-2: #c4610f;
   --color-ok: #2b7046;
   --color-ok-soft: #e6f2ea;
   --color-warn: #8a5f00;
@@ -48,6 +50,7 @@
     --color-accent: #529cca;
     --color-accent-ink: #111111;
     --color-accent-soft: #1d2d3a;
+    --color-chart-2: #cf7a3a;
     --color-ok: #6bbf8a;
     --color-ok-soft: #1e2d24;
     --color-warn: #dfb455;
@@ -76,6 +79,7 @@
   --color-accent: #529cca;
   --color-accent-ink: #111111;
   --color-accent-soft: #1d2d3a;
+  --color-chart-2: #cf7a3a;
   --color-ok: #6bbf8a;
   --color-ok-soft: #1e2d24;
   --color-warn: #dfb455;

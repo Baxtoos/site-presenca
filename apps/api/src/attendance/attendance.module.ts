@@ -5,6 +5,7 @@ import { IdempotencyService } from "../common/idempotency";
 import { AttendanceController } from "./attendance.controller";
 import { AttendanceService } from "./attendance.service";
 import { CalendarService } from "./calendar.service";
+import { EvolutionService } from "./evolution.service";
 import { SimulateService } from "./simulate.service";
 import { TodayService } from "./today.service";
 
@@ -13,6 +14,7 @@ import { TodayService } from "./today.service";
   imports: [NotificationsModule],
   controllers: [AttendanceController],
   providers: [
+    EvolutionService,
     AttendanceService,
     TodayService,
     SimulateService,

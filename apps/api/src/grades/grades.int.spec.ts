@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  gradesOverviewSchema,
   meResponseSchema,
   problemSchema,
   subjectGradingSchema,
@@ -166,6 +167,37 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
     const subjects = list.subjects.map((s) => subjectSchema.parse(s));
     expect(subjects.find((s) => s.id === bia.calc.id)?.gradeStatus).toBe("em_curso");
     expect(subjects.find((s) => s.id === bia.fis.id)?.gradeStatus).toBeNull();
+  });
+
+  it("visão do semestre: todas as matérias numa chamada, com o mesmo resumo da matéria", async () => {
+    const duda = await student();
+    const g = subjectGradingSchema.parse(
+      (await duda.b.request("PUT", `/v1/subjects/${duda.calc.id}/grading`, weighted)).json(),
+    );
+    const p1 = g.items.find((i) => i.key === "P1")!;
+    const scored = subjectGradingSchema.parse(
+      (
+        await duda.b.request(
+          "PATCH",
+          `/v1/evaluation-items/${p1.id}`,
+          { score: 500 },
+          { headers: ifMatch(p1.version) },
+        )
+      ).json(),
+    );
+    const res = await duda.b.request("GET", "/v1/grades");
+    expect(res.statusCode, res.body).toBe(200);
+    const overview = gradesOverviewSchema.parse(res.json());
+    expect(overview.subjects.map((s) => [s.name, s.passing, s.scored, s.total])).toEqual([
+      ["Cálculo", 600, 1, 2],
+      ["Física", null, 0, 0],
+    ]);
+    expect(overview.subjects[0]!.summary).toEqual(scored.summary);
+    expect(overview.subjects[1]!.summary).toBeNull();
+    // Outra pessoa não vê as matérias desta.
+    const other = await student();
+    const theirs = gradesOverviewSchema.parse((await other.b.request("GET", "/v1/grades")).json());
+    expect(theirs.subjects.every((s) => s.subjectId !== duda.calc.id)).toBe(true);
   });
 
   it("valida a regra, exige If-Match ao editar e mantém as notas ao renomear", async () => {

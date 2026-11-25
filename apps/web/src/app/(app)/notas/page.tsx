@@ -1,4 +1,4 @@
-import { GRADE_STATUS_LABEL, subjectGradingSchema } from "@presenca/contracts";
+import { GRADE_STATUS_LABEL, gradesOverviewSchema } from "@presenca/contracts";
 import { formatGrade } from "@presenca/engine";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -6,17 +6,14 @@ import { ChevronRightIcon, GradeIcon } from "@/components/icons";
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
 import { GRADE_STATUS_STYLE } from "@/lib/grades";
-import { currentSubjects } from "../tarefas/subjects";
 
 export const metadata: Metadata = { title: "Notas · Monitor de Presenças" };
 
 /** Notas de todas as matérias do semestre atual: situação, média e quanto falta (contas do motor). */
 export default async function GradesPage() {
-  const subjects = await currentSubjects();
-  // shortcut: uma chamada por matéria (um semestre tem poucas); se ficar lento, criar GET /v1/grades.
-  const gradings = await Promise.all(
-    subjects.map((s) => apiGet(`/v1/subjects/${s.id}/grading`, subjectGradingSchema)),
-  );
+  // Uma chamada só para todas as matérias do semestre atual.
+  const overview = await apiGet("/v1/grades", gradesOverviewSchema).catch(() => null);
+  const subjects = overview?.subjects ?? [];
 
   return (
     <>
@@ -25,7 +22,11 @@ export default async function GradesPage() {
         title="Notas"
         description="A situação de cada matéria: média, nota garantida e quanto falta para passar. Toque numa matéria para lançar notas ou simular."
       />
-      {subjects.length === 0 ? (
+      {!overview ? (
+        <p className="card p-6 text-sm text-muted">
+          Não foi possível carregar as notas agora. Recarregue a página em instantes.
+        </p>
+      ) : subjects.length === 0 ? (
         <section className="card grid gap-3 p-6 text-sm">
           <p className="text-muted">Cadastre o semestre e as matérias para acompanhar as notas.</p>
           <ButtonLink href="/semestres" variant="secondary" className="w-fit">
@@ -34,14 +35,12 @@ export default async function GradesPage() {
         </section>
       ) : (
         <ul className="grid gap-3" aria-label="Matérias">
-          {subjects.map((s, i) => {
-            const g = gradings[i]!;
-            const summary = g.scheme ? g.summary : null;
-            const scored = g.items.filter((it) => it.score !== null).length;
+          {subjects.map((s) => {
+            const summary = s.summary;
             return (
-              <li key={s.id}>
+              <li key={s.subjectId}>
                 <Link
-                  href={`/materias/${s.id}#notas`}
+                  href={`/materias/${s.subjectId}#notas`}
                   className="card grid gap-2 p-4 transition-colors hover:bg-surface-2 sm:p-5"
                   data-testid="nota-materia"
                 >
@@ -56,7 +55,7 @@ export default async function GradesPage() {
                     ) : null}
                     <ChevronRightIcon size={18} className="text-muted" />
                   </span>
-                  {summary && g.scheme ? (
+                  {summary && s.passing !== null ? (
                     <span className="grid gap-1 text-sm text-muted">
                       <span>
                         {summary.final !== null ? "Média final" : "Nota garantida"}{" "}
@@ -71,7 +70,7 @@ export default async function GradesPage() {
                             </strong>
                           </>
                         ) : null}
-                        {` · passa com ${formatGrade(g.scheme.rules.passing)} · ${scored} de ${g.items.length} notas lançadas`}
+                        {` · passa com ${formatGrade(s.passing)} · ${s.scored} de ${s.total} notas lançadas`}
                       </span>
                       {summary.needed ? (
                         <span>

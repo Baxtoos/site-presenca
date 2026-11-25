@@ -78,6 +78,14 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
     .click();
   await expect(page.getByText("Nota de Prova 2 lançada.")).toBeVisible();
   await expect(page.getByTestId("selo-nota").first()).toContainText("Aprovado por nota");
+  // Evolução no semestre: o gráfico da nota mostra as notas lançadas (tabela para leitor de tela).
+  const evolution = page.getByRole("region", { name: "Evolução no semestre" });
+  await expect(evolution.getByRole("figure", { name: "Nota ao longo do semestre" })).toBeVisible();
+  await page.reload();
+  await evolution.getByText("Ver em tabela").last().click();
+  await expect(evolution.getByRole("table", { name: "Nota ao longo do semestre" })).toContainText(
+    "6,5",
+  );
   await page.goto("/tarefas?status=completed");
   await expect(linked.getByTestId("nota-da-tarefa")).toContainText("nota 9 de 10");
   // Início: o card da matéria mostra a situação da nota.

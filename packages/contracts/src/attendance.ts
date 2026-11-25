@@ -272,3 +272,34 @@ export const AttendanceErrorCode = {
   idempotencyKeyRequired: "IDEMPOTENCY_KEY_REQUIRED",
   idempotencyKeyReused: "IDEMPOTENCY_KEY_REUSED",
 } as const;
+
+// ---------------------------------------------------------------- evolução no semestre
+
+/** Faltas acumuladas e nota ao longo do semestre (gráficos da matéria). */
+export const subjectEvolutionSchema = z.object({
+  semester: z.object({ startsOn: isoDateSchema, endsOn: isoDateSchema }),
+  today: isoDateSchema,
+  absences: z.object({
+    /** Limite de faltas da matéria (em aulas). */
+    limit: z.number().int(),
+    /** Total que conta no limite, depois de cada dia com falta (ordem de data). */
+    points: z.array(z.object({ date: isoDateSchema, total: z.number().int() })),
+  }),
+  /** null: matéria sem regra de cálculo da nota. */
+  grades: z
+    .object({
+      scale: z.number().int(),
+      /** Nota para passar, em centésimos. */
+      passing: z.number().int(),
+      /** Nota garantida e média parcial depois de cada dia em que saiu nota (centésimos). */
+      points: z.array(
+        z.object({
+          date: isoDateSchema,
+          guaranteed: z.number().int(),
+          partial: z.number().int().nullable(),
+        }),
+      ),
+    })
+    .nullable(),
+});
+export type SubjectEvolution = z.infer<typeof subjectEvolutionSchema>;

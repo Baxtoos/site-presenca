@@ -11,6 +11,7 @@ import {
   todayQuerySchema,
   todayResponseSchema,
   updateAttendanceBodySchema,
+  subjectEvolutionSchema,
 } from "./attendance";
 import { idParamsSchema } from "./academic";
 import type { RouteDef } from "./route-types";
@@ -87,6 +88,18 @@ export const attendanceRoutes = {
     auth: true,
     request: { params: idParamsSchema, query: subjectCalendarQuerySchema },
     responses: { 200: { description: "Calendário", schema: subjectCalendarSchema }, 404: notFound },
+  },
+  subjectEvolution: {
+    method: "GET",
+    path: "/v1/subjects/:id/evolution",
+    summary: "Evolução no semestre: faltas acumuladas por dia e a nota depois de cada nota lançada",
+    tag: "Presença",
+    auth: true,
+    request: { params: idParamsSchema },
+    responses: {
+      200: { description: "Pontos dos gráficos", schema: subjectEvolutionSchema },
+      404: notFound,
+    },
   },
   simulate: {
     method: "GET",

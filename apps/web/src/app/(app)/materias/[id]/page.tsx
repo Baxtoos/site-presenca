@@ -3,6 +3,7 @@ import {
   type SimulateResponse,
   simulateResponseSchema,
   subjectCalendarSchema,
+  subjectEvolutionSchema,
   subjectGradingSchema,
   subjectSchema,
 } from "@presenca/contracts";
@@ -10,6 +11,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AttendanceHistory, ExtraClassForm } from "@/components/attendance/history";
 import { SubjectCalendar } from "@/components/attendance/subject-calendar";
+import { EvolutionCharts } from "@/components/charts/evolution-charts";
 import { GradeBadge } from "@/components/grades/grade-badge";
 import { GradesPanel } from "@/components/grades/grades-panel";
 import { BookIcon, ChevronRightIcon, SettingsIcon } from "@/components/icons";
@@ -77,12 +79,14 @@ function CanISkip({ sim }: { sim: SimulateResponse }) {
 
 export default async function SubjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [subject, calendar, sim, history, grading] = await Promise.all([
+  const [subject, calendar, sim, history, grading, evolution] = await Promise.all([
     apiGet(`/v1/subjects/${id}`, subjectSchema),
     apiGet(`/v1/subjects/${id}/calendar`, subjectCalendarSchema),
     apiGet(`/v1/subjects/${id}/simulate`, simulateResponseSchema),
     apiGet(`/v1/subjects/${id}/attendance?limit=30`, attendanceListSchema),
     apiGet(`/v1/subjects/${id}/grading`, subjectGradingSchema),
+    // Sem o gráfico (ex.: API antiga durante o deploy), a página continua.
+    apiGet(`/v1/subjects/${id}/evolution`, subjectEvolutionSchema).catch(() => null),
   ]);
   const s = subject.summary;
 
@@ -153,6 +157,15 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
       <CanISkip sim={sim} />
 
       <GradesPanel key={grading.scheme?.version ?? 0} initial={grading} />
+
+      {evolution ? (
+        <section className="grid gap-4 card p-5 sm:p-6" aria-labelledby="evolucao">
+          <h2 id="evolucao" className="text-lg font-semibold tracking-tight">
+            Evolução no semestre
+          </h2>
+          <EvolutionCharts data={evolution} />
+        </section>
+      ) : null}
 
       <details className="group card p-5 sm:p-6">
         <summary className="cursor-pointer list-none font-semibold marker:hidden">

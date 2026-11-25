@@ -245,3 +245,20 @@ export const moodleGradeLinksBodySchema = z.object({
     .max(60),
 });
 export type MoodleGradeLinksBody = z.infer<typeof moodleGradeLinksBodySchema>;
+
+// ---------------------------------------------------------------- visão do semestre (aba Notas)
+
+export const gradesOverviewSchema = z.object({
+  subjects: z.array(
+    z.object({
+      subjectId: z.uuid(),
+      name: z.string(),
+      /** null: sem regra de cálculo. */
+      passing: z.number().int().nullable(),
+      summary: gradeSummarySchema.nullable(),
+      scored: z.number().int(),
+      total: z.number().int(),
+    }),
+  ),
+});
+export type GradesOverview = z.infer<typeof gradesOverviewSchema>;

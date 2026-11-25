@@ -11,6 +11,7 @@ import {
   type SaveGradingBody,
   saveGradingBodySchema,
   type SubjectGrading,
+  type GradesOverview,
 } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
 import {
@@ -19,7 +20,7 @@ import {
   validateGrading,
   zonedTimeToUtc,
 } from "@presenca/engine";
-import { and, asc, eq, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
 import { ClockService } from "../common/clock";
 import { assertVersioned, parseIfMatch } from "../common/versioning";
 import { DbService } from "../database/db.service";
@@ -54,6 +55,55 @@ export class GradesService {
     private readonly clock: ClockService,
     @Inject(GRADING_AI) private readonly ai: GradingAi | null,
   ) {}
+
+  /** Aba Notas: todas as matérias do semestre atual, com consultas em lote (não uma por matéria). */
+  overview(): Promise<GradesOverview> {
+    return this.db.tx(async (tx) => {
+      const [current] = await tx
+        .select({ id: schema.semesters.id })
+        .from(schema.semesters)
+        .where(eq(schema.semesters.isCurrent, true))
+        .limit(1);
+      if (!current) return { subjects: [] };
+      const list = await tx
+        .select({ id: subjects.id, name: subjects.name })
+        .from(subjects)
+        .where(and(eq(subjects.semesterId, current.id), isNull(subjects.archivedAt)))
+        .orderBy(asc(subjects.name));
+      const ids = list.map((s) => s.id);
+      if (ids.length === 0) return { subjects: [] };
+      const [schemes, rows] = await Promise.all([
+        tx
+          .select({ subjectId: gradingSchemes.subjectId, rules: gradingSchemes.rules })
+          .from(gradingSchemes)
+          .where(inArray(gradingSchemes.subjectId, ids)),
+        tx.select().from(evaluationItems).where(inArray(evaluationItems.subjectId, ids)),
+      ]);
+      return {
+        subjects: list.map((s) => {
+          const items = rows.filter((r) => r.subjectId === s.id);
+          const raw = schemes.find((x) => x.subjectId === s.id);
+          const rules = raw ? saveGradingBodySchema.shape.rules.safeParse(raw.rules) : null;
+          let summary: GradesOverview["subjects"][number]["summary"] = null;
+          if (rules?.success) {
+            try {
+              summary = summarizeGrades(rules.data, items.map(toEngine));
+            } catch {
+              summary = null;
+            }
+          }
+          return {
+            subjectId: s.id,
+            name: s.name,
+            passing: rules?.success ? rules.data.passing : null,
+            summary,
+            scored: items.filter((i) => i.score !== null).length,
+            total: items.length,
+          };
+        }),
+      };
+    });
+  }
 
   get(subjectId: string): Promise<SubjectGrading> {
     return this.db.tx((tx) => this.load(tx, subjectId));

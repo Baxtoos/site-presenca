@@ -3,6 +3,7 @@ import {
   type AttendanceResult,
   attendanceListSchema,
   attendanceResultSchema,
+  subjectEvolutionSchema,
   meResponseSchema,
   problemSchema,
   simulateResponseSchema,
@@ -275,6 +276,25 @@ describe("registrar presença", () => {
     expect(attendanceResultSchema.parse(cleared.json()).record.content).toBeNull();
     const tooLong = await register(c, { classDate: "2026-09-09", content: "x".repeat(2001) });
     expect(tooLong.statusCode).toBe(422);
+  });
+
+  it("evolução: faltas que contam acumuladas por dia, fechando com o resumo da matéria", async () => {
+    const c = await setup();
+    await registered(c, { classDate: "2026-09-02", status: "absent" });
+    await registered(c, { classDate: "2026-09-09", status: "present" });
+    const last = await registered(c, { classDate: "2026-09-16", status: "absent" });
+    const res = await c.b.request("GET", `/v1/subjects/${c.subject.id}/evolution`);
+    expect(res.statusCode, res.body).toBe(200);
+    const evo = subjectEvolutionSchema.parse(res.json());
+    expect(evo.semester).toEqual({ startsOn: "2026-08-03", endsOn: "2026-12-18" });
+    expect(evo.absences.points.map((p) => p.date)).toEqual(["2026-09-02", "2026-09-16"]);
+    expect(evo.absences.points.at(-1)!.total).toBe(last.summary.absentUnits);
+    expect(evo.absences.limit).toBe(last.summary.maxAbsenceUnits);
+    expect(evo.grades).toBeNull(); // sem regra de nota
+    const other = await setup();
+    expect(
+      (await other.b.request("GET", `/v1/subjects/${c.subject.id}/evolution`)).statusCode,
+    ).toBe(404);
   });
 
   it("falta parcial perde só os tempos informados", async () => {

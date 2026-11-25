@@ -20,6 +20,7 @@ import {
   saveGradingBodySchema,
   scoreBodySchema,
   type SubjectGrading,
+  type GradesOverview,
 } from "@presenca/contracts";
 import type { FastifyReply } from "fastify";
 import { IfMatchVersion, setEtag } from "../common/versioning";
@@ -45,6 +46,11 @@ export class GradesController {
     @Body(new ZodPipe(gradingAssistantRequestSchema)) body: GradingAssistantRequest,
   ): Promise<GradingAssistantResponse> {
     return this.assistant.turn(id, body);
+  }
+
+  @Get("grades")
+  overview(): Promise<GradesOverview> {
+    return this.grades.overview();
   }
 
   @Get("subjects/:id/grading")
