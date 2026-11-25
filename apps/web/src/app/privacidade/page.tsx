@@ -29,8 +29,18 @@ export default function PrivacidadePage() {
             resumo criptográfico (hash).
           </li>
           <li>
-            <strong>Dados acadêmicos:</strong> semestres, matérias, horários, feriados e registros
-            de presença/falta criados por você.
+            <strong>Dados acadêmicos:</strong> semestres, matérias, horários, feriados, registros de
+            presença/falta (com o conteúdo da aula e observações, se você escrever), tarefas e
+            entregas, e a regra de cálculo e as notas de cada matéria, tudo criado por você.
+          </li>
+          <li>
+            <strong>Moodle (se você conectar):</strong> o link do calendário e, se você informar, a
+            chave de segurança, guardados cifrados. Com eles o app lê da sua conta no Moodle os
+            prazos das entregas, se você já enviou e as notas lançadas pelo professor.
+          </li>
+          <li>
+            <strong>Assistente de notas (se você usar):</strong> o texto que você escreve para
+            explicar como o professor calcula a nota.
           </li>
           <li>
             <strong>Dados de segurança e sessão:</strong> endereço IP e navegador das sessões ativas
@@ -73,9 +83,10 @@ export default function PrivacidadePage() {
         <h2 className="pt-2 text-base font-semibold">4. Para que usamos e por quanto tempo</h2>
         <ul className="list-disc space-y-1 pl-5 text-muted">
           <li>
-            <strong>Finalidade:</strong> calcular suas faltas, avisar quando você se aproxima do
-            limite e proteger sua conta. Base legal: execução do serviço que você pediu ao criar a
-            conta (art. 7º, V) e legítimo interesse na segurança (art. 7º, IX).
+            <strong>Finalidade:</strong> calcular suas faltas e notas, avisar quando você se
+            aproxima do limite, de prazos e de notas novas, e proteger sua conta. Base legal:
+            execução do serviço que você pediu ao criar a conta (art. 7º, V) e legítimo interesse na
+            segurança (art. 7º, IX).
           </li>
           <li>
             <strong>Retenção:</strong> enquanto a conta existir. Sessões expiram após 14 dias sem
@@ -88,8 +99,12 @@ export default function PrivacidadePage() {
           Usamos serviços de infraestrutura que tratam os dados só para operar o app, sem uso
           próprio: Vercel (site), Render (servidor), Neon (banco de dados), Upstash (limite de
           tentativas), GitHub (avisos agendados e cópias de segurança criptografadas) e Google
-          (envio de e-mails). Se ativado, o Sentry recebe relatórios de erro sem dados pessoais (sem
-          e-mail, IP ou conteúdo das suas anotações). Esses serviços ficam fora do Brasil
+          (envio de e-mails). Se você usar o assistente de notas, o texto que você escreve e o nome
+          da matéria vão para a IA do Google (Gemini), só para montar a regra de cálculo; nunca vão
+          suas faltas, notas, e-mail ou senhas. Conforme os termos do Google, no plano gratuito o
+          Google pode usar esse texto para melhorar os produtos dele; por isso, não escreva dados
+          pessoais no assistente. Se ativado, o Sentry recebe relatórios de erro sem dados pessoais
+          (sem e-mail, IP ou conteúdo das suas anotações). Esses serviços ficam fora do Brasil
           (principalmente nos Estados Unidos); a transferência é necessária para prestar o serviço
           (art. 33 da LGPD).
         </p>

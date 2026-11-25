@@ -22,6 +22,7 @@ import {
 } from "@presenca/engine";
 import { and, asc, eq, inArray, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
 import { ClockService } from "../common/clock";
+import { inOrder } from "../common/in-order";
 import { assertVersioned, parseIfMatch } from "../common/versioning";
 import { DbService } from "../database/db.service";
 import { cancelTaskNotifications } from "../tasks/tasks.service";
@@ -72,7 +73,7 @@ export class GradesService {
         .orderBy(asc(subjects.name));
       const ids = list.map((s) => s.id);
       if (ids.length === 0) return { subjects: [] };
-      const [schemes, rows] = await Promise.all([
+      const [schemes, rows] = await inOrder([
         tx
           .select({ subjectId: gradingSchemes.subjectId, rules: gradingSchemes.rules })
           .from(gradingSchemes)

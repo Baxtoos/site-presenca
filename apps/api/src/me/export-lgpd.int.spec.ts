@@ -248,6 +248,16 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       key(),
     );
 
+    // Tarefa ligada a uma avaliação e regra de notas: também saem no export e somem na exclusão.
+    const grading = await dono.b.request("PUT", `/v1/subjects/${subj.id}/grading`, {
+      rules: { scale: 10, passing: 600, formula: "P1" },
+      items: [
+        { key: "P1", name: "Prova 1", maxScore: 1000, dueOn: "2026-04-01", createTask: true },
+      ],
+      source: "manual",
+    });
+    expect(grading.statusCode, grading.body).toBe(200);
+
     // Compartilha a grade e o colega importa (testa cascata de FK entre usuários ao excluir o dono)
     const tpl = await dono.b.request("POST", "/v1/templates", {
       source: { kind: "semester", semesterId },
@@ -282,6 +292,10 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     expect(payload.attendanceLogs).toHaveLength(1);
     expect(payload.auditEvents.length).toBeGreaterThanOrEqual(1);
     expect(payload.sharedTemplates).toHaveLength(1);
+    expect(exp.json<{ tasks: unknown[] }>().tasks).toHaveLength(1);
+    expect(
+      exp.json<{ grades: { schemes: unknown[]; evaluations: unknown[] } }>().grades,
+    ).toMatchObject({ schemes: [expect.anything()], evaluations: [expect.anything()] });
 
     // Acesso e segurança: sessões (com IP e navegador) sim; segredos nunca.
     const raw = JSON.stringify(exp.json());
@@ -328,6 +342,23 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       [dono.userId],
     );
     expect(counts.rows[0]).toEqual({ users: "0", logs: "0", events: "0" });
+    // Varre toda tabela com user_id (inclusive as que vierem depois): nenhuma linha pode sobrar.
+    const tables = await env.db.admin.query<{ table_name: string }>(
+      `select table_name from information_schema.columns
+        where table_schema = 'app' and column_name = 'user_id'
+          and table_name in (select table_name from information_schema.tables
+                              where table_schema = 'app' and table_type = 'BASE TABLE')`,
+    );
+    expect(tables.rows.length).toBeGreaterThan(15);
+    const left: string[] = [];
+    for (const { table_name } of tables.rows) {
+      const r = await env.db.admin.query<{ n: string }>(
+        `select count(*) as n from app.${table_name} where user_id = $1`,
+        [dono.userId],
+      );
+      if (r.rows[0]!.n !== "0") left.push(`${table_name}: ${r.rows[0]!.n}`);
+    }
+    expect(left).toEqual([]);
 
     // O colega que importou a grade continua com o semestre e a matéria intactos
     const colegaSems = await colega.b.request("GET", "/v1/semesters");

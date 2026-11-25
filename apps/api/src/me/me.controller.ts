@@ -99,6 +99,32 @@ export class MeController {
         .select()
         .from(schema.tasks)
         .orderBy(asc(schema.tasks.dueAt), asc(schema.tasks.id));
+      const gradingSchemes = await tx.select().from(schema.gradingSchemes);
+      const evaluationItems = await tx
+        .select()
+        .from(schema.evaluationItems)
+        .orderBy(asc(schema.evaluationItems.subjectId), asc(schema.evaluationItems.position));
+      // Moodle: o que foi configurado e as turmas, nunca o link do calendário nem a chave (cifrados).
+      const moodleConnection = await tx
+        .select({
+          icsHost: schema.moodleConnections.icsHost,
+          baseUrl: schema.moodleConnections.baseUrl,
+          hasToken: sql<boolean>`${schema.moodleConnections.wstokenEnc} is not null`,
+          syncEnabled: schema.moodleConnections.syncEnabled,
+          lastSyncAt: schema.moodleConnections.lastSyncAt,
+          lastSyncError: schema.moodleConnections.lastSyncError,
+          createdAt: schema.moodleConnections.createdAt,
+        })
+        .from(schema.moodleConnections);
+      const moodleCourses = await tx
+        .select({
+          courseKey: schema.moodleCourseMappings.courseKey,
+          subjectId: schema.moodleCourseMappings.subjectId,
+          ignored: schema.moodleCourseMappings.ignored,
+          lastSeenAt: schema.moodleCourseMappings.lastSeenAt,
+        })
+        .from(schema.moodleCourseMappings)
+        .orderBy(asc(schema.moodleCourseMappings.courseKey));
       const auditEvents = await tx
         .select()
         .from(schema.attendanceLogEvents)
@@ -172,6 +198,8 @@ export class MeController {
         calendarExceptions,
         attendanceLogs,
         tasks,
+        grades: { schemes: gradingSchemes, evaluations: evaluationItems },
+        moodle: moodleConnection[0] ? { ...moodleConnection[0], courses: moodleCourses } : null,
         auditEvents,
         sharedTemplates,
         templateImports,

@@ -31,7 +31,10 @@ export async function fetchCourseGrades(
   return out;
 }
 
-/** Turmas do Moodle ligadas a matérias do aluno (chave da turma → matéria). */
+/**
+ * Turmas do Moodle ligadas a matérias do aluno que têm alguma avaliação seguindo o Moodle (chave da
+ * turma → matéria). Sem avaliação ligada, nem busca o livro de notas (poupa o Moodle da instituição).
+ */
 export async function mappedCourses(tx: Tx, userId: string): Promise<Map<string, string>> {
   const rows = await tx
     .select({
@@ -44,6 +47,10 @@ export async function mappedCourses(tx: Tx, userId: string): Promise<Map<string,
         eq(moodleCourseMappings.userId, userId),
         isNotNull(moodleCourseMappings.subjectId),
         eq(moodleCourseMappings.ignored, false),
+        sql`exists (select 1 from app.evaluation_items e
+                     where e.subject_id = ${moodleCourseMappings.subjectId}
+                       and e.external_grade_item_id is not null
+                       and e.score_source = 'moodle')`,
       ),
     );
   return new Map(rows.map((r) => [r.courseKey, r.subjectId!]));

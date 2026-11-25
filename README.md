@@ -444,8 +444,12 @@ Tudo dentro da API, sem serviço externo de identidade.
   `/notas` com todas as matérias do semestre.
 - **Compartilhar:** o modelo (versão 2) leva a regra e as avaliações, nunca notas, datas, tarefas
   ou Moodle; modelos da versão 1 continuam importando.
-- **Rotas:** `GET/PUT /v1/subjects/:id/grading` (If-Match ao editar), `POST
-/v1/subjects/:id/grading/assistant`, `PATCH /v1/evaluation-items/:id` (If-Match, `completeTask`).
+- **Rotas:** `GET /v1/grades` (todas as matérias do semestre atual, para a aba Notas),
+  `GET/PUT /v1/subjects/:id/grading` (If-Match ao editar), `POST /v1/subjects/:id/grading/assistant`
+  e `PATCH /v1/evaluation-items/:id` (If-Match, `completeTask`).
+- **Evolução no semestre** (página da matéria): `GET /v1/subjects/:id/evolution` devolve as faltas
+  que contam acumuladas por dia e a nota depois de cada dia com nota; dois gráficos de escada em SVG
+  (sem biblioteca), um eixo cada, com tabela para leitor de tela.
 - **Banco:** `grading_schemes` e `evaluation_items` com RLS forçado, FKs compostas
   `(subject_id, user_id)`; o `app_worker` não vê a regra e só altera notas ligadas ao Moodle que
   seguem o Moodle.

@@ -497,5 +497,23 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       scoreSource: "user",
       externalGradeItemId: null,
     });
+
+    // LGPD: o export traz as notas e o Moodle, nunca o link do calendário nem a chave.
+    const exp = await lia.b.request("GET", "/v1/me/export.json");
+    expect(exp.statusCode).toBe(200);
+    expect(exp.body).not.toContain("SEGREDO-LIA");
+    expect(exp.body).not.toContain(WSTOKEN);
+    expect(exp.body).not.toMatch(/icsUrlEnc|wstokenEnc|ics_url_enc|wstoken_enc/);
+    const data = exp.json<{
+      grades: { schemes: unknown[]; evaluations: { key: string; score: number | null }[] };
+      moodle: { hasToken: boolean; courses: { courseKey: string }[] } | null;
+    }>();
+    expect(data.grades.schemes).toHaveLength(1);
+    expect(data.grades.evaluations.map((e) => [e.key, e.score])).toEqual([
+      ["P1", 750],
+      ["Seminario", 500],
+    ]);
+    expect(data.moodle).toMatchObject({ hasToken: true });
+    expect(data.moodle?.courses.map((c) => c.courseKey)).toContain("RED1 - 2026-2");
   });
 });
