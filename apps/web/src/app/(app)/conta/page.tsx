@@ -9,7 +9,7 @@ import { ThemePicker } from "@/components/theme-picker";
 import { apiGet, getMe } from "@/lib/api-server";
 import { LogoutButton, SessionsPanel } from "../home-client";
 import { LgpdPanel } from "./lgpd-panel";
-import { PageHeader } from "@/components/ui";
+import { ButtonLink, PageHeader, SectionTitle } from "@/components/ui";
 import { UserIcon } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Conta · Monitor de Presenças" };
@@ -33,6 +33,22 @@ export default async function AccountPage() {
       />
       {me ? <ProfileForm initial={me} /> : null}
       <NotificationSettings initial={prefs} />
+      <section className="card grid gap-3 p-5 text-sm sm:p-6" aria-labelledby="suap-conta">
+        <SectionTitle
+          id="suap-conta"
+          action={
+            <ButtonLink href="/semestres/suap" variant="secondary">
+              Conectar
+            </ButtonLink>
+          }
+        >
+          SUAP
+        </SectionTitle>
+        <p className="text-muted">
+          Traga do SUAP as disciplinas, o horário, as faltas e as notas do boletim com o favorito do
+          navegador.
+        </p>
+      </section>
       <MoodleCard />
       <ThemePicker />
       {me ? <MfaPanel initial={mfa} hasPassword={me.hasPassword} email={me.email} /> : null}
