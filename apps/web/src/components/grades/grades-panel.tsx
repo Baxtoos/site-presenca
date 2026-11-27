@@ -15,7 +15,7 @@ import { GRADE_STATUS_STYLE } from "@/lib/grades";
 import { type EditorDraft, GradingEditor } from "./grading-editor";
 import { GradingAssistant } from "./grading-assistant";
 import { MoodleLinks, moodleDraftItems } from "./moodle-links";
-import { OfficialGrades } from "./official-grades";
+import { OfficialGrades, suapDraft } from "./official-grades";
 
 type Setup = { draft: EditorDraft; notice?: string; rev: number };
 
@@ -77,6 +77,38 @@ export function GradesPanel({ initial }: { initial: SubjectGrading }) {
                 setSetup((s) => ({ draft, notice, rev: (s?.rev ?? 0) + 1 }))
               }
             />
+          ) : null}
+          {initial.official && initial.official.assessments.some((a) => !/final/i.test(a.stage)) ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-fit"
+              onClick={() => {
+                const scale = initial.scheme?.rules.scale ?? 10;
+                const { items, formula } = suapDraft(initial.official!, scale);
+                setSetup((s) => ({
+                  draft: {
+                    items,
+                    rules: {
+                      ...(initial.scheme?.rules ?? {
+                        scale,
+                        passing: 600,
+                        groups: [],
+                        exam: null,
+                        substitute: null,
+                        roundingStep: 1,
+                      }),
+                      formula,
+                    },
+                  },
+                  notice:
+                    "Avaliações e fórmula trazidas do SUAP. Confira a nota para passar e, se houver, configure o exame. As notas do SUAP entram ao salvar.",
+                  rev: (s?.rev ?? 0) + 1,
+                }));
+              }}
+            >
+              Trazer avaliações do SUAP
+            </Button>
           ) : null}
           {initial.moodleLinkable ? (
             <Button
@@ -267,6 +299,7 @@ function ScoreRow({
           até {formatGrade(item.maxScore)}
           {item.role === "exam" ? " · exame" : item.role === "substitute" ? " · substitutiva" : ""}
           {item.scoreSource === "moodle" && item.score !== null ? " · do Moodle" : ""}
+          {item.scoreSource === "suap" && item.score !== null ? " · do SUAP" : ""}
           {awaiting ? " · entregue, aguardando nota" : ""}
         </span>
       </div>

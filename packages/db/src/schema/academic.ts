@@ -79,7 +79,7 @@ export const subjects = app.table(
     unique("subjects_id_user_key").on(t.id, t.userId),
     check(
       "subjects_suap_grades_chk",
-      sql`${t.suapGrades} is null or (jsonb_typeof(${t.suapGrades}) = 'object' and pg_column_size(${t.suapGrades}) <= 4000)`,
+      sql`${t.suapGrades} is null or (jsonb_typeof(${t.suapGrades}) = 'object' and pg_column_size(${t.suapGrades}) <= 16000)`,
     ),
     foreignKey({
       name: "subjects_semester_owner_fk",

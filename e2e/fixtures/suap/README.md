@@ -14,3 +14,5 @@ Se o SUAP mudar o layout, salve as páginas de novo (aba aberta, console:
 
 - A nota 7,5 (Etapa 1 e Média) de Engenharia de Software 1 em `boletins.html` é inventada, para testar
   a leitura das notas do boletim (no SUAP real ainda não havia nota lançada).
+- `detalhar-397554.html`: página sintética do botão "Detalhar" de Engenharia de Software 1, no formato
+  visto no SUAP (uma tabela por etapa: Sigla, Tipo, Descrição, Data, Peso, Nota Obtida), sem dados pessoais.

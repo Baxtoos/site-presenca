@@ -77,7 +77,7 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
   /** Índice de cada coluna pelo cabeçalho (primeira linha, contando colspan). */
   const columns = (table: Element) => {
     const map: Record<string, number> = {};
-    const row = table.querySelector("thead tr");
+    const row = table.querySelector("thead tr") ?? table.querySelector("tr");
     let i = 0;
     for (const th of Array.from(row?.children ?? [])) {
       map[norm(text(th))] = i;
@@ -246,7 +246,66 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
             ? finalText.slice(0, 20)
             : null,
         status: cStatus >= 0 ? text(cells[cStatus]).slice(0, 80) || null : null,
+        assessments: [] as unknown[],
       };
+
+      // ---- "Detalhar": cada avaliação (sigla, tipo, peso, nota) de cada etapa
+      const assessments: {
+        stage: string;
+        method: string | null;
+        code: string;
+        kind: string | null;
+        description: string | null;
+        date: string | null;
+        weight: number | null;
+        score: number | null;
+      }[] = [];
+      const detailHref = tr
+        .querySelector('a[href*="detalhar_matricula_diario_boletim"]')
+        ?.getAttribute("href");
+      if (detailHref) {
+        const detail = await get(detailHref).catch(() => null);
+        // Título de cada etapa ("Etapa 1 - Média Aritmética") vem antes da tabela dela.
+        const titles = detail
+          ? Array.from(detail.querySelectorAll("h1,h2,h3,h4,h5,h6,strong,b,legend,caption")).filter(
+              (el) => /^etapa\b/i.test(text(el)),
+            )
+          : [];
+        for (const tbl of Array.from(detail?.querySelectorAll("table") ?? [])) {
+          const dh = columns(tbl);
+          const cCode = col(dh, "sigla");
+          const cScore = col(dh, "nota obtida", "nota");
+          if (cCode < 0 || cScore < 0) continue;
+          const title = titles
+            .filter((h) => h.compareDocumentPosition(tbl) & Node.DOCUMENT_POSITION_FOLLOWING)
+            .pop();
+          const [stage, method] = title ? text(title).split(/\s+-\s+/) : ["Etapa", undefined];
+          const cKind = col(dh, "tipo");
+          const cDesc = col(dh, "descricao");
+          const cDate = col(dh, "data");
+          const cWeight = col(dh, "peso");
+          const opt = (c: number, td: Element[], max: number) => {
+            const v = c >= 0 ? text(td[c]) : "";
+            return v && v !== "-" ? v.slice(0, max) : null;
+          };
+          for (const row of Array.from(tbl.querySelectorAll("tr")).slice(1)) {
+            const td = Array.from(row.children);
+            const codeText = text(td[cCode]);
+            if (!codeText || row.querySelector("th")) continue;
+            assessments.push({
+              stage: (stage ?? "Etapa").slice(0, 30),
+              method: method ? method.slice(0, 60) : null,
+              code: codeText.slice(0, 20),
+              kind: opt(cKind, td, 40),
+              description: opt(cDesc, td, 120),
+              date: opt(cDate, td, 20),
+              weight: cWeight >= 0 ? score(td[cWeight]) : null,
+              score: score(td[cScore]),
+            });
+          }
+        }
+      }
+      grades.assessments = assessments.slice(0, 40);
 
       const freq = text(cells[cFreq]).replace("%", "").replace(",", ".");
       subjects.push({

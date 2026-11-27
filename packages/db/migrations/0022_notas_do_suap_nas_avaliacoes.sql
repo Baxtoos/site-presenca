@@ -1,0 +1,4 @@
+ALTER TABLE "app"."subjects" DROP CONSTRAINT "subjects_suap_grades_chk";--> statement-breakpoint
+ALTER TABLE "app"."evaluation_items" DROP CONSTRAINT "evaluation_items_source_chk";--> statement-breakpoint
+ALTER TABLE "app"."subjects" ADD CONSTRAINT "subjects_suap_grades_chk" CHECK ("app"."subjects"."suap_grades" is null or (jsonb_typeof("app"."subjects"."suap_grades") = 'object' and pg_column_size("app"."subjects"."suap_grades") <= 16000));--> statement-breakpoint
+ALTER TABLE "app"."evaluation_items" ADD CONSTRAINT "evaluation_items_source_chk" CHECK ("app"."evaluation_items"."score_source" in ('user', 'moodle', 'suap'));

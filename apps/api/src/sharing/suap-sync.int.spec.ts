@@ -257,6 +257,7 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
         finalGrade: null,
         concept: null,
         status: "Cursando",
+        assessments: [],
       };
       return s;
     };
@@ -299,5 +300,107 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
     expect(kept.official?.average).toBe(8);
     const overview = gradesOverviewSchema.parse((await ana.b.request("GET", "/v1/grades")).json());
     expect(overview.subjects.find((s) => s.subjectId === subject.id)?.official?.average).toBe(8);
+  });
+
+  it("avaliações do Detalhar: a nota vai para a avaliação com a mesma sigla, sem passar por cima do aluno", async () => {
+    const bia = await student();
+    const detailed = (a1: number | null, a2: number | null) => {
+      const s = snapshot();
+      s.subjects[0]!.grades = {
+        stages: [{ label: "Etapa 1", score: null }],
+        average: null,
+        finalExam: null,
+        finalGrade: null,
+        concept: null,
+        status: "Cursando",
+        assessments: [
+          {
+            stage: "Etapa 1",
+            method: "Média Aritmética",
+            code: "A1",
+            kind: "Prova",
+            description: "A1",
+            date: null,
+            weight: null,
+            score: a1,
+          },
+          {
+            stage: "Etapa 1",
+            method: "Média Aritmética",
+            code: "A2",
+            kind: "Trabalho",
+            description: null,
+            date: null,
+            weight: null,
+            score: a2,
+          },
+          {
+            stage: "Etapa Final",
+            method: "Média Aritmética",
+            code: "A1",
+            kind: "Prova",
+            description: null,
+            date: null,
+            weight: null,
+            score: null,
+          },
+        ],
+      };
+      return s;
+    };
+    // Sincroniza antes de existir a regra: a nota fica guardada no quadro do SUAP.
+    const first = suapSyncResultSchema.parse(
+      (await sync(bia, { semesterId: null, snapshot: detailed(9.1, null) })).json(),
+    );
+    const subject = (await subjectsOf(bia, first.semesterId)).find(
+      (s) => s.code === snapshot().subjects[0]!.code,
+    )!;
+    // Ao salvar a regra com A1 e A2, a A1 já recebe a nota do SUAP (9,10 → 910).
+    const saved = subjectGradingSchema.parse(
+      (
+        await bia.b.request("PUT", `/v1/subjects/${subject.id}/grading`, {
+          rules: { scale: 10, passing: 600, formula: "(A1 + A2) / 2" },
+          items: [
+            { key: "A1", name: "Prova A1", maxScore: 1000 },
+            { key: "A2", name: "Trabalho A2", maxScore: 1000 },
+          ],
+          source: "manual",
+        })
+      ).json(),
+    );
+    expect(saved.official?.assessments.map((a) => [a.stage, a.code, a.score])).toEqual([
+      ["Etapa 1", "A1", 9.1],
+      ["Etapa 1", "A2", null],
+      ["Etapa Final", "A1", null],
+    ]);
+    expect(saved.items.map((i) => [i.key, i.score, i.scoreSource])).toEqual([
+      ["A1", 910, "suap"],
+      ["A2", null, "user"],
+    ]);
+
+    // O aluno lança a A2 à mão; o SUAP depois traz outra A2 e corrige a A1: só a A1 muda.
+    const a2 = saved.items.find((i) => i.key === "A2")!;
+    await bia.b.request(
+      "PATCH",
+      `/v1/evaluation-items/${a2.id}`,
+      { score: 500 },
+      { headers: { "if-match": `"${a2.version}"` } },
+    );
+    await sync(bia, { semesterId: first.semesterId, snapshot: detailed(9.5, 8) });
+    const after = subjectGradingSchema.parse(
+      (await bia.b.request("GET", `/v1/subjects/${subject.id}/grading`)).json(),
+    );
+    expect(after.items.map((i) => [i.key, i.score, i.scoreSource])).toEqual([
+      ["A1", 950, "suap"],
+      ["A2", 500, "user"],
+    ]);
+    const notices = await env.db.admin.query<{ payload: { itemName: string; score: number } }>(
+      "select payload from app.notification_logs where user_id = $1 and kind = 'grade_posted' and channel = 'in_app' order by created_at",
+      [bia.userId],
+    );
+    expect(notices.rows.map((r) => [r.payload.itemName, r.payload.score])).toEqual([
+      ["A1 (Etapa 1)", 950],
+      ["A2 (Etapa 1)", 800],
+    ]);
   });
 });

@@ -26,6 +26,7 @@ import { ClockService } from "../common/clock";
 import { inOrder } from "../common/in-order";
 import { assertVersioned, parseIfMatch } from "../common/versioning";
 import { DbService } from "../database/db.service";
+import { applySuapScoresTx } from "../sharing/suap-grades";
 import { cancelTaskNotifications } from "../tasks/tasks.service";
 import { GRADING_AI, type GradingAi } from "./assistant.service";
 
@@ -352,6 +353,13 @@ export class GradesService {
           }
         }
       }
+      // Notas do "Detalhar" do SUAP já sincronizadas entram nas avaliações com a mesma sigla.
+      const [official] = await tx
+        .select({ suapGrades: subjects.suapGrades })
+        .from(subjects)
+        .where(eq(subjects.id, subjectId));
+      const parsed = suapGradesSchema.safeParse(official?.suapGrades);
+      if (parsed.success) await applySuapScoresTx(tx, subjectId, parsed.data, this.clock.now());
       return this.load(tx, subjectId);
     });
   }

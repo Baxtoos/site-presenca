@@ -33,6 +33,25 @@ export const suapGradesSchema = z.object({
   concept: z.string().max(20).nullable(),
   /** SITUAÇÃO no boletim (ex.: "Cursando", "Aprovado"). */
   status: z.string().max(80).nullable(),
+  /** Avaliações do "Detalhar" (cada prova e trabalho). Favorito antigo não manda. */
+  assessments: z
+    .array(
+      z.object({
+        /** "Etapa 1", "Etapa Final"… */
+        stage: z.string().max(30),
+        /** Forma de cálculo da etapa no SUAP, ex.: "Média Aritmética". */
+        method: z.string().max(60).nullable(),
+        /** Sigla, ex.: "A1". */
+        code: z.string().max(20),
+        kind: z.string().max(40).nullable(),
+        description: z.string().max(120).nullable(),
+        date: z.string().max(20).nullable(),
+        weight: z.number().min(0).max(1000).nullable(),
+        score: suapScore,
+      }),
+    )
+    .max(40)
+    .default([]),
 });
 export type SuapGrades = z.infer<typeof suapGradesSchema>;
 
@@ -133,7 +152,7 @@ export const evaluationItemSchema = z.object({
   role: evaluationRoleSchema,
   dueOn: z.iso.date().nullable(),
   score: z.number().int().nullable(),
-  scoreSource: z.enum(["user", "moodle"]),
+  scoreSource: z.enum(["user", "moodle", "suap"]),
   externalGradeItemId: z.string().nullable(),
   /** Tarefa do calendário ligada a esta avaliação (a primeira, se houver). */
   task: z

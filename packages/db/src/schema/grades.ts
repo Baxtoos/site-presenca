@@ -84,7 +84,7 @@ export const evaluationItems = app.table(
       sql`${t.score} is null or ${t.score} between 0 and ${t.maxScore}`,
     ),
     check("evaluation_items_role_chk", sql`${t.role} in ('regular', 'substitute', 'exam')`),
-    check("evaluation_items_source_chk", sql`${t.scoreSource} in ('user', 'moodle')`),
+    check("evaluation_items_source_chk", sql`${t.scoreSource} in ('user', 'moodle', 'suap')`),
     check("evaluation_items_scored_chk", sql`(${t.score} is null) = (${t.scoredAt} is null)`),
     check(
       "evaluation_items_external_chk",

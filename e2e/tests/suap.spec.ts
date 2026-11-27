@@ -18,6 +18,8 @@ async function fakeSuap(page: Page, state: { absentOn?: string }) {
     let body: string | null = null;
     if (url.pathname === "/edu/aluno/SL0000000/") body = fixture("aluno.html");
     if (url.pathname === "/edu/aluno/SL0000000/boletins/") body = fixture("boletins.html");
+    if (url.pathname === "/edu/detalhar_matricula_diario_boletim/1/397554/")
+      body = fixture("detalhar-397554.html");
     const turma = /^\/edu\/sala_virtual\/(\d+)\/$/.exec(url.pathname)?.[1];
     if (turma) body = fixture(`turma-${turma}-${tab === "aulas" ? "aulas" : "geral"}.html`);
     if (body && turma === "397554" && tab === "aulas" && state.absentOn) {
@@ -114,6 +116,16 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   await expect(official).toContainText("Etapa 17,5");
   await expect(official).toContainText("Média7,5");
   await expect(official).toContainText("Situação: Cursando");
+  // Avaliações do "Detalhar": a A1 com 9,1; a regra vem do SUAP e a nota entra ao salvar.
+  await expect(official.getByRole("list", { name: "Avaliações no SUAP" })).toContainText("A1");
+  await expect(official.getByRole("list", { name: "Avaliações no SUAP" })).toContainText("9,1");
+  await monitor.getByRole("button", { name: "Trazer avaliações do SUAP" }).click();
+  await expect(monitor.getByLabel("Fórmula", { exact: true })).toHaveValue("A1");
+  await monitor.getByRole("button", { name: "Salvar regra" }).click();
+  await expect(monitor.getByText("Regra de cálculo salva.")).toBeVisible();
+  const a1 = monitor.getByTestId("avaliacao").filter({ hasText: "A1" });
+  await expect(a1).toContainText("do SUAP");
+  await expect(a1.getByRole("textbox").first()).toHaveValue("9,1");
   await monitor.close();
 
   // 2ª vez: o professor lançou uma falta em 25/08; atualiza o mesmo semestre.

@@ -182,6 +182,12 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
   `subjects.suap_grades` (migration `0021`). Aparecem como "Nota oficial do SUAP" na seção Notas e
   na aba Notas, ao lado do que o app calcula. Nota que apareceu ou mudou desde a sincronização
   anterior gera o aviso "Nota nova" (`source: "suap"`); a primeira sincronização não avisa.
+- **Avaliações do "Detalhar":** o favorito abre `/edu/detalhar_matricula_diario_boletim/...` de cada
+  disciplina e lê, por etapa ("Etapa 1 - Média Aritmética"), sigla, tipo, descrição, data, peso e
+  nota (`grades.assessments`). A avaliação da matéria com a mesma sigla recebe a nota (a da "Etapa
+  Final" vai para o exame), convertida para a nota máxima dela; só nota vazia ou que já veio do
+  SUAP (`score_source = 'suap'`, migration `0022`), nunca a lançada pelo aluno. Ao montar a regra,
+  "Trazer avaliações do SUAP" preenche o editor com as siglas e a fórmula da etapa.
 - **Teste:** `e2e/tests/suap.spec.ts` finge ser o `suap.ifsp.edu.br` com páginas reais anonimizadas
   (`e2e/fixtures/suap/`) e roda o favorito de verdade, do clique à atualização.
 

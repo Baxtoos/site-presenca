@@ -1,8 +1,15 @@
 import type { GradePostedPayload, SuapGrades } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
-const { subjects, notificationPreferences, notificationLogs, users } = schema;
+const {
+  subjects,
+  notificationPreferences,
+  notificationLogs,
+  users,
+  gradingSchemes,
+  evaluationItems,
+} = schema;
 
 type NewLog = typeof notificationLogs.$inferInsert;
 
@@ -13,7 +20,63 @@ function entries(g: SuapGrades): [string, number | null][] {
     ["Média", g.average],
     ["Nota da avaliação final (NAF)", g.finalExam],
     ["Média final", g.finalGrade],
+    ...g.assessments.map((a): [string, number | null] => [`${a.code} (${a.stage})`, a.score]),
   ];
+}
+
+const isFinalStage = (stage: string) => /final/i.test(stage);
+
+/**
+ * Leva as notas do "Detalhar" do SUAP para as avaliações da matéria: a avaliação com a mesma sigla
+ * (ex.: A1) recebe a nota da etapa normal, e o exame recebe a da "Etapa Final". Só preenche nota
+ * vazia ou que já veio do SUAP (score_source = 'suap'): nota lançada pelo aluno nunca é trocada.
+ * A nota é convertida para a nota máxima da avaliação, na escala da regra (10 ou 100).
+ */
+export async function applySuapScoresTx(
+  tx: Tx,
+  subjectId: string,
+  grades: SuapGrades | null,
+  now: Date,
+): Promise<number> {
+  const scored = (grades?.assessments ?? []).filter((a) => a.score !== null);
+  if (scored.length === 0) return 0;
+  const [scheme] = await tx
+    .select({ rules: gradingSchemes.rules })
+    .from(gradingSchemes)
+    .where(eq(gradingSchemes.subjectId, subjectId));
+  if (!scheme) return 0;
+  const scale = (scheme.rules as { scale?: number }).scale === 100 ? 100 : 10;
+  const items = await tx
+    .select({
+      id: evaluationItems.id,
+      key: evaluationItems.key,
+      role: evaluationItems.role,
+      maxScore: evaluationItems.maxScore,
+      score: evaluationItems.score,
+      scoreSource: evaluationItems.scoreSource,
+    })
+    .from(evaluationItems)
+    .where(eq(evaluationItems.subjectId, subjectId));
+  let changed = 0;
+  for (const a of scored) {
+    const target = isFinalStage(a.stage)
+      ? items.find((i) => i.role === "exam")
+      : items.find((i) => i.role !== "exam" && i.key.toLowerCase() === a.code.toLowerCase());
+    if (!target || (target.score !== null && target.scoreSource !== "suap")) continue;
+    const centi = Math.min(
+      target.maxScore,
+      Math.max(0, Math.round((a.score! / scale) * target.maxScore)),
+    );
+    if (centi === target.score) continue;
+    await tx
+      .update(evaluationItems)
+      .set({ score: centi, scoreSource: "suap", scoredAt: now })
+      .where(and(eq(evaluationItems.id, target.id), eq(evaluationItems.subjectId, subjectId)));
+    target.score = centi;
+    target.scoreSource = "suap";
+    changed++;
+  }
+  return changed;
 }
 
 /**
@@ -39,9 +102,11 @@ export async function saveSuapGradesTx(
     .update(subjects)
     .set({ suapGrades: next, suapGradesAt: input.now })
     .where(eq(subjects.id, input.subjectId));
+  await applySuapScoresTx(tx, input.subjectId, next, input.now);
   if (!previous) return 0;
 
-  const before = new Map(entries(previous));
+  // Notas guardadas antes da parte 2 não têm avaliações: o padrão vazio vale.
+  const before = new Map(entries({ ...previous, assessments: previous.assessments ?? [] }));
   const posted = entries(next).filter(
     ([label, score]) => score !== null && before.get(label) !== score,
   );
