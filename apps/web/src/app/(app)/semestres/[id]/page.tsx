@@ -58,6 +58,9 @@ export default async function SemesterPage({ params }: { params: Promise<{ id: s
             >
               Exportar Excel (.xlsx)
             </a>
+            <ButtonLink href="/semestres/suap" variant="secondary">
+              Atualizar pelo SUAP
+            </ButtonLink>
             <ButtonLink href={`/semestres/${semester.id}/materias/nova`}>
               <PlusIcon size={16} />
               Adicionar matéria

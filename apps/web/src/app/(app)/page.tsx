@@ -135,16 +135,16 @@ export default async function Home() {
             </section>
           ) : null}
           <section className="grid gap-3" aria-labelledby="materias">
-            <SectionTitle
-              id="materias"
-              action={
-                <ButtonLink href={`/semestres/${current.id}`} variant="ghost" className="-mr-2">
-                  Gerenciar semestre
-                </ButtonLink>
-              }
-            >
-              Suas matérias
-            </SectionTitle>
+            <SectionTitle id="materias">Suas matérias</SectionTitle>
+            {/* No celular não há aba Semestres: o SUAP e o semestre ficam à mão aqui. */}
+            <div className="-mt-2 flex flex-wrap gap-1">
+              <ButtonLink href="/semestres/suap" variant="ghost" className="-ml-3">
+                Atualizar pelo SUAP
+              </ButtonLink>
+              <ButtonLink href={`/semestres/${current.id}`} variant="ghost">
+                Gerenciar semestre
+              </ButtonLink>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {subjects.map((subject) => (
                 <SubjectCard key={subject.id} subject={subject} hint={hints.get(subject.id)} />
