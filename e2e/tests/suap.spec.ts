@@ -72,11 +72,14 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
       "aria-selected",
       "true",
     );
-    await expect(page.getByTestId("suap-guia").locator(":scope > li")).toHaveCount(5);
+    await expect(page.getByTestId("suap-guia").locator(":scope > li")).toHaveCount(4);
+    await expect(page.getByTestId("suap-aviso")).toContainText("não funciona");
+    await expect(page.getByTestId("suap-uso")).toContainText("barra de endereço");
     await page.getByRole("tab", { name: "iPhone" }).click();
     await expect(page.getByTestId("suap-guia")).toContainText("Adicionar Favorito");
     await page.getByRole("tab", { name: "Firefox" }).click();
     await expect(page.getByTestId("suap-guia")).toContainText("não roda favoritos");
+    await page.getByRole("tab", { name: "Computador" }).click();
   } else {
     await expect(page.getByRole("tab", { name: "Computador" })).toHaveAttribute(
       "aria-selected",

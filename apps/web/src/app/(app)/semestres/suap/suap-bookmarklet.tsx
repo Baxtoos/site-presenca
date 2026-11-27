@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { BookIcon, CheckCircleIcon, ShareIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
@@ -93,13 +93,24 @@ const MenuMock = ({ items, pick }: { items: ReactNode[]; pick: number }) => (
 
 type Step = { text: ReactNode; mock?: ReactNode };
 
-function steps(browser: Browser, copyButton: ReactNode): Step[] {
-  const copy: Step = { text: <>Copie o código do favorito: {copyButton}</> };
-  const rename: (field: string) => Step = (field) => ({
+const BoxMock = () => (
+  <Mock>
+    <div className="rounded-lg bg-[#1f2937] px-3 py-2 text-white">
+      Monitor de Presenças: lendo o boletim…
+    </div>
+  </Mock>
+);
+
+function installSteps(browser: Browser, copyButton: ReactNode): Step[] {
+  const copy: Step = {
+    text: <>Toque no botão abaixo para copiar o código do favorito. {copyButton}</>,
+  };
+  const rename = (field: string): Step => ({
     text: (
       <>
-        No <strong>Nome</strong>, escreva <strong>{NAME}</strong>. No <strong>{field}</strong>,
-        apague tudo, toque e segure, e escolha <strong>Colar</strong>. Salve.
+        Na tela de editar: no <strong>Nome</strong>, escreva <strong>{NAME}</strong> (é com esse
+        nome que você vai chamar o favorito depois). No <strong>{field}</strong>, apague tudo, toque
+        e segure e escolha <strong>Colar</strong>. Salve.
       </>
     ),
     mock: <EditMock urlLabel={field} />,
@@ -110,7 +121,7 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
       {
         text: (
           <>
-            Toque nos <strong>três pontinhos ⋮</strong> (canto de cima) e na{" "}
+            Ainda nesta página, toque nos <strong>três pontinhos ⋮</strong> (canto de cima) e na{" "}
             <strong>estrela ☆</strong>. Esta página vira um favorito.
           </>
         ),
@@ -120,7 +131,7 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
         text: (
           <>
             No aviso &quot;Favorito adicionado&quot;, toque em <strong>Editar</strong>. Perdeu o
-            aviso? <strong>⋮ → Favoritos</strong>, toque e segure o favorito e escolha{" "}
+            aviso? <strong>⋮ → Favoritos</strong>, toque nos três pontinhos do favorito e em{" "}
             <strong>Editar</strong>.
           </>
         ),
@@ -134,17 +145,6 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
         ),
       },
       rename("URL"),
-      {
-        text: (
-          <>
-            Pronto. <strong>No SUAP</strong>, com o boletim aberto, toque na barra de endereço,
-            digite <strong>{NAME}</strong> e toque na sugestão com a <strong>estrela ★</strong> (não
-            na pesquisa do Google). Abrir pela lista de Favoritos <strong>não funciona</strong> no
-            Chrome do Android: tem de ser pela barra de endereço.
-          </>
-        ),
-        mock: <AddressBarMock />,
-      },
     ];
   }
   if (browser === "iphone") {
@@ -174,16 +174,6 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
         mock: <MenuMock items={["Favoritos", "Monitor de Presenças", "Editar"]} pick={2} />,
       },
       rename("endereço"),
-      {
-        text: (
-          <>
-            Pronto. <strong>No SUAP</strong>, com o boletim aberto, toque no livro{" "}
-            <BookIcon size={14} className="inline" /> e em <strong>{NAME}</strong>. (Também dá para
-            digitar o nome na barra de endereço e tocar no favorito.)
-          </>
-        ),
-        mock: <MenuMock items={["Favoritos", NAME]} pick={1} />,
-      },
     ];
   }
   if (browser === "samsung") {
@@ -207,23 +197,126 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
         mock: <MenuMock items={["Favoritos", "Monitor de Presenças", "Editar"]} pick={2} />,
       },
       rename("URL"),
-      {
-        text: (
-          <>
-            Pronto. <strong>No SUAP</strong>, com o boletim aberto:{" "}
-            <strong>≡ → Favoritos → {NAME}</strong>.
-          </>
-        ),
-        mock: <MenuMock items={["Favoritos", NAME]} pick={1} />,
-      },
     ];
   }
   return [];
 }
 
+function useSteps(browser: Browser): Step[] {
+  const open: Step = {
+    text: (
+      <>
+        Entre no <strong>SUAP</strong>{" "}
+        {browser === "computador" ? "" : browser === "iphone" ? "pelo Safari " : "pelo navegador "}e
+        abra a aba <strong>Boletins</strong>, como você já faz.
+      </>
+    ),
+  };
+  const wait: Step = {
+    text: (
+      <>
+        Aparece uma caixinha escura no canto da tela. Espere uns segundos: o Monitor abre com as
+        suas matérias, faltas e notas para você conferir e salvar.
+      </>
+    ),
+    mock: <BoxMock />,
+  };
+  if (browser === "android") {
+    return [
+      open,
+      {
+        text: (
+          <>
+            Toque na <strong>barra de endereço</strong> (onde aparece suap.ifsp.edu.br) e apague o
+            que estiver escrito.
+          </>
+        ),
+      },
+      {
+        text: (
+          <>
+            Digite o nome do favorito: <strong>{NAME}</strong> (ou o nome que você deu a ele).
+          </>
+        ),
+      },
+      {
+        text: (
+          <>
+            Na lista que aparece embaixo, toque na linha com a <strong>estrela ★</strong>: é o seu
+            favorito. Não toque na pesquisa do Google (a da lupa 🔍).
+          </>
+        ),
+        mock: <AddressBarMock />,
+      },
+      wait,
+    ];
+  }
+  if (browser === "iphone") {
+    return [
+      open,
+      {
+        text: (
+          <>
+            Toque no <strong>livro</strong> <BookIcon size={14} className="inline" /> (Favoritos) e
+            em <strong>{NAME}</strong>. Também dá para digitar o nome na barra de endereço e tocar
+            no favorito.
+          </>
+        ),
+        mock: <MenuMock items={["Favoritos", NAME]} pick={1} />,
+      },
+      wait,
+    ];
+  }
+  if (browser === "samsung") {
+    return [
+      open,
+      {
+        text: (
+          <>
+            Toque no menu <strong>≡</strong> → <strong>Favoritos</strong> → <strong>{NAME}</strong>.
+          </>
+        ),
+        mock: <MenuMock items={["Favoritos", NAME]} pick={1} />,
+      },
+      wait,
+    ];
+  }
+  if (browser === "computador") {
+    return [
+      open,
+      {
+        text: (
+          <>
+            Clique em <strong>{NAME}</strong> na barra de favoritos.
+          </>
+        ),
+      },
+      wait,
+    ];
+  }
+  return [];
+}
+
+function StepList({ items, testId }: { items: Step[]; testId: string }) {
+  return (
+    <ol className="grid gap-4" data-testid={testId}>
+      {items.map((step, i) => (
+        <li key={i} className="grid grid-cols-[auto_1fr] gap-3 text-sm">
+          <span className="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-ink">
+            {i + 1}
+          </span>
+          <div className="min-w-0">
+            {step.text}
+            {step.mock}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export function SuapBookmarklet() {
   const toast = useToast();
-  const link = useRef<HTMLAnchorElement>(null);
   const [code, setCode] = useState("");
   const [browser, setBrowser] = useState<Browser | null>(null);
   const [copied, setCopied] = useState(false);
@@ -231,7 +324,6 @@ export function SuapBookmarklet() {
 
   useEffect(() => {
     const href = suapBookmarklet(window.location.origin);
-    link.current?.setAttribute("href", href);
     setCode(href);
     setBrowser(detect());
     setHost(window.location.host);
@@ -265,7 +357,8 @@ export function SuapBookmarklet() {
     </Button>
   );
   const current = browser ?? "computador";
-  const guide = steps(current, copyButton);
+  const install = installSteps(current, copyButton);
+  const use = useSteps(current);
 
   return (
     <div className="grid gap-5">
@@ -292,86 +385,100 @@ export function SuapBookmarklet() {
         </p>
       </section>
 
+      <div role="tablist" aria-label="Seu navegador" className="flex flex-wrap gap-1.5">
+        {BROWSERS.map((b) => (
+          <button
+            key={b.id}
+            type="button"
+            role="tab"
+            aria-selected={current === b.id}
+            onClick={() => setBrowser(b.id)}
+            className={`min-h-9 rounded-md border px-3 text-sm transition-colors ${current === b.id ? "border-accent bg-accent-soft font-medium text-accent" : "border-line-strong bg-surface text-muted hover:bg-surface-2"}`}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+
       <section className="card grid gap-4 p-5 sm:p-6" aria-labelledby="instalar">
-        <h2 id="instalar" className="text-lg font-semibold">
-          Instalar o favorito (uma vez só)
-        </h2>
-        <div role="tablist" aria-label="Seu navegador" className="flex flex-wrap gap-1.5">
-          {BROWSERS.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              role="tab"
-              aria-selected={current === b.id}
-              onClick={() => setBrowser(b.id)}
-              className={`min-h-9 rounded-md border px-3 text-sm transition-colors ${current === b.id ? "border-accent bg-accent-soft font-medium text-accent" : "border-line-strong bg-surface text-muted hover:bg-surface-2"}`}
-            >
-              {b.label}
-            </button>
-          ))}
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Parte 1</p>
+          <h2 id="instalar" className="text-lg font-semibold">
+            Salvar o favorito (uma vez só)
+          </h2>
         </div>
 
         {current === "computador" || current === "firefox" ? null : (
-          <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
-            Faça no <strong>navegador</strong> ({current === "iphone" ? "Safari" : "Chrome"}), não
-            dentro do app instalado: o app não tem barra de endereço nem favoritos. Abra{" "}
+          <p className="rounded-lg bg-surface-2 px-3 py-2 text-sm">
+            Faça no <strong>navegador</strong> (
+            {current === "iphone"
+              ? "Safari"
+              : current === "samsung"
+                ? "Samsung Internet"
+                : "Chrome"}
+            ), não dentro do app instalado: o app não tem barra de endereço nem favoritos. Abra{" "}
             <strong>{host}/semestres/suap</strong> no navegador e siga os passos.
           </p>
         )}
 
-        {current === "computador" ? null : current === "firefox" ? (
+        {current === "firefox" ? (
           <p className="text-sm" data-testid="suap-guia">
             O Firefox para celular não roda favoritos desse tipo. Para sincronizar, abra o SUAP no{" "}
             <strong>Chrome</strong> ou no <strong>Samsung Internet</strong> (o resto do Monitor
             funciona em qualquer navegador), ou faça pelo computador.
           </p>
-        ) : (
-          <ol className="grid gap-4" data-testid="suap-guia">
-            {guide.map((step, i) => (
-              <li key={i} className="grid grid-cols-[auto_1fr] gap-3 text-sm">
-                <span className="grid size-7 place-items-center rounded-full bg-accent text-xs font-semibold text-accent-ink">
-                  {i + 1}
-                </span>
-                <div className="min-w-0">
-                  {step.text}
-                  {step.mock}
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-
-        <div
-          className={`grid gap-2 text-sm ${current === "computador" ? "" : "border-t border-line pt-4"}`}
-        >
-          <p className="font-medium">No computador</p>
-          <p className="text-muted">
-            Mostre a barra de favoritos (Ctrl+Shift+B) e arraste este botão para ela. No SUAP, é só
-            clicar nele.
-          </p>
-          <a
-            ref={link}
-            href="#instalar"
-            data-testid="suap-favorito"
-            onClick={(e) => {
-              e.preventDefault();
-              toast.push({
-                tone: "info",
-                message: "Arraste o botão para a barra de favoritos e use-o com o SUAP aberto.",
-              });
-            }}
-            className="inline-flex min-h-11 w-fit cursor-grab items-center rounded-md border-2 border-dashed border-accent bg-accent-soft px-4 text-sm font-semibold text-accent"
-          >
-            {NAME}
-          </a>
-          {current === "computador" ? (
+        ) : current === "computador" ? (
+          <div className="grid gap-2 text-sm">
+            <p>Mostre a barra de favoritos (Ctrl+Shift+B) e arraste este botão para ela:</p>
+            <a
+              ref={(el) => {
+                if (el && code) el.setAttribute("href", code);
+              }}
+              href="#instalar"
+              data-testid="suap-favorito"
+              onClick={(e) => {
+                e.preventDefault();
+                toast.push({
+                  tone: "info",
+                  message: "Arraste o botão para a barra de favoritos e use-o com o SUAP aberto.",
+                });
+              }}
+              className="inline-flex min-h-11 w-fit cursor-grab items-center rounded-md border-2 border-dashed border-accent bg-accent-soft px-4 text-sm font-semibold text-accent"
+            >
+              {NAME}
+            </a>
             <p className="text-xs text-muted">
               Arrastar não funciona? Copie o código, crie um favorito qualquer e cole o código no
               lugar do endereço. {copyButton}
             </p>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <StepList items={install} testId="suap-guia" />
+        )}
       </section>
+
+      {current === "firefox" ? null : (
+        <section className="card grid gap-4 p-5 sm:p-6" aria-labelledby="usar">
+          <div className="grid gap-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Parte 2</p>
+            <h2 id="usar" className="text-lg font-semibold">
+              Usar no SUAP (sempre que quiser atualizar)
+            </h2>
+          </div>
+          {current === "android" ? (
+            <p
+              className="rounded-lg border border-warn/40 bg-warn-soft px-3 py-2 text-sm"
+              data-testid="suap-aviso"
+            >
+              <strong>Importante:</strong> no Chrome do Android o favorito{" "}
+              <strong>não funciona</strong> se você abrir pela lista de Favoritos (⋮ → Favoritos).
+              Ele só roda quando você <strong>digita o nome na barra de endereço</strong>, com o
+              SUAP aberto.
+            </p>
+          ) : null}
+          <StepList items={use} testId="suap-uso" />
+        </section>
+      )}
     </div>
   );
 }
