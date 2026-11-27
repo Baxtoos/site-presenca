@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronRightIcon, GradeIcon } from "@/components/icons";
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
+import { suapScore } from "@/components/grades/official-grades";
 import { GRADE_STATUS_STYLE } from "@/lib/grades";
 
 export const metadata: Metadata = { title: "Notas · Monitor de Presenças" };
@@ -55,6 +56,16 @@ export default async function GradesPage() {
                     ) : null}
                     <ChevronRightIcon size={18} className="text-muted" />
                   </span>
+                  {s.official ? (
+                    <span className="text-sm text-muted" data-testid="nota-suap-resumo">
+                      SUAP: média{" "}
+                      <strong className="text-ink tabular-nums">
+                        {s.official.concept ??
+                          suapScore(s.official.finalGrade ?? s.official.average)}
+                      </strong>
+                      {s.official.status ? ` · ${s.official.status}` : ""}
+                    </span>
+                  ) : null}
                   {summary && s.passing !== null ? (
                     <span className="grid gap-1 text-sm text-muted">
                       <span>

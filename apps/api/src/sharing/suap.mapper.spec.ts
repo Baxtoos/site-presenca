@@ -99,6 +99,7 @@ describe("suap.mapper", () => {
       professor: null,
       location: null,
       slots: [],
+      grades: null,
       lessons: units.map((u, i) => ({
         date: `2026-08-${String(i + 1).padStart(2, "0")}`,
         units: u,

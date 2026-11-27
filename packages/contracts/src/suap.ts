@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDateSchema, timeSchema } from "./academic";
+import { suapGradesSchema } from "./grades";
 
 /**
  * Retrato do SUAP (IFSP e outros institutos com o mesmo sistema), montado no navegador do aluno
@@ -42,6 +43,8 @@ export const suapSubjectSchema = z.object({
   location: z.string().trim().max(300).nullable(),
   slots: z.array(suapSlotSchema).max(60),
   lessons: z.array(suapLessonSchema).max(400),
+  /** Notas do boletim. Favorito antigo não manda: null não mexe nas notas guardadas. */
+  grades: suapGradesSchema.nullable().default(null),
 });
 export type SuapSubject = z.infer<typeof suapSubjectSchema>;
 

@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
+  gradesOverviewSchema,
   meResponseSchema,
   notificationListSchema,
   problemSchema,
   type SuapSnapshot,
+  subjectGradingSchema,
   suapSyncResultSchema,
   subjectsResponseSchema,
 } from "@presenca/contracts";
@@ -73,6 +75,7 @@ function snapshot(): SuapSnapshot {
           { weekday: 2, startsAt: "10:40", endsAt: "11:30" },
           { weekday: 2, startsAt: "11:30", endsAt: "12:20" },
         ],
+        grades: null,
         lessons: [
           lesson("2026-08-04", 4),
           lesson("2026-08-11", 4),
@@ -93,6 +96,7 @@ function snapshot(): SuapSnapshot {
         professor: null,
         location: null,
         slots: [],
+        grades: null,
         lessons: [lesson("2026-08-06", 4, 2), lesson("2026-08-13", 4, 4, true)],
       },
     ],
@@ -240,5 +244,60 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
     const bad = snapshot() as unknown as { subjects: { lessons: { units: number }[] }[] };
     bad.subjects[0]!.lessons[0]!.units = 0;
     expect((await sync(bia, { semesterId: null, snapshot: bad })).statusCode).toBe(422);
+  });
+
+  it("notas do boletim: guarda na matéria; avisa nota nova só a partir da segunda vez", async () => {
+    const ana = await student();
+    const withGrades = (etapa: number | null, media: number | null) => {
+      const s = snapshot();
+      s.subjects[0]!.grades = {
+        stages: [{ label: "Etapa 1", score: etapa }],
+        average: media,
+        finalExam: null,
+        finalGrade: null,
+        concept: null,
+        status: "Cursando",
+      };
+      return s;
+    };
+    // 1ª vez, já com nota: guarda, sem aviso (seria aviso de nota já conhecida).
+    const first = suapSyncResultSchema.parse(
+      (await sync(ana, { semesterId: null, snapshot: withGrades(7.5, null) })).json(),
+    );
+    const subject = (await subjectsOf(ana, first.semesterId)).find(
+      (s) => s.code === snapshot().subjects[0]!.code,
+    )!;
+    const grading = subjectGradingSchema.parse(
+      (await ana.b.request("GET", `/v1/subjects/${subject.id}/grading`)).json(),
+    );
+    expect(grading.official).toMatchObject({
+      stages: [{ label: "Etapa 1", score: 7.5 }],
+      average: null,
+      status: "Cursando",
+    });
+    const grades = async () =>
+      (
+        await env.db.admin.query<{ payload: { itemName: string; score: number; source: string } }>(
+          "select payload from app.notification_logs where user_id = $1 and kind = 'grade_posted' and channel = 'in_app'",
+          [ana.userId],
+        )
+      ).rows.map((r) => r.payload);
+    expect(await grades()).toEqual([]);
+
+    // 2ª vez: saiu a média → um aviso "Nota nova" do SUAP; repetir não duplica.
+    await sync(ana, { semesterId: first.semesterId, snapshot: withGrades(7.5, 8) });
+    await sync(ana, { semesterId: first.semesterId, snapshot: withGrades(7.5, 8) });
+    expect(await grades()).toEqual([
+      { subjectName: subject.name, itemName: "Média", score: 800, maxScore: 1000, source: "suap" },
+    ]);
+
+    // Favorito antigo (sem notas): não apaga o que já estava guardado.
+    await sync(ana, { semesterId: first.semesterId, snapshot: snapshot() });
+    const kept = subjectGradingSchema.parse(
+      (await ana.b.request("GET", `/v1/subjects/${subject.id}/grading`)).json(),
+    );
+    expect(kept.official?.average).toBe(8);
+    const overview = gradesOverviewSchema.parse((await ana.b.request("GET", "/v1/grades")).json());
+    expect(overview.subjects.find((s) => s.subjectId === subject.id)?.official?.average).toBe(8);
   });
 });

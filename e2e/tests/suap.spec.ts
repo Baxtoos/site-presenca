@@ -107,6 +107,13 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   await expect(eso).toContainText("Ter");
   await expect(bd).toContainText("6 de 20 faltas");
   await expect(bd).toContainText("Qui");
+  // Notas do boletim: a nota oficial do SUAP aparece na seção Notas da matéria.
+  await eso.click();
+  const official = monitor.getByTestId("nota-suap");
+  await expect(official).toContainText("Nota oficial do SUAP");
+  await expect(official).toContainText("Etapa 17,5");
+  await expect(official).toContainText("Média7,5");
+  await expect(official).toContainText("Situação: Cursando");
   await monitor.close();
 
   // 2ª vez: o professor lançou uma falta em 25/08; atualiza o mesmo semestre.

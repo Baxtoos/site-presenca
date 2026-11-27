@@ -1,5 +1,10 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { SUBJECT_COLORS, type SuapSyncBody, type SuapSyncResult } from "@presenca/contracts";
+import {
+  SUBJECT_COLORS,
+  type SuapGrades,
+  type SuapSyncBody,
+  type SuapSyncResult,
+} from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
 import { isoWeekday } from "@presenca/engine";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -10,6 +15,7 @@ import { ClockService } from "../common/clock";
 import { type IdempotentResult, IdempotencyService } from "../common/idempotency";
 import { DbService } from "../database/db.service";
 import { ThresholdAlerts } from "../notifications/threshold-alerts";
+import { saveSuapGradesTx } from "./suap-grades";
 import {
   attendanceFrom,
   lessonsByDate,
@@ -108,9 +114,24 @@ export class SuapSyncService {
 
     // ---- matérias: acha pela sigla do SUAP (guardada no código) ou pelo nome; senão cria
     const existing = await tx
-      .select({ id: subjects.id, name: subjects.name, code: subjects.code })
+      .select({
+        id: subjects.id,
+        name: subjects.name,
+        code: subjects.code,
+        suapGrades: subjects.suapGrades,
+      })
       .from(subjects)
       .where(eq(subjects.semesterId, semester.id));
+    const now = this.clock.now();
+    const grades = (id: string, name: string, previous: unknown, next: SuapGrades | null) =>
+      saveSuapGradesTx(tx, {
+        subjectId: id,
+        subjectName: name,
+        userId,
+        previous: (previous as SuapGrades | null) ?? null,
+        next,
+        now,
+      });
     let subjectsCreated = 0;
     const linked: { subjectId: string; lessons: (typeof perSubject)[number]["lessons"] }[] = [];
     for (const { suap, lessons } of perSubject) {
@@ -120,6 +141,7 @@ export class SuapSyncService {
         existing.find((s) => normalize(s.name) === normalize(suap.name)) ??
         existing.find((s) => normalize(s.name) === normalize(prettyName(suap.name)));
       if (found) {
+        await grades(found.id, found.name, found.suapGrades, suap.grades);
         linked.push({ subjectId: found.id, lessons });
         continue;
       }
@@ -140,7 +162,12 @@ export class SuapSyncService {
           userId: sql`app.current_user_id()`,
           semesterId: semester.id,
         })
-        .returning({ id: subjects.id, name: subjects.name, code: subjects.code });
+        .returning({
+          id: subjects.id,
+          name: subjects.name,
+          code: subjects.code,
+          suapGrades: subjects.suapGrades,
+        });
       if (schedules.length > 0) {
         await tx.insert(subjectSchedules).values(
           schedules.map((s) => ({
@@ -150,6 +177,7 @@ export class SuapSyncService {
           })),
         );
       }
+      await grades(row!.id, row!.name, null, suap.grades);
       existing.push(row!);
       subjectsCreated++;
       linked.push({ subjectId: row!.id, lessons });

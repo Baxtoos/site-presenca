@@ -39,6 +39,11 @@ export default function PrivacidadePage() {
             prazos das entregas, se você já enviou e as notas lançadas pelo professor.
           </li>
           <li>
+            <strong>SUAP (se você usar o favorito):</strong> disciplinas, horário, faltas de cada
+            aula e as notas do boletim, lidas pelo seu navegador na sessão que você abriu no SUAP. O
+            Monitor nunca recebe a sua senha do SUAP.
+          </li>
+          <li>
             <strong>Assistente de notas (se você usar):</strong> o texto que você escreve para
             explicar como o professor calcula a nota.
           </li>

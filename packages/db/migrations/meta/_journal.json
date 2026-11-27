@@ -148,6 +148,13 @@
       "when": 1795630853107,
       "tag": "0020_conteudo_da_aula",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795779753057,
+      "tag": "0021_notas_do_suap",
+      "breakpoints": true
     }
   ]
 }

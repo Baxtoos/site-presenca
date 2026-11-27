@@ -5,6 +5,7 @@ import {
   date,
   foreignKey,
   index,
+  jsonb,
   numeric,
   smallint,
   text,
@@ -67,12 +68,19 @@ export const subjects = app.table(
     /** Referência informativa ao modelo importado (FK criada na migration de segurança). */
     sourceTemplateId: uuid(),
     archivedAt: timestamp({ withTimezone: true }),
+    /** Notas oficiais do boletim do SUAP (favorito "Enviar para o Monitor") e quando vieram. */
+    suapGrades: jsonb(),
+    suapGradesAt: timestamp({ withTimezone: true }),
     version: version(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     unique("subjects_id_user_key").on(t.id, t.userId),
+    check(
+      "subjects_suap_grades_chk",
+      sql`${t.suapGrades} is null or (jsonb_typeof(${t.suapGrades}) = 'object' and pg_column_size(${t.suapGrades}) <= 4000)`,
+    ),
     foreignKey({
       name: "subjects_semester_owner_fk",
       columns: [t.semesterId, t.userId],

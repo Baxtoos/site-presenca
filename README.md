@@ -177,6 +177,11 @@ Sem Docker, `pnpm dev` ainda roda web, API e worker; o `/readyz` da API responde
   registro (presença, falta, parcial, abonada). O que o aluno marcou em dias que o SUAP ainda não tem
   fica. Aulas futuras já lançadas não viram registro (ficam na grade) e estendem o fim do semestre.
   Semestre novo põe os marcos de aviso em dia em silêncio; atualização avisa normalmente.
+- **Notas do boletim:** o favorito lê também ETAPA n (nota), MÉDIA, NAF, MFD/CONCEITO e SITUAÇÃO
+  de cada disciplina (`grades` no retrato, opcional para favoritos antigos) e a API guarda em
+  `subjects.suap_grades` (migration `0021`). Aparecem como "Nota oficial do SUAP" na seção Notas e
+  na aba Notas, ao lado do que o app calcula. Nota que apareceu ou mudou desde a sincronização
+  anterior gera o aviso "Nota nova" (`source: "suap"`); a primeira sincronização não avisa.
 - **Teste:** `e2e/tests/suap.spec.ts` finge ser o `suap.ifsp.edu.br` com páginas reais anonimizadas
   (`e2e/fixtures/suap/`) e roda o favorito de verdade, do clique à atualização.
 

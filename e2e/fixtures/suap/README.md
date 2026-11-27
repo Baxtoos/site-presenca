@@ -11,3 +11,6 @@ requisições) e roda o favorito "Enviar para o Monitor" de verdade.
 
 Se o SUAP mudar o layout, salve as páginas de novo (aba aberta, console:
 `document.documentElement.outerHTML`) e anonimize antes de trocar estes arquivos.
+
+- A nota 7,5 (Etapa 1 e Média) de Engenharia de Software 1 em `boletins.html` é inventada, para testar
+  a leitura das notas do boletim (no SUAP real ainda não havia nota lançada).

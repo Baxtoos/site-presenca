@@ -12,6 +12,7 @@ import {
   saveGradingBodySchema,
   type SubjectGrading,
   type GradesOverview,
+  suapGradesSchema,
 } from "@presenca/contracts";
 import { schema, type Tx } from "@presenca/db";
 import {
@@ -29,6 +30,14 @@ import { cancelTaskNotifications } from "../tasks/tasks.service";
 import { GRADING_AI, type GradingAi } from "./assistant.service";
 
 const { gradingSchemes, evaluationItems, subjects, tasks, users } = schema;
+
+/** Notas oficiais do SUAP guardadas na matéria, no formato da API (null se nunca vieram). */
+function officialOf(row: { suapGrades: unknown; suapGradesAt: Date | null }) {
+  const parsed = suapGradesSchema.safeParse(row.suapGrades);
+  return parsed.success && row.suapGradesAt
+    ? { ...parsed.data, syncedAt: row.suapGradesAt.toISOString() }
+    : null;
+}
 
 const invalid = (errors: { path: string; message: string }[]) =>
   new UnprocessableEntityException({ code: GradesErrorCode.invalid, errors });
@@ -67,7 +76,12 @@ export class GradesService {
         .limit(1);
       if (!current) return { subjects: [] };
       const list = await tx
-        .select({ id: subjects.id, name: subjects.name })
+        .select({
+          id: subjects.id,
+          name: subjects.name,
+          suapGrades: subjects.suapGrades,
+          suapGradesAt: subjects.suapGradesAt,
+        })
         .from(subjects)
         .where(and(eq(subjects.semesterId, current.id), isNull(subjects.archivedAt)))
         .orderBy(asc(subjects.name));
@@ -98,6 +112,7 @@ export class GradesService {
             name: s.name,
             passing: rules?.success ? rules.data.passing : null,
             summary,
+            official: officialOf(s),
             scored: items.filter((i) => i.score !== null).length,
             total: items.length,
           };
@@ -112,7 +127,11 @@ export class GradesService {
 
   private async load(tx: Tx, subjectId: string): Promise<SubjectGrading> {
     const [subject] = await tx
-      .select({ id: subjects.id })
+      .select({
+        id: subjects.id,
+        suapGrades: subjects.suapGrades,
+        suapGradesAt: subjects.suapGradesAt,
+      })
       .from(subjects)
       .where(eq(subjects.id, subjectId));
     if (!subject) throw new NotFoundException({ detail: "Matéria não encontrada." });
@@ -201,6 +220,7 @@ export class GradesService {
       subjectId,
       assistantAvailable: this.ai !== null,
       moodleLinkable: linkable !== undefined,
+      official: officialOf(subject),
       scheme:
         scheme && rules
           ? { rules, source: scheme.source as "manual" | "ai", version: scheme.version }

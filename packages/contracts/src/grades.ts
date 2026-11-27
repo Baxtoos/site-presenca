@@ -14,6 +14,28 @@ const keySchema = z
   });
 const centi = z.number().int().min(0).max(10_000);
 
+// ---------------------------------------------------------------- nota oficial do SUAP
+
+/** Nota como o SUAP mostra (escala do curso, ex.: 7.5 ou 75); null = ainda sem nota. */
+const suapScore = z.number().min(0).max(1000).nullable();
+
+/** Notas do boletim do SUAP de uma disciplina, como o professor lançou. */
+export const suapGradesSchema = z.object({
+  /** Nota de cada etapa ("Etapa 1", "Etapa 2"…). */
+  stages: z.array(z.object({ label: z.string().max(30), score: suapScore })).max(6),
+  /** MÉDIA. */
+  average: suapScore,
+  /** NAF: nota da avaliação final (exame). */
+  finalExam: suapScore,
+  /** MFD: média final da disciplina. */
+  finalGrade: suapScore,
+  /** Conceito, quando o curso usa conceito no lugar da média final (ex.: "A"). */
+  concept: z.string().max(20).nullable(),
+  /** SITUAÇÃO no boletim (ex.: "Cursando", "Aprovado"). */
+  status: z.string().max(80).nullable(),
+});
+export type SuapGrades = z.infer<typeof suapGradesSchema>;
+
 export const gradeGroupSchema = z.object({
   key: keySchema,
   name: z.string().trim().min(1).max(60),
@@ -131,6 +153,8 @@ export const subjectGradingSchema = z.object({
   assistantAvailable: z.boolean(),
   /** Moodle com token e a turma ligada a esta matéria: dá para ligar as avaliações às do Moodle. */
   moodleLinkable: z.boolean().default(false),
+  /** Notas oficiais do boletim do SUAP (null sem favorito do SUAP). Default: tolera API antiga. */
+  official: suapGradesSchema.extend({ syncedAt: z.string() }).nullable().default(null),
   scheme: z
     .object({
       rules: gradingRulesSchema,
@@ -256,6 +280,7 @@ export const gradesOverviewSchema = z.object({
       /** null: sem regra de cálculo. */
       passing: z.number().int().nullable(),
       summary: gradeSummarySchema.nullable(),
+      official: suapGradesSchema.extend({ syncedAt: z.string() }).nullable().default(null),
       scored: z.number().int(),
       total: z.number().int(),
     }),

@@ -1,0 +1,3 @@
+ALTER TABLE "app"."subjects" ADD COLUMN "suap_grades" jsonb;--> statement-breakpoint
+ALTER TABLE "app"."subjects" ADD COLUMN "suap_grades_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "app"."subjects" ADD CONSTRAINT "subjects_suap_grades_chk" CHECK ("app"."subjects"."suap_grades" is null or (jsonb_typeof("app"."subjects"."suap_grades") = 'object' and pg_column_size("app"."subjects"."suap_grades") <= 4000));

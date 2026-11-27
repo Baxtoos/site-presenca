@@ -45,6 +45,8 @@ export const gradePostedPayloadSchema = z.object({
   itemName: z.string(),
   score: z.number().int(),
   maxScore: z.number().int(),
+  /** De onde veio a nota (padrão: Moodle, o primeiro). */
+  source: z.enum(["moodle", "suap"]).default("moodle"),
 });
 export type GradePostedPayload = z.infer<typeof gradePostedPayloadSchema>;
 
@@ -160,7 +162,7 @@ export function notificationContent(
       const d = p.data;
       return {
         title: `Nota nova em ${d.subjectName}: ${d.itemName}`,
-        body: `Saiu no Moodle: ${grade(d.score)} de ${grade(d.maxScore)}.`,
+        body: `Saiu no ${d.source === "suap" ? "SUAP" : "Moodle"}: ${grade(d.score)} de ${grade(d.maxScore)}.`,
         url: subjectId ? `/materias/${subjectId}` : "/",
       };
     }

@@ -122,6 +122,19 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
     const cDelivered = col(head, "total de aulas cumpridas");
     const cAbsences = col(head, "total de faltas");
     const cFreq = col(head, "% freq");
+    // Notas: cada "ETAPA n" ocupa 2 colunas (NOTA e FALTAS); a nota é a primeira.
+    const cStages = Object.entries(head)
+      .filter(([key]) => /^etapa \d/.test(key))
+      .map(([key, i]) => ({ label: `Etapa ${key.replace(/\D/g, "")}`, i }));
+    const cAverage = col(head, "media");
+    const cExam = col(head, "naf");
+    const cFinal = col(head, "mfd");
+    const cStatus = col(head, "situacao");
+    /** "7,5" → 7.5; "-" ou vazio → null. */
+    const score = (cell: Element | undefined) => {
+      const v = text(cell).replace(",", ".");
+      return /^\d{1,3}(\.\d+)?$/.test(v) ? Math.min(1000, Number(v)) : null;
+    };
     const rows = Array.from(table.querySelectorAll("tbody tr")).filter((tr) =>
       tr.querySelector('a[href*="/edu/sala_virtual/"]'),
     );
@@ -221,6 +234,20 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
         });
       }
 
+      const finalText = cFinal >= 0 ? text(cells[cFinal]) : "";
+      const grades = {
+        stages: cStages.slice(0, 6).map((s) => ({ label: s.label, score: score(cells[s.i]) })),
+        average: cAverage >= 0 ? score(cells[cAverage]) : null,
+        finalExam: cExam >= 0 ? score(cells[cExam]) : null,
+        finalGrade: cFinal >= 0 ? score(cells[cFinal]) : null,
+        // Curso com conceito: a coluna MFD/CONCEITO traz letra, não número.
+        concept:
+          finalText && finalText !== "-" && score(cells[cFinal]) === null
+            ? finalText.slice(0, 20)
+            : null,
+        status: cStatus >= 0 ? text(cells[cStatus]).slice(0, 80) || null : null,
+      };
+
       const freq = text(cells[cFreq]).replace("%", "").replace(",", ".");
       subjects.push({
         diario,
@@ -234,6 +261,7 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
         location: location ? location.slice(0, 300) : null,
         slots: slots.slice(0, 60),
         lessons: lessons.slice(0, 400),
+        grades,
       });
     }
 

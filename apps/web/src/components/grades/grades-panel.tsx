@@ -15,6 +15,7 @@ import { GRADE_STATUS_STYLE } from "@/lib/grades";
 import { type EditorDraft, GradingEditor } from "./grading-editor";
 import { GradingAssistant } from "./grading-assistant";
 import { MoodleLinks, moodleDraftItems } from "./moodle-links";
+import { OfficialGrades } from "./official-grades";
 
 type Setup = { draft: EditorDraft; notice?: string; rev: number };
 
@@ -64,6 +65,8 @@ export function GradesPanel({ initial }: { initial: SubjectGrading }) {
           </Button>
         ) : null}
       </div>
+
+      {initial.official ? <OfficialGrades official={initial.official} /> : null}
 
       {setup ? (
         <>
