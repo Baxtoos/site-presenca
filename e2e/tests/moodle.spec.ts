@@ -60,7 +60,10 @@ test("Moodle: conectar pelo link do calendário, ligar turmas e ver as entregas 
   ].join("\r\n");
 
   await page.goto("/conta");
-  await page.getByRole("link", { name: "Conectar", exact: true }).click();
+  await page
+    .getByRole("region", { name: "Moodle" })
+    .getByRole("link", { name: "Conectar", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: "Moodle", exact: true })).toBeVisible();
   await expect(page.getByText("Exportar calendário", { exact: true })).toBeVisible();
 

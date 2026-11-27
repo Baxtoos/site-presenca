@@ -74,7 +74,7 @@ const EditMock = ({ urlLabel = "URL" }: { urlLabel?: string }) => (
     <p className="mb-1.5 rounded-md border border-line-strong bg-surface px-2 py-1">{NAME}</p>
     <p className="text-[11px] text-muted">{urlLabel}</p>
     <p className="truncate rounded-md border border-accent bg-surface px-2 py-1 font-mono text-[11px] text-accent">
-      javascript:(async%20function…
+      javascript:(function()…
     </p>
   </Mock>
 );
