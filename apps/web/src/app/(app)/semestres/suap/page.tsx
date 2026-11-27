@@ -15,10 +15,9 @@ export default function SuapPage() {
         back={{ href: "/semestres", label: "Semestres" }}
       />
       <Alert>
-        <strong>Novo: notas do boletim.</strong> O favorito agora traz também as notas de cada
-        etapa, a média, a NAF e a média final. Se você já tinha salvo o favorito antes de 27/11,
-        apague o antigo e salve de novo pelo passo a passo abaixo: o favorito é uma cópia e não se
-        atualiza sozinho.
+        <strong>Favorito novo, que funciona no celular.</strong> Ele ficou curto e agora se atualiza
+        sozinho, trazendo também as notas do boletim e as avaliações. Se você já tinha um favorito
+        salvo, apague o antigo e salve de novo pelo passo a passo abaixo. É a última vez.
       </Alert>
       <SuapBookmarklet />
     </>

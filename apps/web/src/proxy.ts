@@ -70,7 +70,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/api/:path*",
-    // Páginas: tudo menos arquivos estáticos, o service worker (CSP própria) e a rota interna.
-    "/((?!api/|_next/static|_next/image|icons/|sw\\.js|manifest\\.webmanifest|icon\\.svg|apple-icon\\.png|favicon\\.ico|interno/).*)",
+    // Páginas: tudo menos arquivos estáticos, o service worker (CSP própria), a rota interna e o
+    // código do favorito do SUAP (suap.js, roda dentro do SUAP).
+    "/((?!api/|_next/static|_next/image|icons/|sw\\.js|manifest\\.webmanifest|icon\\.svg|apple-icon\\.png|favicon\\.ico|interno/|suap\\.js).*)",
   ],
 };

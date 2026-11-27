@@ -147,7 +147,8 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
           <>
             Pronto. <strong>No SUAP</strong>, com o boletim aberto, toque na barra de endereço,
             digite <strong>{NAME}</strong> e toque na sugestão com a <strong>estrela ★</strong> (não
-            na pesquisa do Google).
+            na pesquisa do Google). Abrir pela lista de Favoritos <strong>não funciona</strong> no
+            Chrome do Android: tem de ser pela barra de endereço.
           </>
         ),
         mock: <AddressBarMock />,
@@ -239,6 +240,7 @@ export function SuapBookmarklet() {
   const [code, setCode] = useState("");
   const [browser, setBrowser] = useState<Browser | null>(null);
   const [copied, setCopied] = useState(false);
+  const [host, setHost] = useState("");
 
   useEffect(() => {
     const href = suapBookmarklet(window.location.origin);
@@ -246,6 +248,7 @@ export function SuapBookmarklet() {
     // Só existe no navegador: usa o endereço desta página e o navegador da pessoa.
     setCode(href);
     setBrowser(detect());
+    setHost(window.location.host);
   }, []);
 
   async function copy() {
@@ -321,6 +324,14 @@ export function SuapBookmarklet() {
             </button>
           ))}
         </div>
+
+        {current === "computador" || current === "firefox" ? null : (
+          <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
+            Faça no <strong>navegador</strong> ({current === "iphone" ? "Safari" : "Chrome"}), não
+            dentro do app instalado: o app não tem barra de endereço nem favoritos. Abra{" "}
+            <strong>{host}/semestres/suap</strong> no navegador e siga os passos.
+          </p>
+        )}
 
         {current === "computador" ? null : current === "firefox" ? (
           <p className="text-sm" data-testid="suap-guia">

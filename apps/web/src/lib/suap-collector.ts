@@ -340,7 +340,14 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
   }
 }
 
-/** Texto do favorito (javascript:...) para o Monitor neste endereço. */
+/**
+ * Texto do favorito (javascript:...) para o Monitor neste endereço. É curto de propósito: só
+ * carrega /suap.js (o suapCollector acima) do Monitor. Um favorito de 14 mil caracteres não roda
+ * no Chrome do Android, e assim o favorito salvo recebe as versões novas sem salvar de novo.
+ */
 export function suapBookmarklet(monitorOrigin: string): string {
-  return `javascript:${encodeURIComponent(`(${suapCollector.toString()})(${JSON.stringify(monitorOrigin)})`)}`;
+  const src = JSON.stringify(`${monitorOrigin}/suap.js?v=`);
+  const fail = JSON.stringify("Monitor de Presenças: não consegui carregar. Confira a internet.");
+  const code = `(function(){var s=document.createElement("script");s.src=${src}+Date.now();s.onerror=function(){alert(${fail})};document.body.appendChild(s)})()`;
+  return `javascript:${encodeURIComponent(code)}`;
 }

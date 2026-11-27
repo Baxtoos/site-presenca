@@ -43,12 +43,20 @@ async function fakeSuap(page: Page, state: { absentOn?: string }) {
 
 /** Abre o SUAP falso, roda o favorito e devolve a aba do Monitor que ele abre. */
 async function runBookmarklet(page: Page, code: string): Promise<Page> {
+  // O favorito carrega /suap.js do Monitor. Em produção os dois endereços são públicos; aqui o
+  // Monitor é localhost e o Chrome bloqueia site público lendo localhost, então o teste entrega.
+  const script = await (await page.request.get("/suap.js")).text();
+  await page.context().route(
+    (url) => url.pathname === "/suap.js",
+    (route) => route.fulfill({ contentType: "text/javascript", body: script }),
+  );
   const suap = await page.context().newPage();
   await suap.goto("https://suap.ifsp.edu.br/edu/aluno/SL0000000/?tab=boletim");
   const opened = page.context().waitForEvent("page");
   await suap.evaluate(code);
   const monitor = await opened;
-  await monitor.waitForLoadState();
+  // O favorito só carrega /suap.js e volta na hora: espera a leitura terminar e o Monitor abrir.
+  await monitor.waitForURL(/\/semestres\/importar/);
   await suap.close();
   return monitor;
 }
@@ -89,6 +97,8 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   const favorite = page.getByTestId("suap-favorito");
   await expect(favorite).toHaveAttribute("href", /^javascript:/);
   const href = (await favorite.getAttribute("href"))!;
+  // Curto para caber no favorito do celular: só carrega /suap.js.
+  expect(href.length).toBeLessThan(600);
   const code = decodeURIComponent(href.slice("javascript:".length));
 
   // 1ª vez: cria o semestre.
