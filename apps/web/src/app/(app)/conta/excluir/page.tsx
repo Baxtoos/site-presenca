@@ -6,16 +6,11 @@ import { ConfirmDeletion } from "./confirm-deletion";
 
 export const metadata: Metadata = {
   title: "Excluir conta · Monitor de Presenças",
-  // A URL contém o token: nada de enviá-la como Referer para outros sites.
   referrer: "no-referrer",
 };
 
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
-/**
- * Destino do link de exclusão (contas sem senha). Não exclui ao abrir: pede um clique, para que
- * pré-visualizações de link e antivírus de e-mail não apaguem a conta de ninguém.
- */
 export default async function DeleteAccountPage({
   searchParams,
 }: {

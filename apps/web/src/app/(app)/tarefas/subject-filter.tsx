@@ -3,7 +3,6 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { INPUT_CLASS } from "@/components/ui";
 
-/** Filtro por matéria: troca o parâmetro "materia" da URL (mantendo a aba de status). */
 export function SubjectFilter({ subjects }: { subjects: { id: string; name: string }[] }) {
   const router = useRouter();
   const pathname = usePathname();

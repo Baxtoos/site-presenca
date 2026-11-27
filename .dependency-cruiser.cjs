@@ -38,7 +38,6 @@ module.exports = {
       name: "engine-puro",
       severity: "error",
       comment: "O motor de cálculo é puro: sem banco, sem rede, sem dependências externas.",
-      // Arquivos de teste podem usar ferramentas de teste (vitest, fast-check); o código não.
       from: { path: "^packages/engine", pathNot: "\\.test\\.ts$" },
       to: {
         dependencyTypes: ["npm", "npm-dev", "npm-optional", "npm-peer", "core"],

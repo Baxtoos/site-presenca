@@ -4,11 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 
 export interface StepSeries {
   name: string;
-  /** Cor da linha (variável CSS do tema). */
   color: string;
-  /** Tracejada: segunda forma de diferenciar, além da cor. */
   dashed?: boolean;
-  /** Valor depois de cada data (escada: o valor vale até a próxima data). */
   points: { date: string; value: number }[];
 }
 
@@ -17,7 +14,6 @@ const toTime = (d: string) => Date.parse(`${d}T12:00:00Z`);
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const dayLabel = (d: string) => `${Number(d.slice(8))}/${Number(d.slice(5, 7))}`;
 
-/** Valor de uma série numa data: o do último ponto até ela (antes do primeiro, nenhum). */
 function valueAt(points: StepSeries["points"], date: string): number | null {
   let v: number | null = null;
   for (const p of points) {
@@ -27,11 +23,6 @@ function valueAt(points: StepSeries["points"], date: string): number | null {
   return v;
 }
 
-/**
- * Gráfico de escada ao longo do semestre, num eixo só: as séries mudam nas datas dos pontos e a
- * linha de referência (limite, nota para passar) fica tracejada com rótulo. Passar o dedo ou o
- * mouse mostra os valores do dia; a tabela logo abaixo traz os mesmos números para leitores de tela.
- */
 export function StepChart({
   title,
   start,
@@ -82,11 +73,9 @@ export function StepChart({
     }
     return `${d}H${x(last)}`;
   };
-  // Referência primeiro: perto dela, o rótulo dela vence o da grade.
   const ticks = [reference.value, 0, yMax, Math.round(yMax / 2)].filter(
     (v, i, all) => all.findIndex((o) => Math.abs(o - v) < top * 0.12) === i,
   );
-  // Só o dia 1 de cada mês (o início do semestre perto do dia 1 sobreporia o rótulo).
   const months: string[] = [];
   const first = new Date(t0);
   first.setUTCDate(1);

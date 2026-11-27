@@ -19,7 +19,6 @@ describe("stableStringify", () => {
   });
 });
 
-/** Resposta (status e corpo) do erro lançado; o texto útil fica no corpo, não em error.message. */
 function failure(fn: () => unknown): { status: number; body: Record<string, unknown> } {
   try {
     fn();
@@ -60,7 +59,6 @@ describe("parseIdempotencyKey", () => {
 
 describe("localDate", () => {
   it("usa o dia do fuso do aluno, não o do servidor", () => {
-    // 02:30 UTC de 18/11 ainda é noite do dia 17 em São Paulo (UTC−3) e já é dia 18 em Lisboa.
     const instant = new Date("2026-11-18T02:30:00Z");
     expect(localDate(instant, "America/Sao_Paulo")).toBe("2026-11-17");
     expect(localDate(instant, "Europe/Lisbon")).toBe("2026-11-18");

@@ -1,6 +1,5 @@
 import { createHmac } from "node:crypto";
 
-/** Código TOTP (RFC 6238, SHA-1, 30 s, 6 dígitos), como o app autenticador mostraria. */
 export function totp(base32Secret: string, offsetSteps = 0, now = Date.now()): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let bits = 0;

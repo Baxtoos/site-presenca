@@ -5,7 +5,6 @@ import { safeNext } from "@/lib/next-path";
 
 export const metadata: Metadata = {
   title: "Confirmar cadastro · Monitor de Presenças",
-  // A URL contém o token: nada de enviá-la como Referer para outros sites.
   referrer: "no-referrer",
 };
 

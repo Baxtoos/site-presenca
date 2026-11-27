@@ -1,6 +1,3 @@
-// Dá login ao papel de backup (só leitura) num banco gerenciado, sem trocar as outras senhas:
-//   ADMIN_DATABASE_URL="postgres://dono:senha@host/banco?sslmode=require" pnpm db:backup-role
-// Senha opcional (senão é gerada): APP_BACKUP_PASSWORD. Rode `pnpm db:migrate` depois (0008).
 import { provisionBackupRole } from "../provision";
 
 const adminUrl = process.env.ADMIN_DATABASE_URL;

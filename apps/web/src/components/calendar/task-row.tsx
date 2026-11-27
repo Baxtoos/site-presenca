@@ -9,10 +9,6 @@ import { TONE, taskTone } from "@/lib/calendar";
 import { GradeHint } from "@/components/tasks/grade-hint";
 import { SUBJECT_COLOR_CLASS } from "@/lib/format";
 
-/**
- * Uma tarefa na linha do tempo ou no dia escolhido do calendário: horário, matéria, status e as
- * ações rápidas (Concluída, Não concluída, Reabrir, Editar, Abrir atividade).
- */
 export function TaskRow({ task, showDate }: { task: Task; showDate?: string }) {
   const { pending, setStatus } = useTaskActions(task);
   const pathname = usePathname();

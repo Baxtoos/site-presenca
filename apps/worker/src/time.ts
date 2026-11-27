@@ -1,5 +1,3 @@
-/** Horas e datas no fuso de cada aluno. O núcleo (fuso → instante) mora em @presenca/engine. */
-
 export {
   localParts,
   zonedTimeToUtc,
@@ -19,14 +17,12 @@ export const toMinutes = (hhmm: string) => {
   return h * 60 + m;
 };
 
-/** Dentro do horário silencioso? Aceita janelas que viram a noite (22:00–07:00). */
 export function inQuietWindow(minutes: number, start: string, end: string): boolean {
   const s = toMinutes(start);
   const e = toMinutes(end);
   return s < e ? minutes >= s && minutes < e : minutes >= s || minutes < e;
 }
 
-/** Próximo instante (a partir de agora) em que o relógio local marca o fim do silêncio. */
 export function quietWindowEnd(now: Date, tz: string, end: string): Date {
   const local = localParts(now, tz);
   const date = local.minutes < toMinutes(end) ? local.date : addDaysIso(local.date, 1);
@@ -36,7 +32,6 @@ export function quietWindowEnd(now: Date, tz: string, end: string): Date {
 const MINUTE = 60_000;
 export const MAX_ATTEMPTS = 6;
 
-/** Espera antes da próxima tentativa: 1, 2, 4, 8, 16 min… (no máximo 6 h). */
 export function retryDelayMs(attempts: number): number {
   return Math.min(MINUTE * 2 ** Math.max(0, attempts - 1), 6 * 60 * MINUTE);
 }

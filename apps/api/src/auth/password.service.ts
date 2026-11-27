@@ -3,16 +3,11 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { hash, verify } from "@node-rs/argon2";
 import { ENV, type Env } from "../config/env";
 
-/**
- * Argon2id com os parâmetros mínimos recomendados pela OWASP (19 MiB, 2 iterações, 1 thread).
- * `algorithm: 2` é Algorithm.Argon2id; o enum do pacote é só de declaração (const enum).
- */
 const ARGON2_OPTIONS = { algorithm: 2, memoryCost: 19_456, timeCost: 2, parallelism: 1 } as const;
 
 @Injectable()
 export class PasswordService {
   private readonly logger = new Logger(PasswordService.name);
-  /** Hash de uma senha aleatória: verificar contra ele custa o mesmo que contra uma conta real. */
   private readonly dummyHash: Promise<string>;
 
   constructor(@Inject(ENV) private readonly env: Pick<Env, "HIBP_ENABLED">) {

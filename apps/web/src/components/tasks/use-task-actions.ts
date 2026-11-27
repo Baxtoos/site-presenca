@@ -6,10 +6,6 @@ import { useState } from "react";
 import { useToast } from "@/components/toast";
 import { api, ApiError } from "@/lib/api-client";
 
-/**
- * Ações rápidas de uma tarefa (lista, linha do tempo e calendário): marcar com If-Match, apagar
- * com confirmação. Versão velha (412) avisa e recarrega os dados.
- */
 export function useTaskActions(task: Pick<Task, "id" | "version" | "status">) {
   const router = useRouter();
   const toast = useToast();

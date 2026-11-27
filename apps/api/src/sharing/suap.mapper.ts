@@ -1,6 +1,5 @@
 import type { SuapLesson, SuapSlot, SuapSubject } from "@presenca/contracts";
 
-/** "ENGENHARIA DE SOFTWARE 1" → "Engenharia de Software 1" (o SUAP manda tudo em maiúsculas). */
 const SMALL = new Set([
   "a",
   "o",
@@ -27,7 +26,6 @@ export function prettyName(name: string): string {
     .split(" ")
     .map((word, i) => {
       if (i > 0 && SMALL.has(word)) return word;
-      // Números romanos e siglas curtas sem vogal ficam em maiúsculas (II, III, TCC).
       if (
         /^(i|ii|iii|iv|v|vi|vii|viii|ix|x)$/.test(word) ||
         /^[^aeiouáéíóúâêôãõ]{2,4}$/.test(word)
@@ -39,7 +37,6 @@ export function prettyName(name: string): string {
     .join(" ");
 }
 
-/** "D107 - Laboratório de Informática - Prédio ... e C108 - Sala de Aula ..." → "D107 / C108". */
 export function roomFrom(location: string | null): string | null {
   if (!location) return null;
   const codes = [...location.matchAll(/(?:^|\s|e\s)([A-Z]{1,3}-?\d{1,4}[A-Z]?)\s+-/g)].map(
@@ -58,10 +55,6 @@ export interface MergedSchedule {
   units: number;
 }
 
-/**
- * Junta os tempos seguidos do mesmo dia num horário só: terça 08:50–09:40, 09:40–10:30,
- * 10:40–11:30, 11:30–12:20 → terça 08:50–12:20, 4 tempos. Intervalo de até 20 min não separa.
- */
 export function mergeSlots(slots: SuapSlot[]): MergedSchedule[] {
   const sorted = [...slots]
     .filter((s) => minutes(s.endsAt) > minutes(s.startsAt))
@@ -84,7 +77,6 @@ export function mergeSlots(slots: SuapSlot[]): MergedSchedule[] {
   return out.slice(0, 14);
 }
 
-/** Aulas do mesmo dia somadas (o banco guarda um registro por aula da grade por dia). */
 export function lessonsByDate(lessons: SuapLesson[]): SuapLesson[] {
   const byDate = new Map<string, SuapLesson>();
   for (const l of lessons) {
@@ -106,10 +98,6 @@ function mostCommon(values: number[]): number | null {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0]?.[0] ?? null;
 }
 
-/**
- * Regras da matéria nova: "80 Aulas" previstas com 4 tempos por encontro = 20 aulas de 4 tempos,
- * 75% de presença (regra do IFSP). Se não dividir certo, 80 aulas de 1 tempo (o total é o mesmo).
- */
 export function rulesFor(subject: SuapSubject, schedules: MergedSchedule[]) {
   const perMeeting =
     mostCommon(subject.lessons.map((l) => l.units).filter((u) => u <= 6)) ??
@@ -132,7 +120,6 @@ export function rulesFor(subject: SuapSubject, schedules: MergedSchedule[]) {
   };
 }
 
-/** Status do registro a partir da linha do SUAP. */
 export function attendanceFrom(lesson: SuapLesson) {
   const unitsScheduled = Math.min(6, Math.max(1, lesson.units));
   const unitsMissed = Math.min(unitsScheduled, lesson.absences);
@@ -146,7 +133,6 @@ export function attendanceFrom(lesson: SuapLesson) {
   };
 }
 
-/** Datas padrão do período (1º: fev–jul; 2º: ago–dez), cobrindo as aulas lançadas. */
 export function semesterRange(period: string, lessonDates: string[]) {
   const [year, half] = period.split("_");
   const [stdStart, stdEnd] =

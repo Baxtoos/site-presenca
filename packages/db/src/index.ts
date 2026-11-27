@@ -14,21 +14,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export interface DbHandle {
   db: Db;
   pool: Pool;
-  /** Testa a conexão com um `select 1`; retorna a latência em ms. */
   ping(): Promise<number>;
   close(): Promise<void>;
 }
 
-/**
- * Códigos do Postgres de conexão encerrada pelo servidor: 57P01 (o Neon reiniciou ou suspendeu
- * o banco: "terminating connection due to administrator command"), 57P02, 57P03 e a família 08.
- */
 const CONNECTION_LOST_CODES = new Set(["57P01", "57P02", "57P03", "08000", "08003", "08006"]);
 
-/**
- * A conexão caiu no meio (servidor reiniciado, rede)? A transação em andamento foi desfeita pelo
- * banco, então dá para repetir. O Drizzle embrulha o erro do pg em `cause`.
- */
 export function isConnectionLost(error: unknown): boolean {
   for (let e: unknown = error, depth = 0; e && depth < 4; depth++) {
     const err = e as { code?: unknown; message?: unknown; cause?: unknown };
@@ -47,10 +38,8 @@ export function isConnectionLost(error: unknown): boolean {
 
 export interface CreateDbOptions {
   connectionString: string;
-  /** Nome que aparece em pg_stat_activity (ex.: "presenca-api"). */
   applicationName: string;
   maxConnections?: number;
-  /** Tempo máximo de uma consulta. Padrão: 5 s. */
   statementTimeoutMs?: number;
 }
 
@@ -76,11 +65,7 @@ export function createDb(options: CreateDbOptions): DbHandle {
     connectionTimeoutMillis: 5_000,
   };
   const pool = new Pool(config);
-  // Conexão parada que o servidor encerra (o Neon dorme ou reinicia) emite "error" no pool. Sem
-  // este ouvinte, o Node derrubaria o processo; com ele, o pool descarta a conexão e abre outra.
   pool.on("error", () => undefined);
-  // Conexão EM USO que cai também emite "error" (além de rejeitar a consulta, que é tratada por
-  // quem chamou). Sem ouvinte, isso também derrubaria o processo.
   pool.on("connect", (client) => {
     client.on("error", () => undefined);
   });
@@ -100,7 +85,6 @@ export function createDb(options: CreateDbOptions): DbHandle {
 
 export interface TxContext {
   userId: string;
-  /** Vai para a trilha de auditoria (attendance_log_events.request_id). */
   requestId?: string;
 }
 
@@ -111,8 +95,6 @@ export interface TxContext {
  */
 export async function withUser<T>(db: Db, ctx: TxContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
   if (!UUID_RE.test(ctx.userId)) throw new TypeError("withUser: userId precisa ser um UUID");
-  // Depois que `fn` termina, o próximo passo é o COMMIT: se a conexão cair aí, não dá para saber
-  // se ele foi gravado, então não repete (repetir poderia gravar duas vezes).
   let committing = false;
   const run = () =>
     db.transaction(async (tx) => {
@@ -127,8 +109,6 @@ export async function withUser<T>(db: Db, ctx: TxContext, fn: (tx: Tx) => Promis
   try {
     return await run();
   } catch (error) {
-    // Conexão encerrada pelo servidor no meio: a transação foi desfeita, então repete uma vez
-    // numa conexão nova (o aluno não vê o erro). Qualquer outro erro sobe como está.
     if (committing || !isConnectionLost(error)) throw error;
     return run();
   }

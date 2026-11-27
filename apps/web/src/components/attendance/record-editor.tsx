@@ -9,10 +9,6 @@ import { REASON_LABEL, STATUS_LABEL, type AttendanceStatusKey } from "@/lib/form
 const selectClass =
   "min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm";
 
-/**
- * Corrige um registro: status (opcional), tempos perdidos na parcial, atestado, motivo e observação.
- * Grava com If-Match: se outro aparelho mudou antes, avisa em vez de sobrescrever.
- */
 export function RecordEditor({
   record,
   allowStatus = false,

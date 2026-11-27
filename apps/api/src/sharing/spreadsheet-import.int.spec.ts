@@ -46,7 +46,6 @@ type Student = Awaited<ReturnType<typeof student>>;
 const unread = async (s: Student) =>
   notificationListSchema.parse((await s.b.request("GET", "/v1/notifications")).json()).unreadCount;
 
-/** Semestre passado com duas matérias, grade, feriado e registros de todo tipo. */
 async function fullSemester(s: Student) {
   const sem = await s.b.request("POST", "/v1/semesters", {
     label: "2026.1",
@@ -148,7 +147,6 @@ async function fullSemester(s: Student) {
   return { semesterId };
 }
 
-/** Baixa a planilha e devolve o que está na aba oculta (o que o site envia na importação). */
 async function exportedData(s: Student, semesterId: string): Promise<SemesterImportBody> {
   const res = await s.b.request("GET", `/v1/semesters/${semesterId}/export.xlsx`);
   expect(res.statusCode).toBe(200);
@@ -166,7 +164,6 @@ const subjectsOf = async (s: Student, semesterId: string) =>
     .parse((await s.b.request("GET", `/v1/semesters/${semesterId}/subjects`)).json())
     .subjects.sort((a, b) => a.name.localeCompare(b.name));
 
-/** O que precisa sair igual: regras, grade e contas de faltas (ids e versões mudam). */
 const comparable = (subjects: Awaited<ReturnType<typeof subjectsOf>>) =>
   subjects.map(({ id: _id, semesterId: _s, version: _v, schedules, ...rest }) => ({
     ...rest,
@@ -189,7 +186,6 @@ describe("Importar planilha exportada (POST /v1/imports/semester)", () => {
       },
     ]);
 
-    // Outra conta importa (e, de quebra, a mesma conta, que já tem "2026.1").
     const bia = await student();
     const before = await unread(bia);
     const headers = key();
@@ -201,10 +197,8 @@ describe("Importar planilha exportada (POST /v1/imports/semester)", () => {
     expect(comparable(await subjectsOf(bia, result.semesterId))).toEqual(
       comparable(await subjectsOf(ana, semesterId)),
     );
-    // O Laboratório passou do limite (3 faltas de 2 tempos, limite 4), mas nada foi avisado.
     expect(await unread(bia)).toBe(before);
 
-    // Mesma chave: devolve o mesmo resultado sem criar outro semestre.
     const again = await bia.b.request("POST", "/v1/imports/semester", body, { headers });
     expect(again.statusCode).toBe(201);
     expect(again.headers["idempotent-replayed"]).toBe("true");
@@ -214,7 +208,6 @@ describe("Importar planilha exportada (POST /v1/imports/semester)", () => {
     expect(own.statusCode, own.body).toBe(201);
     expect(semesterImportResultSchema.parse(own.json()).label).toBe("2026.1 (2)");
 
-    // Isolamento: Bia não enxerga nada da Ana, só a cópia dela.
     const semesters = (await bia.b.request("GET", "/v1/semesters")).json<{
       semesters: { id: string; isCurrent: boolean }[];
     }>().semesters;
@@ -286,10 +279,8 @@ describe("Importar planilha exportada (POST /v1/imports/semester)", () => {
       expect(p.errors?.[0]?.path, name).toBe(path);
       expect(p.errors?.[0]?.message, name).toMatch(message);
     }
-    // Nada ficou pela metade.
     expect((await bia.b.request("GET", "/v1/semesters")).json()).toEqual({ semesters: [] });
 
-    // Corpo fora do formato (Zod) também é 422, e sem chave de idempotência é 428.
     const bad = await bia.b.request(
       "POST",
       "/v1/imports/semester",

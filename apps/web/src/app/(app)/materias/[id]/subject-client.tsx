@@ -8,7 +8,6 @@ import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 import { WEEKDAYS } from "@/lib/format";
 
-/** Grade de uma matéria já salva: cada inclusão ou remoção grava na hora. */
 export function ScheduleManager({
   subjectId,
   schedules,

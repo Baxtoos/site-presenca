@@ -23,7 +23,6 @@ export const sharedTemplates = app.table(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     kind: templateKind().notNull(),
-    /** 8 caracteres Crockford base32 (sem I, L, O, U). */
     code: text().notNull(),
     title: text().notNull(),
     institution: text(),

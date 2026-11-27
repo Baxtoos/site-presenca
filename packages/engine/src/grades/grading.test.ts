@@ -61,13 +61,12 @@ describe("média simples e ponderada", () => {
     const rules = { ...base, formula: "0.4*P1 + 0.6*P2" };
     const s = summarizeGrades(rules, [item("P1", 500), item("P2", null)]);
     expect(s).toMatchObject({
-      guaranteed: 200, // 0,4 × 5
-      partial: 500, // só a P1 conta, proporcional
-      maxPossible: 800, // 0,4×5 + 0,6×10
+      guaranteed: 200,
+      partial: 500,
+      maxPossible: 800,
       final: null,
       status: "em_curso",
     });
-    // 0,4×5 + 0,6×x ≥ 6  →  x ≥ 6,67
     expect(s.needed?.items).toEqual([{ key: "P2", name: "P2", needed: 667, maxScore: 1000 }]);
   });
 
@@ -78,7 +77,7 @@ describe("média simples e ponderada", () => {
       item("P2", 500),
       item("Trabalho", 100, { maxScore: 200 }),
     ]);
-    expect(s.final).toBe(640); // (12+15)/5 + 1
+    expect(s.final).toBe(640);
   });
 
   it("soma de pontos até 100", () => {
@@ -89,7 +88,6 @@ describe("média simples e ponderada", () => {
       item("A3", null, { maxScore: 4000 }),
     ]);
     expect(s).toMatchObject({ guaranteed: 2500, maxPossible: 9500, status: "em_curso" });
-    // Precisa de 35 dos 70 restantes: metade de cada.
     expect(s.needed?.items.map((i) => i.needed)).toEqual([1500, 2000]);
   });
 });
@@ -107,7 +105,7 @@ describe("grupos, substitutiva, exame e arredondamento", () => {
       item("L2", 200, { group: "Listas" }),
       item("L3", 800, { group: "Listas" }),
     ]);
-    expect(s.final).toBe(690); // 4,2 + 0,3 × média(10, 8)
+    expect(s.final).toBe(690);
   });
 
   it("substitutiva troca a menor prova só se for maior", () => {
@@ -134,7 +132,6 @@ describe("grupos, substitutiva, exame e arredondamento", () => {
     expect(summarizeGrades(rules, [item("P1", 300), item("P2", 300)]).status).toBe(
       "reprovado_por_nota",
     );
-    // Sem as provas lançadas, mas sem chance direta: só pelo exame.
     const rulesTight = { ...rules, formula: "0.9*P1 + 0.1*P2" };
     expect(summarizeGrades(rulesTight, [item("P1", 500), item("P2", null)]).status).toBe(
       "sem_chance_direta",
@@ -151,8 +148,8 @@ describe("grupos, substitutiva, exame e arredondamento", () => {
 
   it("arredonda para 0,5 (meio para cima)", () => {
     const rules = { ...base, roundingStep: 50 };
-    expect(summarizeGrades(rules, [item("P1", 575), item("P2", 600)]).final).toBe(600); // 5,875 → 6
-    expect(summarizeGrades(rules, [item("P1", 540), item("P2", 600)]).final).toBe(550); // 5,7 → 5,5
+    expect(summarizeGrades(rules, [item("P1", 575), item("P2", 600)]).final).toBe(600);
+    expect(summarizeGrades(rules, [item("P1", 540), item("P2", 600)]).final).toBe(550);
   });
 
   it("simulação: e se eu tirar 8 na P2?", () => {
@@ -165,7 +162,6 @@ describe("validação", () => {
   it("aponta nome desconhecido, exame errado, mínima fora da escala e divisão por zero", () => {
     const items = [item("P1", null), item("P2", null)];
     expect(validateGrading(base, items)).toEqual([]);
-    // Sem o campo score (como chega da API ao salvar a regra) também valida.
     expect(
       validateGrading(
         { ...base, formula: "0.4*P1 + 0.6*P2" },
@@ -199,7 +195,7 @@ describe("propriedades", () => {
         const rules = { ...base, formula: `(${wa}*P1 + ${wb}*P2) / ${wa + wb}` };
         const s = summarizeGrades(rules, [item("P1", a), item("P2", b)]);
         const exact = (wa * a + wb * b) / (wa + wb);
-        expect(s.final).toBe(Math.floor(exact + 1e-9)); // sem arredondamento: corta nos centésimos
+        expect(s.final).toBe(Math.floor(exact + 1e-9));
         expect(s.final!).toBeGreaterThanOrEqual(Math.min(a, b));
         expect(s.final!).toBeLessThanOrEqual(Math.max(a, b));
       }),

@@ -24,10 +24,6 @@ export const brDate = (iso: string) => iso.split("-").reverse().join("/");
 
 export type Status = AttendanceRow["status"];
 
-/**
- * Tempos perdidos a partir do status. Falta total perde todos os tempos da aula; parcial perde só
- * os informados; presença e aula cancelada não perdem nada.
- */
 export function missedFor(
   status: Status,
   scheduled: number,
@@ -43,5 +39,4 @@ export function missedFor(
   }
 }
 
-/** Atestado e motivo só fazem sentido numa falta (total ou parcial). */
 export const countsAsAbsence = (status: Status) => status === "absent" || status === "partial";

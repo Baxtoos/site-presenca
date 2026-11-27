@@ -9,7 +9,6 @@ import { EvolutionService } from "./evolution.service";
 import { SimulateService } from "./simulate.service";
 import { TodayService } from "./today.service";
 
-/** Registro de presença, aulas de hoje, calendário, histórico e simulador. Tudo exige sessão (guard global). */
 @Module({
   imports: [NotificationsModule],
   controllers: [AttendanceController],

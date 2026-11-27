@@ -12,28 +12,19 @@ import {
 import { app, createdAt, ownerId, pk, updatedAt, version } from "./_shared";
 import { users } from "./identity";
 
-/**
- * Conexão do aluno com o Moodle (uma por conta). O link .ics (que tem o authtoken) e o wstoken
- * ficam cifrados com AES-256-GCM (packages/integrations); a API nunca os devolve. `next_sync_at`
- * também serve de reserva: o worker adia a próxima rodada antes de buscar.
- */
 export const moodleConnections = app.table(
   "moodle_connections",
   {
     id: pk(),
     userId: ownerId().references(() => users.id, { onDelete: "cascade" }),
-    /** Só o domínio do link .ics, para mostrar ("moodle.exemplo.edu.br"). */
     icsHost: text().notNull(),
     icsUrlEnc: text().notNull(),
-    /** Endereço do Moodle (https), obrigatório para usar o wstoken. */
     baseUrl: text(),
     wstokenEnc: text(),
     syncEnabled: boolean().notNull().default(true),
     lastSyncAt: timestamp({ withTimezone: true }),
-    /** Mensagem curta e sem dados sensíveis; null se a última rodada deu certo. */
     lastSyncError: text(),
     nextSyncAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-    /** Incrementada só pela API (mudanças do aluno); a sincronização não mexe. */
     version: version(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -56,11 +47,6 @@ export const moodleConnections = app.table(
   ],
 );
 
-/**
- * Turmas encontradas no Moodle (código do CATEGORIES do .ics ou shortname da API) e a matéria do
- * semestre a que cada uma corresponde. `ignored` = o aluno não quer importar essa turma. As FKs
- * compostas (com a conexão e com a matéria) ficam na migration de segurança.
- */
 export const moodleCourseMappings = app.table(
   "moodle_course_mappings",
   {

@@ -11,9 +11,7 @@ import { WebPushSender } from "./push";
 if (process.env.NODE_ENV !== "production") {
   try {
     process.loadEnvFile(resolve(__dirname, "../../../.env"));
-  } catch {
-    // sem .env: segue com o ambiente atual
-  }
+  } catch {}
 }
 
 type Level = "info" | "warn" | "error";
@@ -23,7 +21,6 @@ function log(level: Level, msg: string, extra: Record<string, unknown> = {}) {
   );
 }
 
-/** O pg lança AggregateError sem mensagem quando a conexão é recusada; usa o código nesse caso. */
 function describeError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
   const code = (error as NodeJS.ErrnoException).code;
@@ -71,14 +68,10 @@ async function main(): Promise<void> {
     };
   }
 
-  // Modo pontual: um ciclo e sai. Sem escuta do outbox, sem timers. Falhou → código de saída 1,
-  // para o agendador mostrar a execução como falha.
   if (env.WORKER_MODE === "once") {
     let failed = 0;
     try {
       const result = await runCycle(deps, { cleanup: true }).catch(async (error: unknown) => {
-        // O Neon encerra as conexões quando reinicia ou acorda o banco: espera e tenta de novo
-        // uma vez, em vez de falhar a execução (e mandar e-mail de alarme) por alguns segundos.
         if (!isConnectionLost(error)) throw error;
         log("warn", "conexão com o banco encerrada pelo servidor; tentando de novo em 5 s");
         await new Promise((resolve) => setTimeout(resolve, 5_000));
@@ -95,14 +88,11 @@ async function main(): Promise<void> {
       await handle.close();
     }
     if (failed > 0) {
-      // Envio que falhou (SMTP recusou, push expirado...) tenta de novo no próximo ciclo, mas a
-      // execução sai como FALHA para o GitHub avisar o dono por e-mail. O motivo está no log acima.
       log("error", `${failed} envio(s) falharam neste ciclo; veja "envio falhou" acima`, {
         failed,
       });
       process.exit(1);
     }
-    // Conexões keep-alive abertas pelo envio (SMTP, push) não devem segurar o processo.
     process.exit(0);
   }
 
@@ -112,11 +102,10 @@ async function main(): Promise<void> {
   let timer: NodeJS.Timeout | undefined;
   let lastCleanup = 0;
 
-  /** Um ciclo: lembretes vencidos, depois tudo o que estiver na fila. Nunca dois ao mesmo tempo. */
   const cycle = async () => {
     if (stopping) return;
     if (running) {
-      again = true; // chegou aviso no meio do ciclo: roda de novo ao terminar
+      again = true;
       return;
     }
     running = true;
@@ -148,7 +137,6 @@ async function main(): Promise<void> {
     }
   };
 
-  // Vários NOTIFY seguidos (um registro gera até 3 avisos) viram um ciclo só.
   let wakeTimer: NodeJS.Timeout | undefined;
   const wake = () => {
     clearTimeout(wakeTimer);

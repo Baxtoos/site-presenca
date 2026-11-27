@@ -15,11 +15,6 @@ type TemplateRow = typeof schema.sharedTemplates.$inferSelect;
 
 const hhmm = (t: string) => t.slice(0, 5);
 
-/**
- * Matéria do aluno → matéria do modelo: dados, regras e grade. Nada de id, versão, registros ou
- * resumo de faltas. Passa pelo mesmo schema da criação de matéria, então o modelo é sempre algo
- * que a API aceitaria criar.
- */
 export function subjectToTemplate(row: SubjectRow, schedules: ScheduleRow[]): TemplateSubject {
   const base = {
     name: row.name,
@@ -66,7 +61,6 @@ export function subjectToTemplate(row: SubjectRow, schedules: ScheduleRow[]): Te
   return templateSubjectSchema.parse({ ...base, ...rules });
 }
 
-/** Regras do motor a partir de uma matéria do modelo (para a prévia mostrar o limite de faltas). */
 export function rulesFromTemplate(s: TemplateSubject): SubjectRules {
   switch (s.countingMode) {
     case "class_count":

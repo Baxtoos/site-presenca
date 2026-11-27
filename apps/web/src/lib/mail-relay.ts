@@ -26,7 +26,6 @@ export interface MailRelayConfig {
 
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
-/** Compara em tempo constante (os hashes têm sempre o mesmo tamanho). */
 function sameSecret(received: string, expected: string): boolean {
   return timingSafeEqual(digest(received), digest(expected));
 }

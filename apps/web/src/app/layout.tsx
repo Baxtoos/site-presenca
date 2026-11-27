@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   title: "Monitor de Presenças",
   description: "Controle suas faltas por matéria e saiba quanto ainda pode faltar.",
   applicationName: "Monitor de Presenças",
-  // iOS: abre em tela cheia quando instalado pela "Adicionar à Tela de Início".
   appleWebApp: { capable: true, title: "Presenças", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
@@ -29,7 +28,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // Ler o cabeçalho deixa todas as páginas dinâmicas, o que o nonce exige.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    // data-theme é posto pelo script de tema antes da hidratação (ver lib/theme.ts).
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />

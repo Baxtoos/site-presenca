@@ -1,10 +1,5 @@
 import { fromDecimal, type Rational } from "./rational";
 
-/**
- * Fórmula da nota (ex.: "(2*P1 + 3*P2)/5 + Trabalho"), lida por um analisador próprio: só números,
- * nomes de avaliações/grupos, + - * /, parênteses e as funções max, min e media. Nada é executado
- * como código (sem eval nem Function).
- */
 export type Expr =
   | { type: "num"; value: string }
   | { type: "ref"; name: string }
@@ -149,7 +144,6 @@ export function parseFormula(src: string): Expr {
   return tree;
 }
 
-/** Nomes usados na fórmula (avaliações ou grupos). */
 export function formulaRefs(e: Expr, out = new Set<string>()): Set<string> {
   switch (e.type) {
     case "ref":
@@ -169,7 +163,6 @@ export function formulaRefs(e: Expr, out = new Set<string>()): Set<string> {
   return out;
 }
 
-/** Valor da fórmula com cada nome já resolvido para uma fração (em pontos). */
 export function evaluate(e: Expr, env: (name: string) => Rational, ops: Ops): Rational {
   switch (e.type) {
     case "num":

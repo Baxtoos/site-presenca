@@ -28,10 +28,6 @@ export class TodayService {
     private readonly clock: ClockService,
   ) {}
 
-  /**
-   * As aulas de um dia (hoje, por padrão) de todos os semestres ativos que contêm esse dia,
-   * com o registro já feito e o resumo atual de cada matéria.
-   */
   get(requestedDate?: string): Promise<TodayResponse> {
     return this.db.tx(async (tx) => {
       const [me] = await tx.select({ timezone: users.timezone }).from(users);
@@ -107,7 +103,6 @@ export class TodayService {
       const summaryOf = (row: (typeof subjectRows)[number]) =>
         summarize(rulesFromRow(row), totalsById.get(row.id) ?? NO_ATTENDANCE);
 
-      /** Feriado ou dia sem aula que cancela a aula desta matéria (global ou só dela). */
       const blockedFor = (subject: (typeof subjectRows)[number]) => {
         const hit = exceptions.find(
           (e) =>
@@ -136,7 +131,6 @@ export class TodayService {
           summary: summaryOf(subject),
         });
       }
-      // Aulas extras ou de horários que já saíram da grade: aparecem para poderem ser corrigidas.
       for (const log of logs.filter((l) => !used.has(l.id))) {
         const subject = subjectRows.find((s) => s.id === log.subjectId)!;
         classes.push({

@@ -4,10 +4,6 @@ import { type ButtonHTMLAttributes, useSyncExternalStore } from "react";
 
 const noopSubscribe = () => () => {};
 
-/**
- * false no HTML do servidor e durante a hidratação; true depois. Um clique antes da hidratação
- * faria o navegador enviar o formulário sozinho (sem o nosso onSubmit), então o botão espera.
- */
 function useHydrated(): boolean {
   return useSyncExternalStore(
     noopSubscribe,
@@ -16,7 +12,6 @@ function useHydrated(): boolean {
   );
 }
 
-/** Botão principal (cheio) ou secundário (contorno). Mostra estado de carregamento sem mudar de tamanho. */
 export function Button({
   variant = "primary",
   loading = false,

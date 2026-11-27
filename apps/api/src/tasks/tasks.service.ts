@@ -17,7 +17,6 @@ import { DbService } from "../database/db.service";
 
 const { tasks, subjects, semesters, users, notificationLogs, evaluationItems } = schema;
 
-/** Envios de aviso ainda na fila (push/e-mail) desta tarefa deixam de valer. */
 export async function cancelTaskNotifications(tx: Tx, taskId: string, reason: string) {
   await tx
     .update(notificationLogs)
@@ -51,11 +50,6 @@ type SelectedRow = { task: typeof tasks.$inferSelect } & Extra;
 
 const flatten = ({ task, ...extra }: SelectedRow): TaskRow => ({ ...task, ...extra });
 
-/**
- * Tarefas e entregas. O prazo chega como data e hora locais e é guardado como instante no fuso da
- * conta. Mudar o status, o prazo ou a antecedência (ou apagar) cancela os envios pendentes do aviso
- * na mesma transação; o aviso novo, se couber, sai no próximo ciclo do worker.
- */
 @Injectable()
 export class TasksService {
   constructor(
@@ -69,7 +63,6 @@ export class TasksService {
     return me?.timezone ?? FALLBACK_TZ;
   }
 
-  /** Fuso da conta (users.timezone), na transação do usuário. */
   timezoneOf(tx: Tx): Promise<string> {
     return this.timezone(tx);
   }
@@ -141,7 +134,6 @@ export class TasksService {
     return row ? flatten(row) : undefined;
   }
 
-  /** A matéria precisa ser do aluno (o RLS esconde as dos outros; a FK composta garante no banco). */
   private async assertSubject(tx: Tx, subjectId: string | null | undefined) {
     if (!subjectId) return;
     const [found] = await tx
@@ -151,7 +143,6 @@ export class TasksService {
     if (!found) throw invalid("subjectId", "Matéria não encontrada.");
   }
 
-  /** A avaliação ligada precisa ser do aluno e da mesma matéria da tarefa (o banco também confere). */
   private async assertEvaluation(
     tx: Tx,
     evaluationItemId: string | null | undefined,
@@ -171,8 +162,6 @@ export class TasksService {
   private cancelPending(tx: Tx, taskId: string, reason: string) {
     return cancelTaskNotifications(tx, taskId, reason);
   }
-
-  // ---------------------------------------------------------------- criar
 
   create(body: CreateTaskBody, key: string): Promise<IdempotentResult<Task>> {
     return this.db.tx((tx) =>
@@ -204,8 +193,6 @@ export class TasksService {
     return this.toDto((await this.load(tx, row!.id))!, tz);
   }
 
-  // ---------------------------------------------------------------- ler
-
   get(id: string): Promise<Task> {
     return this.db.tx(async (tx) => {
       const row = await this.load(tx, id);
@@ -223,7 +210,6 @@ export class TasksService {
       const filters: SQL[] = [];
       if (query.status) filters.push(eq(tasks.status, query.status));
       if (query.subjectId) filters.push(eq(tasks.subjectId, query.subjectId));
-      // Dias locais do aluno: [from 00:00, to + 1 dia 00:00) no fuso da conta.
       if (query.from) filters.push(gte(tasks.dueAt, zonedTimeToUtc(query.from, "00:00", tz)));
       if (query.to) filters.push(lt(tasks.dueAt, zonedTimeToUtc(nextDay(query.to), "00:00", tz)));
       if (cursor) {
@@ -249,10 +235,6 @@ export class TasksService {
     });
   }
 
-  /**
-   * Tarefas com prazo em [from, to) (instantes), por prazo: base da linha do tempo e do calendário.
-   * Roda na transação de quem chama (o RLS já filtra pelo aluno).
-   */
   async inRangeTx(
     tx: Tx,
     tz: string,
@@ -268,7 +250,6 @@ export class TasksService {
     return rows.map((r) => this.toDto(flatten(r), tz));
   }
 
-  /** Pendentes com o prazo já passado (o alerta "falta registrar"). */
   async overdueCountTx(tx: Tx, subjectId?: string): Promise<number> {
     const filters: SQL[] = [eq(tasks.status, "pending"), lt(tasks.dueAt, this.clock.now())];
     if (subjectId) filters.push(eq(tasks.subjectId, subjectId));
@@ -278,8 +259,6 @@ export class TasksService {
       .where(and(...filters));
     return row?.n ?? 0;
   }
-
-  // ---------------------------------------------------------------- editar
 
   update(id: string, expectedVersion: number, body: UpdateTaskBody): Promise<Task> {
     return this.db.tx(async (tx) => {
@@ -295,8 +274,6 @@ export class TasksService {
       }
       const tz = await this.timezone(tx);
       if (current.source !== "manual") {
-        // Título, prazo e link de tarefa importada seguem o Moodle (a próxima sincronização
-        // desfaria a mudança). Matéria, observações, aviso e status continuam com o aluno.
         const locked = (["title", "dueAt", "externalUrl"] as const).find(
           (field) => body[field] !== undefined,
         );
@@ -320,7 +297,6 @@ export class TasksService {
       if (body.externalUrl !== undefined) patch.externalUrl = body.externalUrl;
       if (body.evaluationItemId !== undefined) patch.evaluationItemId = body.evaluationItemId;
       if (body.status !== undefined) {
-        // O aluno marcou: a sincronização com o Moodle não muda mais este status.
         patch.statusSource = "user";
         if (body.status !== current.status) {
           patch.status = body.status;
@@ -356,8 +332,6 @@ export class TasksService {
     });
   }
 
-  // ---------------------------------------------------------------- apagar
-
   remove(id: string, expectedVersion: number): Promise<void> {
     return this.db.tx(async (tx) => {
       const current = await this.load(tx, id);
@@ -382,14 +356,12 @@ export class TasksService {
   }
 }
 
-/** "2026-11-30" → "2026-12-01" (calendário, sem fuso). */
 function nextDay(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
 
-// Cursor opaco: base64url de "instante ISO|uuid" (ordem por prazo e, no empate, por id).
 const CURSOR =
   /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z)\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 

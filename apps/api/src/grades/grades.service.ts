@@ -32,7 +32,6 @@ import { GRADING_AI, type GradingAi } from "./assistant.service";
 
 const { gradingSchemes, evaluationItems, subjects, tasks, users } = schema;
 
-/** Notas oficiais do SUAP guardadas na matéria, no formato da API (null se nunca vieram). */
 function officialOf(row: { suapGrades: unknown; suapGradesAt: Date | null }) {
   const parsed = suapGradesSchema.safeParse(row.suapGrades);
   return parsed.success && row.suapGradesAt
@@ -54,11 +53,6 @@ const toEngine = (r: ItemRow): EvaluationItem => ({
   score: r.score,
 });
 
-/**
- * Notas de uma matéria: regra de cálculo (como o professor quiser), avaliações e o resumo calculado
- * na hora pelo motor. Salvar troca a regra e a lista de avaliações numa transação, mantendo as
- * notas das avaliações que continuam.
- */
 @Injectable()
 export class GradesService {
   constructor(
@@ -67,7 +61,6 @@ export class GradesService {
     @Inject(GRADING_AI) private readonly ai: GradingAi | null,
   ) {}
 
-  /** Aba Notas: todas as matérias do semestre atual, com consultas em lote (não uma por matéria). */
   overview(): Promise<GradesOverview> {
     return this.db.tx(async (tx) => {
       const [current] = await tx
@@ -190,7 +183,6 @@ export class GradesService {
     let summary: SubjectGrading["summary"] = null;
     let rules: GradingRulesDto | null = null;
     if (scheme) {
-      // A regra guardada passou pela validação ao salvar; relê pelo contrato por segurança.
       const parsed = saveGradingBodySchema.shape.rules.safeParse(scheme.rules);
       if (parsed.success) {
         rules = parsed.data;
@@ -201,7 +193,6 @@ export class GradesService {
         }
       }
     }
-    // Moodle com token e turma ligada a esta matéria: a tela oferece ligar as avaliações.
     const [linkable] = await tx
       .select({ id: schema.moodleCourseMappings.id })
       .from(schema.moodleCourseMappings)
@@ -282,8 +273,6 @@ export class GradesService {
         });
       }
 
-      // Avaliações: as que vieram com id são atualizadas (mantendo a nota), as novas inseridas e
-      // as que sumiram, apagadas (a tarefa ligada só perde a ligação).
       const existing = await tx
         .select()
         .from(evaluationItems)
@@ -299,7 +288,6 @@ export class GradesService {
             ? and(eq(evaluationItems.subjectId, subjectId), notInArray(evaluationItems.id, keepIds))
             : eq(evaluationItems.subjectId, subjectId),
         );
-      // Troca de nomes em lote sem esbarrar no índice único (P1 ↔ P2): primeiro nomes temporários.
       for (const id of keepIds) {
         await tx
           .update(evaluationItems)
@@ -353,7 +341,6 @@ export class GradesService {
           }
         }
       }
-      // Notas do "Detalhar" do SUAP já sincronizadas entram nas avaliações com a mesma sigla.
       const [official] = await tx
         .select({ suapGrades: subjects.suapGrades })
         .from(subjects)
@@ -390,7 +377,6 @@ export class GradesService {
         .returning({ id: evaluationItems.id });
       await assertVersioned(rows, async () => true, "Avaliação não encontrada.");
       if (completeTask && score !== null) {
-        // Nota lançada = entregue: a tarefa ligada que ainda estava pendente vira concluída.
         const done = await tx
           .update(schema.tasks)
           .set({ status: "completed", statusSource: "user", resolvedAt: this.clock.now() })

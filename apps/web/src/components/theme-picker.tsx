@@ -10,9 +10,7 @@ const OPTIONS: { value: Theme; label: string; icon: ComponentType<{ size?: numbe
   { value: "dark", label: "Escuro", icon: MoonIcon },
 ];
 
-/** Escolha do tema (fica guardada neste aparelho). */
 export function ThemePicker() {
-  // No servidor não há aparelho: "system" até hidratar, depois o valor guardado.
   const theme = useSyncExternalStore(subscribeTheme, readTheme, (): Theme => "system");
 
   return (
@@ -57,16 +55,11 @@ export function ThemePicker() {
   );
 }
 
-/**
- * Troca rápida de tema: três ícones, o atual destacado. Fica no rodapé da barra lateral
- * (computador) e no topo da tela (celular). Mesma escolha da página Conta (guardada no aparelho).
- */
 export function ThemeSwitcher({
   name = "tema-rapido",
   showLabel = true,
   className = "",
 }: {
-  /** Nome do grupo de opções (um diferente para cada lugar onde aparece na página). */
   name?: string;
   showLabel?: boolean;
   className?: string;

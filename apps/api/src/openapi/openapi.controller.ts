@@ -16,7 +16,6 @@ export class OpenApiController {
     });
   }
 
-  /** Documentação OpenAPI 3.1 gerada de packages/contracts. Desligada em produção por padrão. */
   @Get("openapi.json")
   openapi() {
     if (!this.env.OPENAPI_ENABLED) throw new NotFoundException();

@@ -6,7 +6,6 @@ import { apiGet, getMe } from "@/lib/api-server";
 
 export const metadata: Metadata = {
   title: "Importar grade · Monitor de Presenças",
-  // O código dá acesso à grade de alguém: a página não deve aparecer em buscadores.
   robots: { index: false, follow: false },
 };
 
@@ -24,7 +23,6 @@ export default async function ImportPage({ params }: { params: Promise<{ code: s
     );
   }
   const me = await getMe();
-  // Para modelo de matéria, o aluno escolhe em qual dos seus semestres ela entra.
   const semesters = me ? (await apiGet("/v1/semesters", semestersResponseSchema)).semesters : [];
 
   return (

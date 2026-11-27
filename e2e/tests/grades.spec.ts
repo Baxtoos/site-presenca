@@ -19,13 +19,11 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
   const notes = page.getByRole("region", { name: "Notas" });
   await expect(notes).toBeVisible();
 
-  // Sem chave da IA no teste: o editor aparece sozinho, com P1 e P2 e média simples.
   await expect(notes.getByTestId("assistente-notas")).toHaveCount(0);
   await expect(notes.getByLabel("Fórmula", { exact: true })).toHaveValue("(P1 + P2) / 2");
   await notes.getByRole("button", { name: "Salvar regra" }).click();
   await expect(page.getByText("Regra de cálculo salva.")).toBeVisible();
 
-  // O motor faz as contas: 4 na P1 → precisa de 8 na P2 para chegar a 6.
   const summary = notes.getByTestId("resumo-notas");
   await expect(summary.getByTestId("situacao-nota")).toHaveText("Em curso");
   await notes.getByLabel(/^Prova 1/).fill("4");
@@ -37,14 +35,12 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
   await expect(page.getByText("Nota de Prova 1 lançada.")).toBeVisible();
   await expect(summary.getByTestId("quanto-falta")).toContainText("8 na Prova 2");
 
-  // Simulação no navegador: 9 na P2 aprova (nada é salvo).
   await notes.getByLabel("E se eu tirar").fill("9");
   await expect(summary.getByTestId("situacao-nota")).toHaveText("Aprovado por nota");
   await expect(summary.getByText("Simulação: nada foi salvo.")).toBeVisible();
   await notes.getByRole("button", { name: "Limpar simulação" }).click();
   await expect(summary.getByTestId("situacao-nota")).toHaveText("Em curso");
 
-  // Aba Notas: todas as matérias, com a situação e quanto falta.
   await page.getByRole("link", { name: "Notas", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Notas", exact: true })).toBeVisible();
   const card = page.getByTestId("nota-materia").filter({ hasText: "Cálculo" });
@@ -56,7 +52,6 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
   await page.getByRole("link", { name: "Notas", exact: true }).first().click();
   await expect(card).toBeVisible();
 
-  // Tarefa que vale nota: liga à Prova 2, entrega e lança a nota pelo atalho.
   await page.goto("/tarefas/nova?voltar=/tarefas");
   await page.getByLabel("Título").fill("Prova 2 de Cálculo");
   await page.getByLabel("Matéria (opcional)").selectOption({ label: "Cálculo" });
@@ -78,7 +73,6 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
     .click();
   await expect(page.getByText("Nota de Prova 2 lançada.")).toBeVisible();
   await expect(page.getByTestId("selo-nota").first()).toContainText("Aprovado por nota");
-  // Evolução no semestre: o gráfico da nota mostra as notas lançadas (tabela para leitor de tela).
   const evolution = page.getByRole("region", { name: "Evolução no semestre" });
   await expect(evolution.getByRole("figure", { name: "Nota ao longo do semestre" })).toBeVisible();
   await page.reload();
@@ -88,7 +82,6 @@ test("notas: montar a regra no editor, lançar nota, ver quanto falta e simular"
   );
   await page.goto("/tarefas?status=completed");
   await expect(linked.getByTestId("nota-da-tarefa")).toContainText("nota 9 de 10");
-  // Início: o card da matéria mostra a situação da nota.
   await page.goto("/");
   await expect(
     page

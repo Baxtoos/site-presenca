@@ -9,7 +9,6 @@ import { GRADING_AI, type GradingAi } from "../grades/assistant.service";
 import { CaptureMailer, MAILER } from "../mail/mailer";
 import { buildTestApp, TEST_ORIGIN } from "./build-test-app";
 
-/** Google simulado: devolve o perfil configurado para o código "codigo-valido". */
 export class FakeGoogle implements GoogleOAuth {
   profile: GoogleProfile = {
     sub: "google-sub-1",
@@ -31,11 +30,9 @@ export class FakeGoogle implements GoogleOAuth {
   }
 }
 
-/** Chave pública VAPID de teste (só é repassada ao navegador; a assinatura é do worker). */
 export const TEST_VAPID_PUBLIC_KEY =
   "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM";
 
-/** Relógio de teste: "agora" fixo, que cada teste pode mover. Padrão: 18/11/2026 12:00 em São Paulo (quarta). */
 export class FakeClock extends ClockService {
   instant = new Date("2026-11-18T15:00:00Z");
 
@@ -44,7 +41,6 @@ export class FakeClock extends ClockService {
   }
 }
 
-/** IA de mentira: devolve as respostas da fila, na ordem; um Error na fila vira falha da API. */
 export class FakeGradingAi implements GradingAi {
   readonly calls: { system: string; messages: { role: string; content: unknown }[] }[] = [];
   queue: (Record<string, unknown> | Error | { refusal: true })[] = [];
@@ -64,15 +60,12 @@ export interface AuthTestEnv {
   db: TestDb;
   mail: CaptureMailer;
   google: FakeGoogle;
-  /** Espera as tarefas em segundo plano (envio de e-mail) terminarem. */
   drain(): Promise<void>;
   stop(): Promise<void>;
 }
 
-/** Chave das credenciais do Moodle nos testes (32 bytes fixos, só para teste). */
 export const TEST_INTEGRATION_KEY = Buffer.alloc(32, 7).toString("base64");
 
-/** Sobe Postgres + Valkey reais e a API completa contra eles. */
 export async function startAuthTestEnv(): Promise<AuthTestEnv> {
   const [db, redis] = await Promise.all([
     startTestDb(),
@@ -122,10 +115,6 @@ export async function startAuthTestEnv(): Promise<AuthTestEnv> {
 
 let ipCounter = 0;
 
-/**
- * Um "navegador": guarda cookies entre requisições e manda Origin do app nas escritas.
- * Cada cliente tem um IP próprio, para os limites por IP de um teste não afetarem outro.
- */
 export class Browser {
   readonly cookies = new Map<string, string>();
   readonly ip = `10.0.${Math.floor(++ipCounter / 250)}.${(ipCounter % 250) + 1}`;
@@ -166,7 +155,6 @@ export class Browser {
   }
 }
 
-/** Extrai o token do último e-mail enviado para o endereço. */
 export function tokenFromMail(mail: CaptureMailer, to: string): string {
   const message = mail.lastTo(to);
   const token = message?.text.match(/token=([A-Za-z0-9_-]{43})/)?.[1];
@@ -174,10 +162,6 @@ export function tokenFromMail(mail: CaptureMailer, to: string): string {
   return token;
 }
 
-/**
- * Cadastro completo, como o aluno faz: pede o cadastro (202), abre o link do e-mail e confirma.
- * Devolve a resposta da confirmação (200 + MeResponse, sessão aberta no navegador).
- */
 export async function registerAndConfirm(
   env: AuthTestEnv,
   browser: Browser,

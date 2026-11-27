@@ -9,7 +9,6 @@ import { Alert, Button, INPUT_CLASS } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { plural } from "@/lib/format";
 
-/** Onde o script da página (lib/url-mask.ts) guarda o retrato que veio no #suap=... */
 const STORAGE_KEY = "presenca:suap";
 
 function readPending(): SuapSnapshot | "invalid" | null {
@@ -31,18 +30,11 @@ function readPending(): SuapSnapshot | "invalid" | null {
 const clearPending = () => {
   try {
     sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // sem armazenamento: nada a limpar
-  }
+  } catch {}
 };
 
-/** Hoje no fuso do aparelho, em AAAA-MM-DD. */
 const localToday = () => new Date().toLocaleDateString("en-CA");
 
-/**
- * Confirmação do que o favorito trouxe do SUAP: mostra as matérias e as faltas e deixa escolher
- * entre criar um semestre novo ou atualizar um que já existe (o SUAP vale para as aulas lançadas).
- */
 export function SuapImport({
   semesters,
 }: {
@@ -59,7 +51,6 @@ export function SuapImport({
   useEffect(() => {
     const found = readPending();
     if (!found) return;
-    // Lido uma vez ao abrir a tela (sessionStorage só existe no navegador).
     setSnapshot(found);
     if (found !== "invalid") {
       const label = found.period.replace("_", ".");

@@ -29,7 +29,6 @@ export function toSemester(row: SemesterRow, subjectsCount: number): Semester {
   };
 }
 
-/** O Postgres devolve time como "19:00:00"; a API fala "19:00". */
 const hhmm = (time: string) => time.slice(0, 5);
 
 export function toSchedule(row: ScheduleRow): Schedule {
@@ -48,7 +47,6 @@ export function toSchedule(row: ScheduleRow): Schedule {
   };
 }
 
-/** Regras gravadas → regras do motor. numeric vem do driver como string. */
 export function rulesFromRow(row: SubjectRow): SubjectRules {
   switch (row.countingMode) {
     case "class_count":
@@ -106,10 +104,6 @@ export function toSubject(
   };
 }
 
-/**
- * Corpo da requisição → colunas da matéria. Os campos de outros modos de contagem vão como null,
- * para que trocar o modo (ex.: de carga horária para aulas) não deixe lixo para trás.
- */
 export function subjectColumns(body: SubjectBody) {
   const common = {
     name: body.name,
@@ -147,7 +141,6 @@ export function subjectColumns(body: SubjectBody) {
         countingMode: "manual" as const,
         manualMaxUnits: body.manualMaxUnits,
         totalClasses: body.totalClasses ?? null,
-        // Sem efeito no limite manual; guarda o padrão para o caso de trocar de modo depois.
         minAttendanceBp: 7500,
       };
   }

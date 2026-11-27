@@ -4,10 +4,6 @@ import type { SubjectEvolution } from "@presenca/contracts";
 import { formatGrade } from "@presenca/engine";
 import { StepChart } from "./step-chart";
 
-/**
- * "Evolução no semestre" da matéria: faltas que contam (contra o limite) e a nota (garantida e
- * média parcial, contra a nota para passar). Dois gráficos de um eixo só (medidas diferentes).
- */
 export function EvolutionCharts({ data }: { data: SubjectEvolution }) {
   const { semester, today, absences, grades } = data;
   const lastAbsence = absences.points.at(-1)?.total ?? 0;
@@ -53,7 +49,6 @@ export function EvolutionCharts({ data }: { data: SubjectEvolution }) {
             {
               name: "Nota garantida",
               color: "var(--color-accent)",
-              // Antes da primeira nota, a garantida é 0.
               points: [
                 { date: semester.startsOn, value: 0 },
                 ...gradePoints.map((p) => ({ date: p.date, value: p.guaranteed })),

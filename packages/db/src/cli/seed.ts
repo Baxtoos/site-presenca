@@ -1,5 +1,3 @@
-// Dados de exemplo para desenvolvimento:  pnpm --filter @presenca/db db:seed
-// Grava com o papel da API (DATABASE_URL = app_api) dentro de withUser: o RLS vale aqui também.
 import { resolve } from "node:path";
 import { createDb, schema, withUser, type Tx } from "../index";
 
@@ -9,15 +7,11 @@ if (process.env.NODE_ENV === "production") {
 }
 try {
   process.loadEnvFile(resolve(__dirname, "../../../../.env"));
-} catch {
-  // sem .env: usa o ambiente
-}
+} catch {}
 
-/** Id fixo: rodar o seed de novo não duplica nada. */
 const DEMO_USER_ID = "01960000-0000-7000-8000-000000000001";
 const DEMO_EMAIL = "demo@presenca.local";
 const SEMESTER = { label: "2026.2", startsOn: "2026-08-03", endsOn: "2026-12-18" };
-/** Registros vão até hoje (ou até o fim do semestre, se já tiver acabado). */
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const HOLIDAYS = [
@@ -30,9 +24,7 @@ const HOLIDAYS = [
 type SubjectSeed = {
   values: Omit<typeof schema.subjects.$inferInsert, "userId" | "semesterId">;
   schedules: { weekday: number; startsAt: string; endsAt: string; units: number; room: string }[];
-  /** Índices das ocorrências (em ordem cronológica) em que o aluno faltou. */
   absences: number[];
-  /** Índices das faltas com atestado. */
   excused?: number[];
 };
 
@@ -106,7 +98,6 @@ const SUBJECTS: SubjectSeed[] = [
   },
 ];
 
-/** Datas (YYYY-MM-DD) do semestre que caem no dia da semana ISO pedido, até hoje. */
 function occurrences(weekday: number): string[] {
   const dates: string[] = [];
   const end = TODAY < SEMESTER.endsOn ? TODAY : SEMESTER.endsOn;
@@ -127,7 +118,6 @@ async function seedSubject(tx: Tx, semesterId: string, seed: SubjectSeed): Promi
     .values({ ...seed.values, userId: DEMO_USER_ID, semesterId })
     .returning({ id: schema.subjects.id });
 
-  // Todas as ocorrências da matéria em ordem cronológica, com o horário de cada uma.
   const slots: { date: string; scheduleId: string; units: number }[] = [];
   for (const s of seed.schedules) {
     const [schedule] = await tx

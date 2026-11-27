@@ -6,7 +6,6 @@ import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
 import { suapBookmarklet } from "@/lib/suap-collector";
 
-/** Nome sugerido para o favorito: curto e único, para achar digitando na barra de endereço. */
 const NAME = "Monitor SUAP";
 
 type Browser = "android" | "iphone" | "samsung" | "firefox" | "computador";
@@ -19,7 +18,6 @@ const BROWSERS: { id: Browser; label: string }[] = [
   { id: "computador", label: "Computador" },
 ];
 
-/** Qual navegador é este (só para escolher a explicação; dá para trocar na tela). */
 function detect(): Browser {
   const ua = navigator.userAgent;
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
@@ -31,8 +29,6 @@ function detect(): Browser {
   }
   return "computador";
 }
-
-// ---------------------------------------------------------------- ilustrações dos passos
 
 function Mock({ children }: { children: ReactNode }) {
   return (
@@ -51,7 +47,6 @@ const Highlight = ({ children }: { children: ReactNode }) => (
   </span>
 );
 
-/** Barra de endereço com o nome digitado e a sugestão do favorito embaixo. */
 const AddressBarMock = () => (
   <Mock>
     <div className="rounded-full border border-line-strong bg-surface px-3 py-1.5">
@@ -72,7 +67,6 @@ const AddressBarMock = () => (
   </Mock>
 );
 
-/** Tela de editar favorito com nome e endereço trocados. */
 const EditMock = ({ urlLabel = "URL" }: { urlLabel?: string }) => (
   <Mock>
     <p className="mb-1 font-semibold">Editar favorito</p>
@@ -96,8 +90,6 @@ const MenuMock = ({ items, pick }: { items: ReactNode[]; pick: number }) => (
     </div>
   </Mock>
 );
-
-// ---------------------------------------------------------------- passos por navegador
 
 type Step = { text: ReactNode; mock?: ReactNode };
 
@@ -229,11 +221,6 @@ function steps(browser: Browser, copyButton: ReactNode): Step[] {
   return [];
 }
 
-/**
- * Instalar o favorito "Enviar para o Monitor". No computador, arrasta para a barra de favoritos;
- * no celular (sem barra), um passo a passo do navegador que a pessoa usa. O favorito é um link
- * javascript:: o React não aceita esse href no JSX, então ele é posto no elemento depois de montar.
- */
 export function SuapBookmarklet() {
   const toast = useToast();
   const link = useRef<HTMLAnchorElement>(null);
@@ -245,7 +232,6 @@ export function SuapBookmarklet() {
   useEffect(() => {
     const href = suapBookmarklet(window.location.origin);
     link.current?.setAttribute("href", href);
-    // Só existe no navegador: usa o endereço desta página e o navegador da pessoa.
     setCode(href);
     setBrowser(detect());
     setHost(window.location.host);

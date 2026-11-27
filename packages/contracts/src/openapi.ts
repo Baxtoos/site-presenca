@@ -9,10 +9,8 @@ const toSchema = (schema: z.ZodType, io: "input" | "output"): JsonSchema => {
   return rest;
 };
 
-/** `/v1/semesters/:id` → `/v1/semesters/{id}` */
 const toOpenApiPath = (path: string) => path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
 
-/** Erros que qualquer rota pode devolver, todos no formato problem+json. */
 const COMMON_ERRORS: Record<number, string> = {
   400: "Requisição malformada",
   413: "Corpo da requisição grande demais",
@@ -27,7 +25,6 @@ export interface OpenApiInfo {
   description?: string;
 }
 
-/** Gera um documento OpenAPI 3.1 a partir do registro de rotas. */
 export function buildOpenApiDocument(routes: Record<string, RouteDef>, info: OpenApiInfo) {
   const paths: Record<string, Record<string, unknown>> = {};
 

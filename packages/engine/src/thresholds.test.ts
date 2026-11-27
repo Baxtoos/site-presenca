@@ -2,7 +2,6 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { evaluateThresholds, THRESHOLDS, type ThresholdState } from "./thresholds";
 
-/** Aplica as mudanças sobre o estado atual, como a API faz no banco. */
 function apply(current: ThresholdState[], changes: ThresholdState[]): ThresholdState[] {
   const map = new Map(current.map((s) => [s.pct, s]));
   for (const c of changes) map.set(c.pct, c);
@@ -87,7 +86,6 @@ describe("propriedades", () => {
             const key = `${s.pct}:${s.cycle}`;
             expect(seen.has(key)).toBe(false);
             seen.add(key);
-            // Só se avisa um marco ao cruzá-lo para cima.
             expect(c).toBeGreaterThanOrEqual(s.pct);
             expect(previous).toBeLessThan(s.pct);
           }

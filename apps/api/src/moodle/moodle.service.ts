@@ -64,11 +64,6 @@ interface Credentials {
   wstoken: string | null;
 }
 
-/**
- * Conector do Moodle do lado da API: conectar (testa o link antes de guardar), sincronizar na hora,
- * ligar turmas a matérias e desconectar. A busca na rede acontece fora da transação; a gravação
- * (reconciliação) é a mesma do worker (packages/integrations).
- */
 @Injectable()
 export class MoodleService {
   private readonly key: Buffer | null;
@@ -103,8 +98,6 @@ export class MoodleService {
     if (!id) throw new Error("MoodleService fora de uma requisição autenticada");
     return id;
   }
-
-  // ---------------------------------------------------------------- estado
 
   status(): Promise<MoodleStatus> {
     return this.db.tx((tx) => this.statusTx(tx));
@@ -168,14 +161,11 @@ export class MoodleService {
     return rows.map((r) => ({ ...r, subjectName: r.subjectId ? r.subjectName : null }));
   }
 
-  // ---------------------------------------------------------------- conectar
-
   async connect(body: MoodleConnectBody): Promise<MoodleSyncResult> {
     const key = this.requireKey();
     const userId = this.userId();
     const now = this.clock.now();
 
-    // 1. O que já está guardado (para completar o que o aluno não mandou de novo).
     const current = await this.db.tx(async (tx) => {
       const [row] = await tx
         .select({
@@ -202,7 +192,6 @@ export class MoodleService {
       throw invalid("baseUrl", "Informe o endereço do Moodle para usar a chave de segurança.");
     }
 
-    // 2. Testa antes de guardar (fora da transação: é rede).
     let deadlines: MoodleDeadline[];
     try {
       deadlines = await fetchIcsDeadlines(creds.icsUrl, current.timezone, this.fetchOptions);
@@ -219,13 +208,11 @@ export class MoodleService {
           now,
         );
       } catch (error) {
-        // Chave nova que não funciona: avisa no campo. Chave antiga que parou: segue com o .ics.
         if (body.wstoken) throw invalid("wstoken", describeSyncError(error));
         warning = `Parcial: ${describeSyncError(error)}`;
       }
     }
 
-    // 3. Guarda cifrado e aplica.
     return this.db.tx(async (tx) => {
       const values = {
         icsHost: maskUrl(creds.icsUrl),
@@ -265,11 +252,9 @@ export class MoodleService {
           : null,
       };
     } catch {
-      return null; // chave do servidor trocada: o aluno precisa colar o link de novo
+      return null;
     }
   }
-
-  // ---------------------------------------------------------------- sincronizar agora
 
   async sync(idempotencyKey: string): Promise<IdempotentResult<MoodleSyncResult>> {
     const key = this.requireKey();
@@ -315,7 +300,6 @@ export class MoodleService {
     }
 
     if (error) {
-      // Registra a falha para a tela mostrar, e responde 422 com a mesma mensagem.
       await this.db.tx((tx) =>
         tx
           .update(moodleConnections)
@@ -341,8 +325,6 @@ export class MoodleService {
     );
   }
 
-  // ---------------------------------------------------------------- turmas
-
   updateCourse(id: string, expectedVersion: number, body: MoodleCourseBody): Promise<MoodleCourse> {
     return this.db.tx(async (tx) => {
       const [current] = await tx
@@ -361,7 +343,6 @@ export class MoodleService {
           .where(eq(subjects.id, body.subjectId));
         if (!found) throw invalid("subjectId", "Matéria não encontrada.");
       }
-      // Ignorar desliga o vínculo; escolher uma matéria tira o "ignorar".
       let subjectId = current.subjectId;
       let nextIgnored = current.ignored;
       if (body.ignored !== undefined) {
@@ -386,7 +367,6 @@ export class MoodleService {
         sql`${tasks.source} <> 'manual'`,
       );
       if (nextIgnored) {
-        // Turma ignorada: some com as tarefas dela que ainda vão vencer (e com os avisos na fila).
         const doomed = await tx
           .select({ id: tasks.id })
           .from(tasks)
@@ -420,8 +400,6 @@ export class MoodleService {
     await tx.delete(tasks).where(inArray(tasks.id, ids));
   }
 
-  // ---------------------------------------------------------------- desconectar
-
   disconnect(expectedVersion: number, keepTasks: boolean): Promise<void> {
     return this.db.tx(async (tx) => {
       const [conn] = await tx
@@ -449,14 +427,10 @@ export class MoodleService {
         );
       }
       await detachImportedTasks(tx, this.userId());
-      // Apaga link e chave (as turmas vão junto, em cascata).
       await tx.delete(moodleConnections).where(eq(moodleConnections.version, expectedVersion));
     });
   }
 
-  // ---------------------------------------------------------------- notas do Moodle
-
-  /** Itens do livro de notas da turma ligada a esta matéria (busca ao vivo no Moodle). */
   async subjectGrades(subjectId: string): Promise<MoodleGrades> {
     const loaded = await this.gradeContext(subjectId);
     if ("reason" in loaded)
@@ -475,11 +449,6 @@ export class MoodleService {
     return this.describeGrades(subjectId, loaded.courseKey, items);
   }
 
-  /**
-   * Liga ou desliga avaliações a itens do Moodle. Ligada e sem nota do aluno: passa a seguir o
-   * Moodle (score_source = 'moodle') e já recebe a nota que estiver lá, sem aviso. Nota lançada
-   * pelo aluno continua dele. Desligar devolve a nota ao aluno.
-   */
   async linkGrades(subjectId: string, body: MoodleGradeLinksBody): Promise<MoodleGrades> {
     const loaded = await this.gradeContext(subjectId);
     if ("reason" in loaded) {

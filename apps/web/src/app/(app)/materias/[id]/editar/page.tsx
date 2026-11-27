@@ -9,7 +9,6 @@ import { SettingsIcon } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Editar matéria · Monitor de Presenças" };
 
-/** Configurações da matéria: horários, dados, compartilhamento e exclusão. */
 export default async function EditSubjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [me, subject] = await Promise.all([getMe(), apiGet(`/v1/subjects/${id}`, subjectSchema)]);

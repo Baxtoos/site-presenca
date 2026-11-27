@@ -69,7 +69,6 @@ describe("upgrade com wstoken", () => {
       url: "https://moodle.exemplo.edu.br/mod/assign/view.php?id=555",
       submitted: true,
     });
-    // O que o .ics não trouxe e ainda vai vencer entra como prazo da API.
     expect(result[1]).toMatchObject({
       source: "moodle_api",
       externalUid: "assign:101",
@@ -77,7 +76,6 @@ describe("upgrade com wstoken", () => {
       submitted: false,
     });
     expect(result).toHaveLength(2);
-    // Atividade antiga (mais de 14 dias) e sem prazo nem consultam o status.
     expect(client.statusCalls).toBe(2);
   });
 
@@ -90,9 +88,9 @@ describe("upgrade com wstoken", () => {
 describe("notas do Moodle", () => {
   it("converte a nota do Moodle para a nota máxima da avaliação, em centésimos", () => {
     expect(moodleScoreToCenti(7.5, 10, 1000)).toBe(750);
-    expect(moodleScoreToCenti(80, 100, 500)).toBe(400); // seminário de 100 pontos valendo 5
+    expect(moodleScoreToCenti(80, 100, 500)).toBe(400);
     expect(moodleScoreToCenti(2, 3, 1000)).toBe(667);
-    expect(moodleScoreToCenti(12, 10, 1000)).toBe(1000); // nunca passa da máxima
+    expect(moodleScoreToCenti(12, 10, 1000)).toBe(1000);
   });
 
   it("busca o livro de notas só das turmas ligadas (casando a chave da turma)", async () => {

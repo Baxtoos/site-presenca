@@ -15,12 +15,6 @@ import {
 import { app, createdAt, ownerId, pk, updatedAt, version } from "./_shared";
 import { users } from "./identity";
 
-/**
- * Regra de cálculo da nota de uma matéria (uma por matéria): escala, nota mínima, fórmula, grupos,
- * substitutiva, exame e arredondamento, validados pelo motor (packages/engine/src/grades) antes de
- * gravar. A nota nunca é guardada: é sempre calculada na hora. A FK composta com a matéria fica na
- * migration de segurança.
- */
 export const gradingSchemes = app.table(
   "grading_schemes",
   {
@@ -28,7 +22,6 @@ export const gradingSchemes = app.table(
     userId: ownerId().references(() => users.id, { onDelete: "cascade" }),
     subjectId: uuid().notNull(),
     rules: jsonb().notNull(),
-    /** manual: o aluno montou; ai: veio do assistente (e o aluno confirmou). */
     source: text().notNull().default("manual"),
     version: version(),
     createdAt: createdAt(),
@@ -44,18 +37,12 @@ export const gradingSchemes = app.table(
   ],
 );
 
-/**
- * Avaliações da matéria (P1, Lista 3, Trabalho, Substitutiva, Exame) e a nota de cada uma, em
- * centésimos de ponto. `score_source = 'user'` marca nota lançada pelo aluno: a importação do
- * Moodle nunca sobrescreve.
- */
 export const evaluationItems = app.table(
   "evaluation_items",
   {
     id: pk(),
     userId: ownerId(),
     subjectId: uuid().notNull(),
-    /** Nome curto usado na fórmula (P1, Lista2). */
     key: text().notNull(),
     name: text().notNull(),
     maxScore: integer().notNull(),
@@ -65,7 +52,6 @@ export const evaluationItems = app.table(
     score: integer(),
     scoreSource: text().notNull().default("user"),
     scoredAt: timestamp({ withTimezone: true }),
-    /** Item do livro de notas do Moodle ligado a esta avaliação. */
     externalGradeItemId: text(),
     position: smallint().notNull().default(0),
     version: version(),

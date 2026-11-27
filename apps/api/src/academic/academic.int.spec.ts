@@ -124,7 +124,6 @@ describe("semestres", () => {
     expect(ok.headers.etag).toBe('"2"');
     expect(ok.json()).toMatchObject({ label: "Novo nome", version: 2 });
 
-    // Outro dispositivo ainda com a versão 1 tenta salvar por cima.
     const stale = await b.request(
       "PATCH",
       `/v1/semesters/${s.id}`,
@@ -189,7 +188,7 @@ describe("matérias", () => {
       totalClasses: null,
       version: 1,
     });
-    expect(subject.schedules.map((x) => x.weekday)).toEqual([1, 3]); // segunda antes de quarta
+    expect(subject.schedules.map((x) => x.weekday)).toEqual([1, 3]);
     expect(subject.schedules[0]).toMatchObject({
       startsAt: "19:00",
       endsAt: "20:40",
@@ -237,7 +236,6 @@ describe("matérias", () => {
       (await b.request("POST", `/v1/semesters/${s.id}/subjects`, CALCULO)).json(),
     );
 
-    // A Fase 4 cria as rotas de registro; aqui os registros entram direto pelo banco, como a API faria.
     await inTx(env.db.pools.app_api, { userId }, async (c) => {
       for (const date of [
         "2026-08-03",
@@ -300,7 +298,6 @@ describe("matérias", () => {
       version: 2,
       summary: { totalUnits: 40, maxAbsenceUnits: 8 },
     });
-    // A grade não é tocada pelo PUT da matéria.
     expect(subjectSchema.parse(res.json()).schedules).toHaveLength(2);
 
     const stale = await b.request(
@@ -449,7 +446,6 @@ describe("feriados e exceções", () => {
     });
     expect(outside.statusCode).toBe(422);
     expect(problem(outside).code).toBe("OUT_OF_SEMESTER");
-    // O erro aponta a data que o aluno preencheu (início), com data no formato brasileiro.
     expect(problem(outside).errors).toEqual([
       { path: "startsOn", message: "Fica fora do semestre (03/08/2026 a 18/12/2026)." },
     ]);

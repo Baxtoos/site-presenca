@@ -24,7 +24,6 @@ export interface DeliveryDeps {
   pool: Pool;
   mailer: Mailer;
   push: PushSender;
-  /** Endereço do app, sem barra no fim (links dos e-mails). */
   appUrl: string;
   now?: () => Date;
   log?: (level: "info" | "warn", msg: string, extra?: Record<string, unknown>) => void;
@@ -69,10 +68,6 @@ async function loadRecipients(pool: Pool, userIds: string[]): Promise<Map<string
 type Outcome =
   { kind: "sent" } | { kind: "skipped"; reason: string } | { kind: "failed"; error: string };
 
-/**
- * Esvazia o que está vencido no outbox, lote a lote. Cada envio é decidido de novo na hora
- * (preferências e e-mail confirmado podem ter mudado desde que o alerta foi criado).
- */
 export async function processOutbox(deps: DeliveryDeps, batchSize = 20): Promise<DeliveryStats> {
   const stats: DeliveryStats = { sent: 0, skipped: 0, failed: 0, postponed: 0 };
   const now = deps.now ?? (() => new Date());
@@ -194,7 +189,6 @@ async function sendPush(deps: DeliveryDeps, item: OutboxItem, to: Recipient): Pr
       : undefined;
   const message = {
     ...c,
-    // Um aviso por marco; por tarefa (o novo substitui o anterior); os lembretes se sobrepõem.
     tag:
       item.kind === "threshold"
         ? item.dedupeKey
@@ -219,7 +213,6 @@ async function sendPush(deps: DeliveryDeps, item: OutboxItem, to: Recipient): Pr
       await deps.pool.query(`delete from app.push_subscriptions where id = $1`, [target.id]);
     } else {
       errors.push(result.error);
-      // Aparelho que falha sempre (5 vezes seguidas) é descartado.
       const { rows } = await deps.pool.query<{ failures: number }>(
         `update app.push_subscriptions set failure_count = failure_count + 1
           where id = $1 returning failure_count as failures`,

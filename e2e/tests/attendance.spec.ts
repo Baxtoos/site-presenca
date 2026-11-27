@@ -2,7 +2,6 @@ import { expect, test } from "@playwright/test";
 import { isoWeekday, realPath, setupStudentWithClassToday, WEEKDAYS } from "./setup-helpers";
 
 test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page }, testInfo) => {
-  // Fluxo longo (várias páginas); no `next dev`, cada página nova compila na primeira visita.
   test.slow();
   const today = await setupStudentWithClassToday(page, testInfo, {
     name: "Davi Presença",
@@ -10,7 +9,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
     subject: "Física I",
   });
 
-  // Aulas de hoje.
   await page.getByRole("link", { name: "Hoje", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: new RegExp(`^${WEEKDAYS[isoWeekday(today)]}`) }),
@@ -18,7 +16,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   const aula = page.getByTestId("aula").filter({ hasText: "Física I" });
   await expect(aula).toContainText("Ainda pode faltar 18 aulas");
 
-  // Falta → aviso com Desfazer → volta ao que era.
   await aula.getByRole("button", { name: "Faltei", exact: true }).click();
   await expect(page.getByText("Falta registrada em Física I.")).toBeVisible();
   await expect(aula).toContainText("Ainda pode faltar 16 aulas");
@@ -30,7 +27,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
     "false",
   );
 
-  // Sem chamada: a aula conta como dada, mas não tira do saldo; depois desfaz.
   await aula.getByRole("button", { name: "Sem chamada" }).click();
   await expect(page.getByText("Aula de Física I sem chamada (sem falta).")).toBeVisible();
   await expect(aula.getByRole("button", { name: "Sem chamada" })).toHaveAttribute(
@@ -41,12 +37,10 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await page.getByRole("button", { name: "Desfazer" }).click();
   await expect(page.getByText("Desfeito.").last()).toBeVisible();
 
-  // Parcial de uma aula de 2 tempos: perde 1, sem perguntar.
   await aula.getByRole("button", { name: "Faltei parcial" }).click();
   await expect(aula).toContainText("Faltei 1 de 2");
   await expect(aula).toContainText("Ainda pode faltar 17 aulas");
 
-  // Conteúdo da aula, motivo e atestado.
   await aula.getByRole("button", { name: "Conteúdo, motivo e atestado" }).click();
   await aula.getByLabel("Conteúdo da aula (opcional)").fill("Leis de Newton e lista 2");
   await aula.getByLabel("Motivo").selectOption("health");
@@ -57,7 +51,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(aula.getByTestId("conteudo-da-aula")).toContainText("Leis de Newton e lista 2");
   await expect(aula.getByRole("button", { name: "Editar conteúdo" })).toBeVisible();
 
-  // Na matéria: o calendário já abre no dia de hoje, com a falta parcial marcada.
   await aula.getByRole("link", { name: "Física I" }).click();
   await expect(page.getByRole("heading", { name: "Posso faltar?" })).toBeVisible();
   const calendario = page.getByTestId("calendario");
@@ -69,7 +62,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   const dia = page.getByTestId("dia-selecionado");
   await expect(dia).toContainText("Faltei 1 de 2");
 
-  // O histórico (recolhido) mostra o registro; corrigir para presença zera as faltas.
   await page.getByText("Histórico e aula extra").click();
   const registro = page.getByTestId("registro").first();
   await expect(registro).toContainText("Faltei 1 de 2");
@@ -83,11 +75,9 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(page.getByLabel("Resumo de faltas")).toContainText("0 de 18");
   await expect(hoje).toHaveAttribute("data-estado", "present");
 
-  // O filtro de faltas fica vazio.
   await page.getByRole("button", { name: "Faltas", exact: true }).click();
   await expect(page.getByText("Nenhum registro com esse filtro.")).toBeVisible();
 
-  // Pelo calendário: falta no dia → resumo acompanha → apagar o registro volta a "falta marcar".
   await dia.getByRole("button", { name: "Faltei", exact: true }).click();
   await expect(page.getByText("Falta registrada.")).toBeVisible();
   await expect(hoje).toHaveAttribute("data-estado", "absent");
@@ -97,7 +87,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await expect(hoje).toHaveAttribute("data-estado", "todo");
   await expect(page.getByLabel("Resumo de faltas")).toContainText("0 de 18");
 
-  // As opções de edição ficam numa página à parte.
   await page.getByRole("link", { name: "Editar matéria" }).click();
   await expect(page.getByRole("heading", { name: "Editar matéria" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Horários na semana" })).toBeVisible();
@@ -105,7 +94,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
   await page.getByRole("link", { name: "← Física I" }).click();
   await expect(page.getByRole("heading", { name: "Posso faltar?" })).toBeVisible();
 
-  // Nenhuma tela da área logada rola para o lado (nem com e-mail comprido, nem no celular).
   for (const url of [await realPath(page), "/", "/hoje", "/semestres", "/conta"]) {
     await page.goto(url);
     await page.waitForLoadState("networkidle");
@@ -113,7 +101,6 @@ test("registra falta, desfaz, corrige e vê o resumo acompanhar", async ({ page 
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow, `rolagem lateral em ${url}`).toBeLessThanOrEqual(0);
-    // E a navegação mostra todos os links inteiros (sem rolar dentro dela).
     const navOverflow = await page.evaluate(() => {
       const nav = document.querySelector('nav[aria-label="Principal"]')!;
       return nav.scrollWidth - nav.clientWidth;

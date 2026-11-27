@@ -7,7 +7,6 @@ import { Alert, Button, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 
-/** Nome, instituição e curso (aparecem no topo, nos e-mails e na planilha exportada). */
 export function ProfileForm({
   initial,
 }: {

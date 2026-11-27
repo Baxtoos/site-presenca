@@ -2,14 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { realPath, setupStudentWithClassToday } from "./setup-helpers";
 
-/**
- * Acessibilidade (WCAG 2.1 A e AA) com o axe-core em todas as telas, nos temas claro e escuro.
- * Qualquer violação falha o teste, com a lista do que corrigir.
- */
 async function expectAccessible(page: Page, label: string) {
   await page.waitForLoadState("networkidle");
-  // Mede a tela parada: título reposto depois de atualizar e animações de entrada concluídas
-  // (no meio de um fade, o contraste medido é o de uma cor semitransparente).
   await page.waitForFunction(
     () =>
       document.title.length > 0 &&
@@ -40,7 +34,6 @@ for (const scheme of ["light", "dark"] as const) {
     test.slow();
     await page.emulateMedia({ colorScheme: scheme });
 
-    // "/" sem sessão é a apresentação pública.
     for (const url of ["/", "/entrar", "/cadastro", "/esqueci-senha", "/privacidade", "/termos"]) {
       await page.goto(url);
       await expectAccessible(page, url);
@@ -59,7 +52,6 @@ for (const scheme of ["light", "dark"] as const) {
       .click();
     await expect(page.getByTestId("calendario")).toBeVisible();
     await expectAccessible(page, "matéria (calendário)");
-    // Um dia selecionado com registro: botões de ação, status e editor de detalhes.
     await page
       .getByTestId("dia-selecionado")
       .getByRole("button", { name: "Faltei", exact: true })
@@ -112,18 +104,15 @@ test("tema escolhido no app vale mesmo com o aparelho no outro tema", async ({
   expect(await paper()).toBe("rgb(25, 25, 25)");
   await expectAccessible(page, "conta (tema escuro escolhido)");
 
-  // Continua escuro ao recarregar e nas outras telas (sem piscar o claro).
   await page.goto("/hoje");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(await paper()).toBe("rgb(25, 25, 25)");
 
-  // Claro fixo com o aparelho no escuro.
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/conta");
   await page.getByRole("region", { name: "Aparência" }).getByText("Claro", { exact: true }).click();
   expect(await paper()).toBe("rgb(255, 255, 255)");
 
-  // Automático volta a seguir o aparelho.
   await page
     .getByRole("region", { name: "Aparência" })
     .getByText("Automático", { exact: true })
@@ -148,7 +137,6 @@ test("troca rápida de tema no rodapé da barra lateral", async ({ page }, testI
   await expect(sidebar.getByRole("radio", { name: "Tema escuro" })).toBeChecked();
   await expectAccessible(page, "barra lateral no tema escuro");
 
-  // A mesma escolha aparece na página Conta.
   await page.goto("/conta");
   await expect(
     page.getByRole("region", { name: "Aparência" }).getByRole("radio", { name: "Escuro" }),

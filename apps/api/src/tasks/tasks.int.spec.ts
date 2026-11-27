@@ -63,7 +63,6 @@ async function subjectOf(s: Student, name = "Cálculo II") {
 const create = (s: Student, body: object, headers = key()) =>
   s.b.request("POST", "/v1/tasks", body, { headers });
 
-/** Envios de aviso de uma tarefa como o worker gravaria (direto no banco, sem o worker). */
 async function queueReminder(userId: string, taskId: string) {
   for (const [channel, status] of [
     ["in_app", "sent"],
@@ -107,7 +106,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
       title: "Lista 3",
       notes: "Exercícios 1 a 10",
       subject: { id: calc.id, name: "Cálculo II", color: "teal" },
-      // 23:59 em São Paulo (UTC−3) = 02:59 do dia seguinte em UTC.
       dueAt: "2026-11-21T02:59:00.000Z",
       dueLocal: { date: "2026-11-20", time: "23:59" },
       remindBeforeMinutes: 1440,
@@ -123,7 +121,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
 
     await create(ana, { title: "Seminário", dueAt: "2026-11-19T10:00", remindBeforeMinutes: 180 });
     await create(ana, { title: "Prova", dueAt: "2026-12-01T08:00" });
-    // Prazo já passou e ninguém marcou: vencida.
     await create(ana, { title: "Relatório antigo", dueAt: "2026-11-10T18:00" });
 
     const list = taskListSchema.parse((await ana.b.request("GET", "/v1/tasks")).json());
@@ -178,7 +175,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     const blank = await create(ana, { title: "   ", dueAt: "2026-11-20T10:00" });
     expect(blank.statusCode).toBe(422);
 
-    // A matéria da Bia não serve para a tarefa da Ana.
     const foreign = await create(ana, {
       title: "x",
       subjectId: biaSubject.id,
@@ -232,14 +228,12 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
       resolvedAt: "2026-11-18T15:00:00.000Z",
       overdue: false,
     });
-    // Push e e-mail ainda na fila deixam de sair; o aviso do sino fica no histórico.
     expect(await reminderStatus(task.id)).toEqual({
       in_app: "sent",
       push: "skipped",
       email: "skipped",
     });
 
-    // Versão velha: 412.
     const stale = await ana.b.request(
       "PATCH",
       `/v1/tasks/${task.id}`,
@@ -276,7 +270,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
       (await create(ana, { title: "Resenha", dueAt: "2026-11-19T12:00" })).json(),
     );
     await queueReminder(ana.userId, task.id);
-    // Editar só o título não mexe no aviso.
     const renamed = taskSchema.parse(
       (
         await ana.b.request(
@@ -349,7 +342,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
 
   it("filtra por dias locais (bordas de 23:59), aceita tarefa sem aviso e link https da atividade", async () => {
     const ana = await student();
-    // 23:59 de domingo em São Paulo é 02:59 de segunda em UTC: precisa cair no domingo.
     const sunday = taskSchema.parse(
       (
         await create(ana, {
@@ -393,7 +385,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
       expect(problem(bad).errors?.[0]?.path).toBe("externalUrl");
     }
 
-    // Ligar o aviso e tirar o link; desligar de novo cancela o que estava na fila.
     const on = await ana.b.request(
       "PATCH",
       `/v1/tasks/${sunday.id}`,
@@ -423,7 +414,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     const task = taskSchema.parse(
       (await create(ana, { title: "Questionário 4", dueAt: "2026-11-25T23:59" })).json(),
     );
-    // Simula o que a sincronização do Moodle fará: tarefa importada e concluída pelo Moodle.
     await env.db.admin.query(
       `update app.tasks set source = 'moodle_ics', external_uid = 'uid-123@moodle',
               status = 'completed', resolved_at = now(), status_source = 'sync' where id = $1`,
@@ -453,7 +443,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
   it("calendário: tarefas no dia local, exceções e chamadas pendentes, sem misturar contas", async () => {
     const ana = await student();
     const bia = await student();
-    // Semestre ativo com aula às segundas e quartas.
     const sem = await ana.b.request("POST", "/v1/semesters", {
       label: `Cal-${++seq}`,
       startsOn: "2026-08-03",
@@ -490,7 +479,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
       const res = await ana.b.request("POST", `/v1/semesters/${semesterId}/exceptions`, body);
       expect(res.statusCode, res.body).toBe(201);
     }
-    // Segunda 09/11 registrada; quarta 11/11 sem aula; segunda 16/11 ficou sem chamada.
     const att = await ana.b.request(
       "POST",
       "/v1/attendance",
@@ -519,7 +507,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     expect(res.statusCode, res.body).toBe(200);
     const cal = calendarResponseSchema.parse(res.json());
     expect(cal).toMatchObject({ today: "2026-11-18", timezone: "America/Sao_Paulo" });
-    // O relatório (pendente, prazo já passou) conta como atrasado.
     expect(cal.overdueCount).toBe(1);
     const day = (date: string) => cal.days.find((d) => d.date === date);
 
@@ -544,7 +531,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     expect(day("2026-11-09")?.pendingClasses ?? 0).toBe(0);
     expect(day("2026-11-11")?.pendingClasses ?? 0).toBe(0);
     expect(day("2026-11-16")?.pendingClasses).toBe(1);
-    // Hoje (quarta 18) e o futuro não contam como pendentes.
     expect(day("2026-11-18")?.pendingClasses ?? 0).toBe(0);
 
     const onlyDone = calendarResponseSchema.parse(
@@ -554,7 +540,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     );
     expect(onlyDone.days.flatMap((d) => d.tasks).map((t) => t.title)).toEqual(["Lista feita"]);
 
-    // Sem `classes`, a lista de aulas vem vazia (a linha do tempo não precisa).
     expect(cal.days.every((d) => d.classes.length === 0)).toBe(true);
     const withClasses = calendarResponseSchema.parse(
       (
@@ -566,10 +551,10 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
         .find((d) => d.date === date)
         ?.classes.map((c) => [c.subjectName, c.startsAt, c.endsAt, c.state]) ?? [];
     expect(classesOf("2026-11-09")).toEqual([["Redes", "19:00", "20:40", "done"]]);
-    expect(classesOf("2026-11-11")).toEqual([]); // dia sem aula: só a exceção
+    expect(classesOf("2026-11-11")).toEqual([]);
     expect(classesOf("2026-11-16")).toEqual([["Redes", "19:00", "20:40", "pending"]]);
     expect(classesOf("2026-11-18")).toEqual([["Redes", "19:00", "20:40", "upcoming"]]);
-    expect(classesOf("2026-11-17")).toEqual([]); // terça: sem aula na grade
+    expect(classesOf("2026-11-17")).toEqual([]);
     expect(withClasses.days.find((d) => d.date === "2026-11-09")?.classes[0]?.color).toBe("teal");
 
     const bad = await ana.b.request("GET", "/v1/calendar?from=2026-01-01&to=2027-03-01");
@@ -577,7 +562,6 @@ describe("Tarefas e entregas (/v1/tasks)", () => {
     const backwards = await ana.b.request("GET", "/v1/calendar?from=2026-11-22&to=2026-11-09");
     expect(backwards.statusCode).toBe(422);
 
-    // A Bia não vê nada da Ana (nem chamadas pendentes nem exceções).
     const biaCal = calendarResponseSchema.parse(
       (await bia.b.request("GET", "/v1/calendar?from=2026-11-09&to=2026-11-22")).json(),
     );

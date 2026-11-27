@@ -5,10 +5,6 @@ import { Alert, Button, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 
-/**
- * Cadastro em duas etapas: o formulário só pede o link; a conta nasce quando o link do e-mail é
- * aberto. A resposta é a mesma para e-mail novo ou já cadastrado (não revela quem tem conta).
- */
 export function RegisterForm({ next = null }: { next?: string | null }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();

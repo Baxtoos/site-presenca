@@ -12,17 +12,14 @@ export const WEEKDAYS = [
 ] as const;
 export const WEEKDAYS_SHORT = ["", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"] as const;
 
-/** 7550 → "75,5%" (sem casas desnecessárias). */
 export function bpToPercent(bp: number): string {
   return `${(bp / 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 }
 
-/** "75,5" ou "75.5" → 7550. NaN se não for número. */
 export function percentToBp(input: string): number {
   return Math.round(Number(input.replace(",", ".")) * 100);
 }
 
-/** Número digitado com vírgula ou ponto → número (NaN se inválido). */
 export function parseDecimal(input: string): number {
   return input.trim() === "" ? Number.NaN : Number(input.replace(",", "."));
 }
@@ -41,7 +38,6 @@ export const RISK_LABEL: Record<SubjectSummaryDto["risk"], string> = {
   failed: "Reprovado por falta",
 };
 
-/** Classes literais (o Tailwind só gera o que aparece escrito no código). */
 export const RISK_STYLE: Record<SubjectSummaryDto["risk"], { badge: string; bar: string }> = {
   safe: { badge: "bg-ok-soft text-ok", bar: "bg-ok" },
   warning: { badge: "bg-warn-soft text-warn", bar: "bg-warn" },
@@ -50,7 +46,6 @@ export const RISK_STYLE: Record<SubjectSummaryDto["risk"], { badge: string; bar:
   failed: { badge: "bg-fail-soft text-fail ring-1 ring-fail", bar: "bg-fail" },
 };
 
-/** Cor de identificação de cada matéria (faixa no card). */
 export const SUBJECT_COLOR_CLASS: Record<string, string> = {
   blue: "bg-[#3b82c4]",
   violet: "bg-[#7c5cc4]",
@@ -73,16 +68,13 @@ export const SUBJECT_COLOR_NAME: Record<string, string> = {
   slate: "Cinza",
 };
 
-/** "tempo"/"tempos", "encontro"/"encontros". */
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** "2026-11-18" → 3 (quarta), no padrão ISO (1 = segunda … 7 = domingo). Sem passar pelo fuso local. */
 export function isoWeekdayOf(iso: string): number {
   const day = new Date(`${iso}T12:00:00Z`).getUTCDay();
   return day === 0 ? 7 : day;
 }
 
-/** "2026-11-18" → "qua, 18/11" */
 export function formatDayLabel(iso: string): string {
   const [, m, d] = iso.split("-");
   return `${WEEKDAYS_SHORT[isoWeekdayOf(iso)]!.toLowerCase()}, ${d}/${m}`;
@@ -98,7 +90,6 @@ export const STATUS_LABEL: Record<AttendanceStatusKey, string> = {
   no_call: "Sem chamada",
 };
 
-/** Explicação curta de cada status (dica dos botões). */
 export const STATUS_HINT: Record<AttendanceStatusKey, string> = {
   present: "Você foi à aula.",
   absent: "Você faltou à aula inteira.",
@@ -107,7 +98,6 @@ export const STATUS_HINT: Record<AttendanceStatusKey, string> = {
   no_call: "A aula aconteceu, mas o professor não fez chamada: conta como dada, sem falta.",
 };
 
-/** Classes por status (literais, para o Tailwind gerar). */
 export const STATUS_STYLE: Record<AttendanceStatusKey, string> = {
   present: "bg-ok-soft text-ok",
   absent: "bg-fail-soft text-fail",
@@ -124,7 +114,6 @@ export const REASON_LABEL: Record<string, string> = {
   other: "Outro",
 };
 
-/** Uma frase curta do simulador para o card: quantas das próximas aulas ainda dá para faltar. */
 export function simulateHint(sim: {
   nextClass: { date: string } | null;
   plan: { classes: number; untilDate: string | null };

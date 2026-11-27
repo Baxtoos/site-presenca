@@ -2,10 +2,6 @@ import type { LoggerService } from "@nestjs/common";
 import pino, { type Logger } from "pino";
 import type { Env } from "../config/env";
 
-/**
- * Logs em JSON (pino), uma linha por evento, com requestId em cada linha da requisição.
- * Cabeçalhos com credenciais e campos sensíveis são omitidos.
- */
 export function createLogger(env: Pick<Env, "NODE_ENV" | "LOG_LEVEL" | "APP_VERSION">): Logger {
   return pino({
     level: env.LOG_LEVEL,
@@ -35,7 +31,6 @@ export function createLogger(env: Pick<Env, "NODE_ENV" | "LOG_LEVEL" | "APP_VERS
 
 type Level = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 
-/** Faz os logs internos do Nest saírem pelo mesmo pino, no mesmo formato. */
 export class PinoNestLogger implements LoggerService {
   constructor(private readonly logger: Logger) {}
 
@@ -58,7 +53,6 @@ export class PinoNestLogger implements LoggerService {
     this.write("fatal", message, rest);
   }
 
-  /** O Nest passa o contexto (nome da classe) como último argumento string. */
   private write(level: Level, message: unknown, rest: unknown[]) {
     const args = [...rest];
     const context = typeof args.at(-1) === "string" ? (args.pop() as string) : undefined;

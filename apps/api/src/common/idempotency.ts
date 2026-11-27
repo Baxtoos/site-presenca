@@ -15,10 +15,6 @@ import type { FastifyRequest } from "fastify";
 
 const KEY_FORMAT = /^[A-Za-z0-9._:-]{8,128}$/;
 
-/**
- * Lê o cabeçalho Idempotency-Key. Sem ele: 428. Uma ação que muda dados e pode ser repetida
- * (clique duplo, reenvio da fila offline) precisa de uma identidade para não gravar duas vezes.
- */
 export function parseIdempotencyKey(header: string | string[] | undefined): string {
   if (header === undefined || (typeof header === "string" && header.trim() === "")) {
     throw new HttpException(
@@ -45,7 +41,6 @@ export const IdempotencyKey = createParamDecorator((_data: unknown, ctx: Executi
   parseIdempotencyKey(ctx.switchToHttp().getRequest<FastifyRequest>().headers["idempotency-key"]),
 );
 
-/** JSON com chaves em ordem fixa: o mesmo corpo sempre gera o mesmo hash. */
 export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value !== null && typeof value === "object") {
@@ -60,24 +55,13 @@ export function stableStringify(value: unknown): string {
 export interface IdempotentResult<T> {
   status: number;
   body: T;
-  /** true = veio guardado de uma chamada anterior com a mesma chave. */
   replayed: boolean;
 }
 
-/** Quanto tempo a resposta de uma chave fica guardada. */
 const TTL_HOURS = 24;
 
 @Injectable()
 export class IdempotencyService {
-  /**
-   * Executa `action` uma única vez por chave, dentro da transação do chamador (que já está
-   * identificada com o usuário).
-   *
-   * Como funciona: a linha da chave é inserida primeiro. Uma segunda chamada simultânea com a
-   * mesma chave espera a primeira terminar (índice único) e então encontra a resposta pronta,
-   * em vez de executar de novo. Se a ação falhar, a transação inteira desfaz e a chave não fica
-   * guardada: erros não são "memorizados", a repetição tenta de novo.
-   */
   async run<T>(
     tx: Tx,
     key: string,
@@ -87,7 +71,6 @@ export class IdempotencyService {
     const { idempotencyKeys } = schema;
     const requestHash = createHash("sha256").update(stableStringify(requestBody)).digest();
 
-    // Chave vencida (mais de 24 h) vale como nova.
     await tx
       .delete(idempotencyKeys)
       .where(

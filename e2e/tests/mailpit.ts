@@ -1,4 +1,3 @@
-/** Lê os e-mails capturados pelo Mailpit (http://localhost:8025) pela API HTTP dele. */
 const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8025";
 
 interface MessageSummary {
@@ -7,7 +6,6 @@ interface MessageSummary {
   Created: string;
 }
 
-/** Espera chegar um e-mail para o endereço com o assunto informado, criado depois de `since`. */
 export async function waitForEmail(
   to: string,
   subject: string,
@@ -34,7 +32,6 @@ export async function waitForEmail(
   throw new Error(`nenhum e-mail "${subject}" para ${to} em ${timeoutMs} ms`);
 }
 
-/** Como `waitForEmail`, mas devolve o link com token que está no e-mail. */
 export async function waitForLink(
   to: string,
   subject: string,

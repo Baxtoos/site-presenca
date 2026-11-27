@@ -64,7 +64,6 @@ const accountDisabled = () =>
     detail: "Esta conta está desativada.",
   });
 
-/** Erro do login com Google que vira um redirecionamento com ?erro=<code> para o app. */
 export class GoogleLoginError extends Error {
   constructor(readonly code: string) {
     super(code);
@@ -85,8 +84,6 @@ export class AuthService {
     @Inject(MAILER) private readonly mailer: Mailer,
     @Inject(ENV) private readonly env: Env,
   ) {}
-
-  // ---------------------------------------------------------------- cadastro e login
 
   /**
    * Pede o cadastro. Responde sempre igual, exista ou não a conta (não revela quem tem conta):
@@ -129,11 +126,6 @@ export class AuthService {
     return ACCEPTED;
   }
 
-  /**
-   * Confirma o cadastro pelo link: cria a conta com o e-mail já confirmado e abre a sessão.
-   * Se a conta passou a existir entre o pedido e o clique, o clique prova a posse do e-mail
-   * (como no link de acesso): entra nela sem trocar a senha.
-   */
   async confirmRegistration(
     token: string,
     request: FastifyRequest,
@@ -173,7 +165,6 @@ export class AuthService {
       this.logger.log(`conta criada ${userId}`);
       return toMe(user);
     } catch (error) {
-      // Dois cliques no mesmo instante: o primeiro cria, o segundo entra na conta criada.
       if (isUniqueViolation(error, "users_email_key")) return enterExisting();
       throw error;
     }
@@ -198,7 +189,6 @@ export class AuthService {
     return this.completeLogin(credentials.userId, request, reply);
   }
 
-  /** Segundo passo do login com segundo fator: confere o código e abre a sessão. */
   async completeMfa(
     code: string,
     request: FastifyRequest,
@@ -209,7 +199,6 @@ export class AuthService {
       tx.query.users.findFirst({ columns: { status: true } }),
     );
     if (user?.status !== "active") throw accountDisabled();
-    // Nova senha pedida pelo link do e-mail: só agora, com o segundo fator, ela vale.
     if (pendingPasswordHash) await this.applyNewPassword(userId, pendingPasswordHash);
     await this.sessions.revokePresented(request);
     return this.openSession(userId, request, reply);
@@ -220,9 +209,6 @@ export class AuthService {
     this.sessions.clearCookie(reply);
   }
 
-  // ---------------------------------------------------------------- magic link
-
-  /** Sempre aceita. O trabalho (token e e-mail) roda depois da resposta: o tempo não revela nada. */
   async requestMagicLink(email: string): Promise<AcceptedResponse> {
     this.tasks.run("magic link", async () => {
       const credentials = await this.repo.findUserByEmail(email);
@@ -244,13 +230,11 @@ export class AuthService {
     const consumed = await this.repo.consumeToken(hashToken(token), "magic_link");
     if (!consumed) throw invalidToken();
 
-    // A conta pode ter sido criada entre o envio e o clique: sempre procura pelo e-mail.
     const existing = await this.repo.findUserByEmail(consumed.email);
     if (existing && existing.status !== "active") throw accountDisabled();
     await this.sessions.revokePresented(request);
 
     if (existing) {
-      // Clicar no link prova a posse do e-mail.
       await this.db.asUser(existing.userId, (tx) => this.markEmailVerified(tx, existing.userId));
       return this.completeLogin(existing.userId, request, reply);
     }
@@ -260,8 +244,6 @@ export class AuthService {
       reply,
     );
   }
-
-  // ---------------------------------------------------------------- verificação de e-mail
 
   async verifyEmail(token: string): Promise<void> {
     const consumed = await this.repo.consumeToken(hashToken(token), "verify_email");
@@ -283,9 +265,6 @@ export class AuthService {
     return ACCEPTED;
   }
 
-  // ---------------------------------------------------------------- senha
-
-  /** Sempre aceita, exista ou não a conta. O envio roda depois da resposta. */
   async forgotPassword(email: string): Promise<AcceptedResponse> {
     this.tasks.run("redefinição de senha", async () => {
       const credentials = await this.repo.findUserByEmail(email);
@@ -304,7 +283,6 @@ export class AuthService {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<LoginResponse> {
-    // Valida a senha antes de consumir o link: uma senha recusada não queima o link.
     await this.rejectBreachedPassword(body.password);
     const passwordHash = await this.passwords.hash(body.password);
 
@@ -315,8 +293,6 @@ export class AuthService {
     if (credentials.status !== "active") throw accountDisabled();
     const userId = consumed.userId;
 
-    // Com segundo fator, o link do e-mail não basta: a senha nova fica guardada no desafio e só
-    // é aplicada (encerrando as sessões) depois do código. Quem só tem o e-mail não troca nada.
     if (await this.mfa.isEnabled(userId)) {
       await this.mfa.startChallenge(userId, reply, passwordHash);
       return { mfaRequired: true };
@@ -325,7 +301,6 @@ export class AuthService {
     return this.openSession(userId, request, reply);
   }
 
-  /** Grava a senha nova, confirma o e-mail (o link provou a posse) e encerra todas as sessões. */
   private async applyNewPassword(userId: string, passwordHash: string): Promise<void> {
     await this.db.asUser(userId, async (tx) => {
       await tx
@@ -335,13 +310,10 @@ export class AuthService {
           emailVerifiedAt: sql`coalesce(${schema.users.emailVerifiedAt}, now())`,
         })
         .where(eq(schema.users.id, userId));
-      // Trocar a senha encerra todas as sessões (inclusive de quem a tenha roubado).
       await this.sessions.revokeAllInTx(tx, userId);
     });
     this.logger.log(`senha redefinida ${userId}; todas as sessões anteriores encerradas`);
   }
-
-  // ---------------------------------------------------------------- Google
 
   async loginWithGoogle(
     profile: GoogleProfile,
@@ -354,8 +326,6 @@ export class AuthService {
     if (!userId) {
       const existing = await this.repo.findUserByEmail(profile.email);
       if (existing) {
-        // Só vincula a uma conta que já provou ser dona do e-mail; senão alguém que criasse uma
-        // conta com o e-mail de outra pessoa ganharia acesso quando ela entrasse com o Google.
         if (!existing.emailVerified) throw new GoogleLoginError("conta_nao_verificada");
         if (existing.status !== "active") throw new GoogleLoginError("conta_desativada");
         const linkedUserId = existing.userId;
@@ -393,9 +363,6 @@ export class AuthService {
     return "mfaRequired" in result ? "mfa" : "session";
   }
 
-  // ---------------------------------------------------------------- exclusão de conta sem senha
-
-  /** Conta sem senha: manda um link para confirmar a exclusão (vale 15 min, só o último). */
   async requestAccountDeletion(userId: string): Promise<AcceptedResponse> {
     const user = await this.db.asUser(userId, (tx) =>
       tx.query.users.findFirst({ columns: { email: true, fullName: true } }),
@@ -415,18 +382,11 @@ export class AuthService {
     return ACCEPTED;
   }
 
-  /** Consome o link de exclusão. Só vale se for da conta que está logada. */
   async consumeDeletionToken(token: string, userId: string): Promise<boolean> {
     const consumed = await this.repo.consumeToken(hashToken(token), "delete_account");
     return consumed?.userId === userId;
   }
 
-  // ---------------------------------------------------------------- segundo fator sem senha
-
-  /**
-   * Conta sem senha não tem o que confirmar ao ligar o segundo fator: o link por e-mail faz esse
-   * papel (quem só roubou a sessão não consegue ligar e trancar o dono fora).
-   */
   async requestMfaEnableLink(userId: string): Promise<AcceptedResponse> {
     const user = await this.db.asUser(userId, (tx) =>
       tx.query.users.findFirst({ columns: { email: true, fullName: true } }),
@@ -446,15 +406,11 @@ export class AuthService {
     return ACCEPTED;
   }
 
-  /** Consome o link de ativação do segundo fator. Só vale para a conta logada. */
   async consumeMfaEnableToken(token: string, userId: string): Promise<boolean> {
     const consumed = await this.repo.consumeToken(hashToken(token), "mfa_enable");
     return consumed?.userId === userId;
   }
 
-  // ---------------------------------------------------------------- internos
-
-  /** Abre a sessão, ou, com segundo fator ligado, manda o desafio do código. */
   private async completeLogin(
     userId: string,
     request: FastifyRequest,
@@ -481,7 +437,6 @@ export class AuthService {
     return toMe(user);
   }
 
-  /** Conta sem senha (magic link ou Google): o e-mail já chega verificado. */
   private async createPasswordlessAccount(
     params: { email: string; fullName: string; google?: { sub: string } },
     request: FastifyRequest,
@@ -548,13 +503,11 @@ export class AuthService {
 
   private link(path: string, token: string, next?: string): string {
     const url = new URL(path, this.env.WEB_ORIGIN);
-    // O token vai por último na URL (padrão de todos os links de e-mail do app).
     if (next) url.searchParams.set("next", next);
     url.searchParams.set("token", token);
     return url.toString();
   }
 
-  /** Página do app (sem token), com o caminho de volta se houver. */
   private page(path: string, next?: string): string {
     const url = new URL(path, this.env.WEB_ORIGIN);
     if (next) url.searchParams.set("next", next);

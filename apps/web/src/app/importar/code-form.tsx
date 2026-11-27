@@ -6,7 +6,6 @@ import { type FormEvent, useState } from "react";
 import { Button, Field } from "@/components/ui";
 import { formText } from "@/lib/form";
 
-/** Digitar o código recebido (aceita minúsculas, hífen e as trocas O/0, I/1). */
 export function CodeForm() {
   const router = useRouter();
   const [error, setError] = useState<string>();

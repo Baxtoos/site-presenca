@@ -17,7 +17,6 @@ describe("localParts", () => {
       minutes: 20 * 60 + 30,
       weekday: 3,
     });
-    // Em Tóquio já é quinta de manhã.
     expect(localParts(instant, "Asia/Tokyo")).toMatchObject({
       date: "2026-11-19",
       time: "08:30",
@@ -72,11 +71,9 @@ describe("horário silencioso", () => {
   });
 
   it("fim do silêncio: mesma madrugada ou dia seguinte", () => {
-    // 23:30 em São Paulo (02:30Z do dia 19) → acaba às 07:00 do dia 19.
     expect(
       quietWindowEnd(new Date("2026-11-19T02:30:00Z"), "America/Sao_Paulo", "07:00").toISOString(),
     ).toBe("2026-11-19T10:00:00.000Z");
-    // 03:00 em São Paulo (06:00Z do dia 19) → acaba às 07:00 do mesmo dia 19.
     expect(
       quietWindowEnd(new Date("2026-11-19T06:00:00Z"), "America/Sao_Paulo", "07:00").toISOString(),
     ).toBe("2026-11-19T10:00:00.000Z");

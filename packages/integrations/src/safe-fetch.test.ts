@@ -86,7 +86,6 @@ describe("safeFetch", () => {
       code: "blocked_address",
     });
     await expect(safeFetch("https://[::1]/")).rejects.toMatchObject({ code: "blocked_address" });
-    // Sem allowPrivate, nem o servidor local dos testes passa.
     await expect(safeFetch(`${base}/ok`, { allowHttp: true })).rejects.toMatchObject({
       code: "blocked_address",
     });
@@ -94,9 +93,6 @@ describe("safeFetch", () => {
 
   it("busca, segue redirecionamento revalidando e para nos limites", async () => {
     expect((await safeFetch(`${base}/ok`, local)).body).toBe("BEGIN:VCALENDAR");
-    // Redirecionar para metadados de nuvem é barrado mesmo com o primeiro salto local liberado
-    // (o destino é revalidado; aqui allowPrivate=false no segundo salto não existe, então testa
-    // com um resolvedor que só libera 127.0.0.1).
     await expect(
       safeFetch(`${base}/redirect-interno`, {
         allowHttp: true,

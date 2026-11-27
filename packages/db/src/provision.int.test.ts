@@ -4,10 +4,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "./migrate";
 import { provisionBackupRole, provisionRoles, urlForRole } from "./provision";
 
-/**
- * Simula um Postgres gerenciado (Neon etc.): o banco já existe, o administrador NÃO é superusuário
- * (só CREATEROLE/CREATEDB e dono do banco) e o script de infra/postgres/init não rodou.
- */
 let container: StartedPostgreSqlContainer;
 let adminUrl: string;
 beforeAll(async () => {
@@ -49,7 +45,6 @@ describe("provisionRoles", () => {
 
     await runMigrations(result.urls.app_owner);
 
-    // RLS forçado nas 24 tabelas, como no ensaio de deploy.
     const rls = await as(result.urls.app_owner, (c) =>
       c.query(
         "select count(*)::int as n from pg_class where relnamespace = 'app'::regnamespace and relkind = 'r' and relforcerowsecurity",
@@ -57,7 +52,6 @@ describe("provisionRoles", () => {
     );
     expect(rls.rows[0]).toEqual({ n: 24 });
 
-    // A API enxerga o schema app sem prefixo, mas não pode criar nada nem enxergar sem usuário.
     await as(result.urls.app_api, async (c) => {
       expect((await c.query("show search_path")).rows[0]).toEqual({ search_path: "app" });
       expect((await c.query("select count(*)::int as n from users")).rows[0]).toEqual({ n: 0 });
@@ -72,7 +66,6 @@ describe("provisionRoles", () => {
       );
     });
 
-    // O worker não é superusuário nem ignora RLS, e não lê o hash de senha.
     await as(result.urls.app_worker, async (c) => {
       const flags = await c.query(
         "select rolsuper, rolbypassrls, rolcreaterole from pg_roles where rolname = current_user",
@@ -81,7 +74,6 @@ describe("provisionRoles", () => {
       await expect(c.query("select password_hash from users")).rejects.toThrow(/permission denied/);
     });
 
-    // O papel de funções de auth não loga.
     const auth = await as(adminUrl, (c) =>
       c.query("select rolcanlogin from pg_roles where rolname = 'app_auth'"),
     );
@@ -104,7 +96,6 @@ describe("provisionRoles", () => {
     await as(after.urls.app_api, async (c) => {
       expect((await c.query("select 1 as ok")).rows[0]).toEqual({ ok: 1 });
     });
-    // Migrations de novo: nada pendente, nada quebra (idempotente).
     await runMigrations(after.urls.app_owner);
   });
 
@@ -142,10 +133,8 @@ describe("provisionBackupRole", () => {
       await c.query("select count(*) from users");
       await expect(c.query("delete from users")).rejects.toThrow(/permission denied/);
     });
-    // A API continua entrando com a mesma senha.
     await as(roles.urls.app_api, (c) => c.query("select 1"));
 
-    // Rodar de novo troca só a senha do backup.
     const again = await provisionBackupRole({ adminUrl });
     expect(again).not.toBe(url);
     await as(again, (c) => c.query("select 1"));

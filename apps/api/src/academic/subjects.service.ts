@@ -77,7 +77,6 @@ export class SubjectsService {
         .where(and(eq(subjects.id, id), eq(subjects.version, expectedVersion)))
         .returning({ id: subjects.id });
       await assertVersioned(rows, () => this.exists(tx, id), "Matéria não encontrada.");
-      // Regras novas mudam o limite: pode cruzar (ou voltar abaixo de) um marco sem nenhuma falta nova.
       const subject = await this.load(tx, id);
       const [row] = await tx.select().from(subjects).where(eq(subjects.id, id));
       await this.alerts.evaluate(tx, row!, subject.summary);
@@ -94,8 +93,6 @@ export class SubjectsService {
       await assertVersioned(rows, () => this.exists(tx, id), "Matéria não encontrada.");
     });
   }
-
-  // ---------------------------------------------------------------- grade
 
   addSchedule(subjectId: string, body: ScheduleBody): Promise<Schedule> {
     return this.db.tx(async (tx) => {
@@ -153,8 +150,6 @@ export class SubjectsService {
     if (rows.length === 0) throw new NotFoundException({ detail: "Horário não encontrado." });
   }
 
-  // ---------------------------------------------------------------- internos
-
   async load(tx: Tx, id: string): Promise<Subject> {
     const rows = await tx.select().from(subjects).where(eq(subjects.id, id));
     if (rows.length === 0) throw subjectNotFound();
@@ -167,7 +162,6 @@ export class SubjectsService {
     return row !== undefined;
   }
 
-  /** Junta grade e totais (view subject_totals) às matérias e calcula o resumo de cada uma. */
   private async withDetails(tx: Tx, rows: (typeof subjects.$inferSelect)[]): Promise<Subject[]> {
     if (rows.length === 0) return [];
     const ids = rows.map((r) => r.id);
@@ -193,7 +187,6 @@ export class SubjectsService {
   }
 }
 
-/** Ordem da semana: segunda primeiro, depois pelo horário. */
 function sortSchedules<T extends { weekday: number; startsAt: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => a.weekday - b.weekday || a.startsAt.localeCompare(b.startsAt));
 }

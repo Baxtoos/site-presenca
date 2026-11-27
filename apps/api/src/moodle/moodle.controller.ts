@@ -29,7 +29,6 @@ import { ZodPipe } from "../common/zod.pipe";
 import { RateLimit } from "../rate-limit/rate-limit";
 import { MoodleService } from "./moodle.service";
 
-/** Conector do Moodle do aluno logado. Cada conectar/sincronizar faz buscas externas: com limite. */
 @Controller("v1/moodle")
 export class MoodleController {
   constructor(private readonly moodle: MoodleService) {}

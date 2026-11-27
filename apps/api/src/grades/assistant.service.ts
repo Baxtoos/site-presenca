@@ -17,23 +17,16 @@ import { REDIS } from "../redis/redis.module";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-/**
- * IA que devolve um JSON no formato pedido (ou null se recusou, cortou ou veio fora do formato).
- * null sem chave. Trocada por uma falsa nos testes.
- */
 export interface GradingAi {
   generate(req: { system: string; messages: ChatMessage[]; schema: object }): Promise<unknown>;
 }
 export const GRADING_AI = Symbol("GRADING_AI");
 
-/** Modelos fixos de propósito: sem variável para trocar, ninguém liga um modelo mais caro. */
 export const GRADING_AI_MODEL = "gemini-3.8-flash";
-/** Reserva (mais leve e mais barato) para quando o principal está lotado. */
 export const GRADING_AI_RESERVE_MODEL = "gemini-3.5-flash-lite";
 
 const logger = new Logger("GradingAi");
 
-/** Erro HTTP do Gemini (o status decide se vale tentar de novo e qual aviso mostrar). */
 export class GeminiHttpError extends Error {
   constructor(
     readonly status: number,
@@ -43,9 +36,7 @@ export class GeminiHttpError extends Error {
   }
 }
 
-/** Sobrecarga e falhas passageiras do Google: vale repetir. 429 (cota) e 4xx não. */
 const RETRY_STATUS = new Set([500, 503, 504]);
-/** Principal, principal de novo, reserva, reserva de novo (espera antes de cada uma). */
 export const GEMINI_ATTEMPTS = [
   { model: GRADING_AI_MODEL, delayMs: 0 },
   { model: GRADING_AI_MODEL, delayMs: 800 },
@@ -54,7 +45,6 @@ export const GEMINI_ATTEMPTS = [
 ];
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Google Gemini pela API REST (generateContent com saída em JSON Schema). */
 export function gradingAiFactory(env: Env): GradingAi | null {
   const key = env.GEMINI_API_KEY;
   if (!key) return null;
@@ -78,7 +68,6 @@ export function gradingAiFactory(env: Env): GradingAi | null {
               maxOutputTokens: 8192,
             },
           }),
-          // Se a IA demorar, a tela cai no editor manual.
           signal: AbortSignal.timeout(20_000),
         });
       let res: Response | undefined;
@@ -92,7 +81,6 @@ export function gradingAiFactory(env: Env): GradingAi | null {
       }
       res = res!;
       if (!res.ok) {
-        // O corpo do erro do Google diz o motivo (chave inválida, modelo inexistente, cota…).
         throw new GeminiHttpError(res.status, (await res.text().catch(() => "")).slice(0, 400));
       }
       const data = (await res.json()) as {
@@ -103,7 +91,6 @@ export function gradingAiFactory(env: Env): GradingAi | null {
         }[];
       };
       const candidate = data.candidates?.[0];
-      // Sem candidato = bloqueado (promptFeedback); SAFETY, MAX_TOKENS etc. = sem resposta útil.
       if (!candidate || candidate.finishReason !== "STOP") {
         logger.warn(
           `Gemini sem resposta útil: finishReason=${candidate?.finishReason ?? "nenhum"} blockReason=${data.promptFeedback?.blockReason ?? "nenhum"}`,
@@ -124,7 +111,6 @@ export function gradingAiFactory(env: Env): GradingAi | null {
   };
 }
 
-/** Formato que a IA devolve (em pontos, que é como as pessoas falam; a API converte). */
 const aiTurnSchema = z.object({
   kind: z.enum(["question", "scheme"]),
   question: z.string().nullable(),
@@ -160,7 +146,6 @@ const aiTurnSchema = z.object({
     .nullable(),
 });
 type AiTurn = z.infer<typeof aiTurnSchema>;
-// Sem "$schema": o Gemini aceita só um subconjunto do JSON Schema (ver assistant.spec.ts).
 export const { $schema: _, ...AI_TURN_JSON_SCHEMA } = z.toJSONSchema(aiTurnSchema);
 type Proposal = z.output<typeof saveGradingBodySchema>;
 
@@ -191,11 +176,10 @@ const STEP_FROM_POINTS: Record<string, number> = {
 };
 const centi = (points: number) => Math.max(0, Math.round(points * 100));
 
-/** Regra da IA (em pontos) → formato da API (centésimos). */
 function toProposal(s: NonNullable<AiTurn["scheme"]>): Proposal {
   return {
     rules: {
-      scale: s.scale as 10 | 100, // o contrato confere em problemsOf
+      scale: s.scale as 10 | 100,
       passing: centi(s.passing),
       formula: s.formula,
       groups: s.groups.map((g) => ({ ...g, dropLowest: Math.max(0, g.dropLowest) })),
@@ -221,7 +205,6 @@ function toProposal(s: NonNullable<AiTurn["scheme"]>): Proposal {
   };
 }
 
-/** Problemas da proposta (contrato + motor); vazio = pronta para o aluno conferir. */
 function problemsOf(proposal: Proposal): string[] {
   const parsed = saveGradingBodySchema.safeParse(proposal);
   if (!parsed.success) return parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
@@ -245,11 +228,6 @@ const FALLBACK_MESSAGE = {
   busy: "A IA do Google está sobrecarregada agora. Tente de novo em instantes ou use o editor abaixo.",
 } as const;
 
-/**
- * Assistente de notas: conversa com o aluno (Google Gemini, saída em JSON) só para coletar a
- * regra de cálculo; as contas são do motor (@presenca/engine). No máximo 10 chamadas por conversa (contadas no Redis). Em limite, erro, demora ou
- * recusa, devolve "fallback" e a tela abre o editor manual com o rascunho. Nunca salva sozinho.
- */
 @Injectable()
 export class GradingAssistantService {
   private readonly logger = new Logger(GradingAssistantService.name);
@@ -300,7 +278,6 @@ export class GradingAssistantService {
     }));
     let lastDraft: Proposal | null = null;
 
-    // Até duas chamadas nesta requisição: a resposta e, se a regra vier com problema, um conserto.
     for (let attempt = 0; attempt < 2; attempt++) {
       const remaining = GRADING_AI_MAX_TURNS - used;
       let turn: AiTurn | null;
@@ -360,7 +337,6 @@ export class GradingAssistantService {
       }
       lastDraft = proposal;
       if (attempt === 1 || remaining <= 0) break;
-      // Conserto: mostra os problemas para a IA (conta como mais uma chamada da conversa).
       used = await nextTurn();
       if (used > GRADING_AI_MAX_TURNS) break;
       history.push(

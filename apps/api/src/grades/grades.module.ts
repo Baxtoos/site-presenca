@@ -5,7 +5,6 @@ import { GRADING_AI, GradingAssistantService, gradingAiFactory } from "./assista
 import { GradesController } from "./grades.controller";
 import { GradesService } from "./grades.service";
 
-/** Notas e regra de cálculo por matéria (conta feita pelo motor em packages/engine/src/grades). */
 @Module({
   controllers: [GradesController],
   providers: [

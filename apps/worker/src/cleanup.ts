@@ -6,10 +6,6 @@ export interface CleanupStats {
   authTokens: number;
 }
 
-/**
- * Apaga o que já expirou e não serve mais para nada: respostas guardadas de Idempotency-Key
- * (valem 24 h), sessões vencidas ou encerradas há mais de 7 dias e links de uso único vencidos.
- */
 export async function cleanupExpired(pool: Pool): Promise<CleanupStats> {
   const keys = await pool.query(
     `delete from app.idempotency_keys where created_at < now() - interval '24 hours'`,

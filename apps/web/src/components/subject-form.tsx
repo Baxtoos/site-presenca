@@ -70,7 +70,6 @@ function initialDraft(subject?: Subject): Draft {
   };
 }
 
-/** Rascunho → corpo da API. A API valida de novo (e é a palavra final). */
 function toBody(d: Draft) {
   const base = {
     name: d.name,
@@ -107,7 +106,6 @@ function toBody(d: Draft) {
   }
 }
 
-/** Mesmas regras, no formato do motor — para a prévia ao vivo. */
 function toRules(d: Draft): SubjectRules {
   const unitsPerClass = Number(d.unitsPerClass);
   const minAttendanceBp = percentToBp(d.minPercent);
@@ -220,7 +218,6 @@ const MODES: { value: Mode; title: string; hint: string }[] = [
   { value: "manual", title: "Limite fixo", hint: "O professor disse o máximo" },
 ];
 
-/** Campos de dados e regras da matéria, com a prévia ao vivo. */
 function SubjectFields({
   draft,
   set,
@@ -395,7 +392,6 @@ interface ScheduleDraft {
   room: string;
 }
 
-/** Linhas da grade (rascunho, gravadas junto com a matéria). */
 export function ScheduleRows({
   rows,
   onChange,
@@ -508,7 +504,6 @@ function useDraft(subject?: Subject) {
   return { draft, set };
 }
 
-/** Assistente de nova matéria: dados, regras com prévia e grade, gravados de uma vez. */
 export function NewSubjectWizard({ semesterId }: { semesterId: string }) {
   const router = useRouter();
   const { draft, set } = useDraft();
@@ -575,7 +570,6 @@ export function NewSubjectWizard({ semesterId }: { semesterId: string }) {
   );
 }
 
-/** Edição de dados e regras de uma matéria existente (a grade é editada à parte). */
 export function EditSubjectForm({ subject }: { subject: Subject }) {
   const router = useRouter();
   const toast = useToast();
@@ -595,7 +589,6 @@ export function EditSubjectForm({ subject }: { subject: Subject }) {
         body: toBody(draft),
         ifMatch: subject.version,
       });
-      // Aviso flutuante: o formulário é recriado quando a versão da matéria muda (router.refresh).
       toast.push({ tone: "success", message: "Matéria atualizada." });
       router.refresh();
     } catch (e) {

@@ -2,16 +2,11 @@ import type { SubjectGrading } from "@presenca/contracts";
 
 type Official = NonNullable<SubjectGrading["official"]>;
 
-/** 7.5 → "7,5" (a nota como o SUAP mostra, na escala do curso). */
 export const suapScore = (v: number | null) => (v === null ? "–" : String(v).replace(".", ","));
 
 const syncedOn = (iso: string) =>
   new Date(iso).toLocaleDateString("pt-BR", { day: "numeric", month: "numeric" });
 
-/**
- * Nota oficial do boletim do SUAP, como o professor lançou (vem pelo favorito "Enviar para o
- * Monitor"). Fica ao lado do que o app calcula, para a pessoa perceber se algo não bate.
- */
 export function OfficialGrades({ official }: { official: Official }) {
   const items: [string, string][] = [
     ...official.stages.map((s): [string, string] => [s.label, suapScore(s.score)]),
@@ -68,11 +63,6 @@ export function OfficialGrades({ official }: { official: Official }) {
   );
 }
 
-/**
- * Avaliações do SUAP como ponto de partida da regra: cada sigla vira uma avaliação e a forma de
- * cálculo da etapa vira a fórmula (média aritmética, ponderada pelos pesos, ou soma). A "Etapa
- * Final" (exame) fica de fora: o exame se configura no editor.
- */
 export function suapDraft(official: Official, scale: number) {
   const regular = official.assessments.filter((a) => !/final/i.test(a.stage));
   const used = new Set<string>();

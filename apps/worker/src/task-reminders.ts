@@ -2,7 +2,6 @@ import type { TaskDuePayload } from "@presenca/contracts";
 import type { Pool, PoolClient } from "pg";
 import { formatLocalDateTimeBR } from "./time";
 
-/** A maior antecedência permitida (2 dias): limita a busca às tarefas que podem estar na janela. */
 const MAX_REMIND_MINUTES = 2880;
 
 /**
@@ -26,14 +25,6 @@ interface Candidate {
   emailOk: boolean;
 }
 
-/**
- * Gera os avisos de entregas próximas. Uma tarefa pendente entra na janela quando faltam menos que
- * a antecedência escolhida para o prazo, e fica nela até o prazo: um worker pontual atrasado ainda
- * avisa; depois do prazo, nada sai (a tela mostra a tarefa como vencida). A chave única
- * (dedupe_key, channel) garante um aviso só, mesmo com vários workers ou ciclos seguidos.
- *
- * Diferente do lembrete de chamada, aqui saem os três canais ligados: sino, push e e-mail.
- */
 export async function enqueueTaskReminders(pool: Pool, now: Date): Promise<number> {
   const { rows } = await pool.query<Candidate>(
     `select t.id, t.user_id as "userId", t.title, t.due_at as "dueAt",
@@ -71,7 +62,6 @@ export async function enqueueTaskReminders(pool: Pool, now: Date): Promise<numbe
       dueLabel: formatLocalDateTimeBR(t.dueAt, t.timezone),
       remindBeforeMinutes: t.remind,
     };
-    // Os três canais na mesma transação: ou entram todos, ou nenhum (o próximo ciclo tenta de novo).
     const client = await pool.connect();
     try {
       await client.query("begin");
@@ -80,7 +70,7 @@ export async function enqueueTaskReminders(pool: Pool, now: Date): Promise<numbe
         if (t.pushOn) await insertLog(client, t, dedupeKey, "push", "pending", payload);
         if (t.emailOk) await insertLog(client, t, dedupeKey, "email", "pending", payload);
         created++;
-      } // senão, outro worker chegou antes
+      }
       await client.query("commit");
     } catch (error) {
       await client.query("rollback").catch(() => undefined);
@@ -110,11 +100,6 @@ async function insertLog(
   return (rowCount ?? 0) > 0;
 }
 
-/**
- * Na hora de enviar push/e-mail, a tarefa ainda pede o aviso? Cobre o aluno que marcou, apagou ou
- * mudou o prazo depois de o aviso entrar na fila, e o envio adiado (horário de silêncio) que
- * passaria do prazo.
- */
 export async function taskStillDue(
   pool: Pool,
   taskId: string | null,

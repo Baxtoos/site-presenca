@@ -46,7 +46,6 @@ function useActive() {
 
 export type SidebarSubject = { id: string; name: string; color: string | null };
 
-/** Barra lateral do computador: espaço de trabalho, navegação e as matérias como "páginas". */
 export function Sidebar({
   firstName,
   unread,
@@ -108,7 +107,7 @@ export function Sidebar({
 
       {semesterLabel ? (
         <section aria-labelledby="sidebar-materias" className="grid gap-1">
-          {/* Rótulo do grupo, não um título: a página do semestre já tem o título com esse nome. */}
+          {}
           <p
             id="sidebar-materias"
             className="truncate px-2 text-xs font-medium text-muted"
@@ -158,10 +157,6 @@ export function Sidebar({
   );
 }
 
-/**
- * Barra de abas do celular, presa embaixo (como um app). Cabem 5: Semestres fica no "Gerenciar
- * semestre" do Início e a Conta no ícone do topo.
- */
 export function MobileTabBar() {
   const isActive = useActive();
   const tabs = PRIMARY.filter((t) => t.href !== "/semestres");

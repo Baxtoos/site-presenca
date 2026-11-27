@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { gradeStatusSchema } from "./grades";
 
-// ---------------------------------------------------------------- tipos básicos
-
-/** Data local "AAAA-MM-DD" (sem hora nem fuso). */
 export const isoDateSchema = z.iso.date({ error: "Use uma data válida (AAAA-MM-DD)." });
 
-/** Horário "HH:MM" (24 h). */
 export const timeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: "Use o formato HH:MM (ex.: 19:00)." });
@@ -32,7 +28,6 @@ export const SUBJECT_COLORS = [
 ] as const;
 export const subjectColorSchema = z.enum(SUBJECT_COLORS);
 
-/** Presença mínima em centésimos de ponto percentual: 75% = 7500 (inteiro, sem arredondamento). */
 export const minAttendanceBpSchema = z
   .number()
   .int()
@@ -42,8 +37,6 @@ export const minAttendanceBpSchema = z
 export const idParamsSchema = z.object({ id: z.uuid({ error: "Identificador inválido." }) });
 export const scheduleParamsSchema = idParamsSchema.extend({ scheduleId: z.uuid() });
 export const exceptionParamsSchema = idParamsSchema.extend({ exceptionId: z.uuid() });
-
-// ---------------------------------------------------------------- semestres
 
 export const semesterStatusSchema = z.enum(["active", "archived"]);
 
@@ -94,15 +87,11 @@ export type Semester = z.infer<typeof semesterSchema>;
 export const semestersResponseSchema = z.object({ semesters: z.array(semesterSchema) });
 export type SemestersResponse = z.infer<typeof semestersResponseSchema>;
 
-// ---------------------------------------------------------------- grade semanal
-
 export const scheduleBodySchema = z
   .object({
-    /** 1 = segunda … 7 = domingo. */
     weekday: z.number().int().min(1).max(7),
     startsAt: timeSchema,
     endsAt: timeSchema,
-    /** Tempos de chamada deste encontro (aula geminada vale 2, 3…). */
     units: z
       .number()
       .int()
@@ -139,8 +128,6 @@ export const scheduleSchema = z.object({
 });
 export type Schedule = z.infer<typeof scheduleSchema>;
 
-// ---------------------------------------------------------------- matérias
-
 const subjectBase = {
   name: z.string().trim().min(1, { error: "Dê um nome à matéria." }).max(120),
   code: optionalText(20),
@@ -160,7 +147,6 @@ const totalClassesSchema = z
   .min(1, { error: "Pelo menos 1 aula." })
   .max(1_000, { error: "No máximo 1000 aulas." });
 
-/** As regras de contagem: cada modo exige campos diferentes. */
 export const subjectRulesSchema = z.discriminatedUnion("countingMode", [
   z.object({
     countingMode: z.literal("class_count"),
@@ -194,11 +180,9 @@ export const subjectRulesSchema = z.discriminatedUnion("countingMode", [
 ]);
 export type SubjectRulesBody = z.infer<typeof subjectRulesSchema>;
 
-/** Dados + regras da matéria (sem a grade). Usado para criar e para substituir (PUT). */
 export const subjectBodySchema = z.intersection(z.object(subjectBase), subjectRulesSchema);
 export type SubjectBody = z.infer<typeof subjectBodySchema>;
 
-/** Criação: dados, regras e (opcionalmente) a grade, gravados numa transação só. */
 export const createSubjectBodySchema = z.intersection(
   subjectBodySchema,
   z.object({
@@ -209,7 +193,6 @@ export type CreateSubjectBody = z.infer<typeof createSubjectBodySchema>;
 
 export const riskSchema = z.enum(["safe", "warning", "critical", "limit", "failed"]);
 
-/** Números calculados pelo motor (packages/engine) a partir das regras e dos registros. */
 export const subjectSummarySchema = z.object({
   totalUnits: z.number().int().nullable(),
   maxAbsenceUnits: z.number().int(),
@@ -252,8 +235,6 @@ export type Subject = z.output<typeof subjectSchema>;
 export const subjectsResponseSchema = z.object({ subjects: z.array(subjectSchema) });
 export type SubjectsResponse = z.infer<typeof subjectsResponseSchema>;
 
-// ---------------------------------------------------------------- feriados e exceções
-
 export const exceptionKindSchema = z.enum(["holiday", "no_classes", "exam_week"]);
 
 export const exceptionBodySchema = z
@@ -262,7 +243,6 @@ export const exceptionBodySchema = z
     endsOn: isoDateSchema,
     kind: exceptionKindSchema,
     label: z.string().trim().min(1, { error: "Dê um nome (ex.: Carnaval)." }).max(120),
-    /** Null/ausente: vale para todas as matérias do semestre. */
     subjectId: z.uuid().nullable().optional(),
   })
   .refine((e) => e.endsOn >= e.startsOn, {
@@ -283,7 +263,6 @@ export type CalendarExceptionDto = z.infer<typeof calendarExceptionSchema>;
 export const exceptionsResponseSchema = z.object({ exceptions: z.array(calendarExceptionSchema) });
 export type ExceptionsResponse = z.infer<typeof exceptionsResponseSchema>;
 
-/** Códigos de erro das rotas acadêmicas. */
 export const AcademicErrorCode = {
   semesterLabelTaken: "SEMESTER_LABEL_TAKEN",
   outOfSemester: "OUT_OF_SEMESTER",

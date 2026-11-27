@@ -2,7 +2,6 @@
 
 import type { Problem } from "@presenca/contracts";
 
-/** Erro de uma chamada à API, já no formato problem+json. */
 export class ApiError extends Error {
   constructor(readonly problem: Problem) {
     super(problem.detail ?? problem.title);
@@ -12,7 +11,6 @@ export class ApiError extends Error {
     return this.problem.code;
   }
 
-  /** Mensagens por campo (validação), para mostrar embaixo de cada input. */
   get fieldErrors(): Record<string, string> {
     return Object.fromEntries((this.problem.errors ?? []).map((e) => [e.path, e.message]));
   }
@@ -26,21 +24,12 @@ const NETWORK_PROBLEM: Problem = {
   detail: "Não foi possível falar com o servidor. Confira sua internet e tente de novo.",
 };
 
-/**
- * Chamada do navegador para a API, sempre pelo proxy /api do próprio app (mesmo domínio):
- * o cookie de sessão vai junto e nenhuma credencial fica no front.
- */
 export async function api<T>(
   path: `/v1/${string}`,
   init: {
     method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     body?: unknown;
-    /** Versão que está sendo editada (vai no If-Match). A API responde 412 se outro salvou antes. */
     ifMatch?: number;
-    /**
-     * Idempotency-Key desta ação. `true` gera uma nova. Para repetir a MESMA ação (rede que caiu),
-     * passe a chave de volta: o servidor devolve a resposta original em vez de gravar duas vezes.
-     */
     idempotencyKey?: string | true;
   } = {},
 ): Promise<T> {

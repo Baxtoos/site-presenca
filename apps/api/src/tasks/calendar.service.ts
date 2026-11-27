@@ -18,11 +18,6 @@ const { semesters, subjects, subjectSchedules, calendarExceptions, attendanceLog
 const maxDate = (a: string, b: string) => (a > b ? a : b);
 const minDate = (a: string, b: string) => (a < b ? a : b);
 
-/**
- * Linha do tempo e calendário mensal: as tarefas agrupadas pelo dia local do aluno (um prazo às
- * 23:59 de domingo fica no domingo, mesmo sendo segunda em UTC), as exceções dos semestres ativos e,
- * nos dias que já passaram, quantas aulas da grade ficaram sem chamada.
- */
 @Injectable()
 export class TaskCalendarService {
   constructor(
@@ -69,7 +64,6 @@ export class TaskCalendarService {
     });
   }
 
-  /** Exceções do calendário e chamadas pendentes dos semestres ativos que tocam o intervalo. */
   private async addSemesterDays(
     tx: Tx,
     query: CalendarQuery,
@@ -137,7 +131,6 @@ export class TaskCalendarService {
         semesterLabel: semester.label,
         subjectName: e.subjectId ? (subjectName.get(e.subjectId) ?? null) : null,
       };
-      // Exceção de matéria arquivada (ou fora do filtro) não aparece.
       if (e.subjectId && !subjectName.has(e.subjectId)) continue;
       const last = minDate(e.endsOn, query.to);
       for (let date = maxDate(e.startsOn, query.from); date <= last; date = addDays(date, 1)) {
@@ -145,8 +138,6 @@ export class TaskCalendarService {
       }
     }
 
-    // Aulas da grade: as de dias passados sem registro contam como chamadas pendentes (hoje fica
-    // para a tela Hoje); com `classes=true` a lista de aulas de cada dia também vai na resposta.
     if (subjectRows.length === 0) return;
     const subjectIds = subjectRows.map((s) => s.id);
     const logsTo = minDate(query.to, today);

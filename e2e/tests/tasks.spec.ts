@@ -2,7 +2,6 @@ import { expect, type Page, test } from "@playwright/test";
 import { waitForEmail } from "./mailpit";
 import { setupStudentWithClassToday, shift, todayInSaoPaulo } from "./setup-helpers";
 
-/** Data e hora em São Paulo daqui a `minutes` minutos (o fuso padrão das contas). */
 function inSaoPaulo(minutes: number): { date: string; time: string } {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-CA", {
@@ -61,7 +60,6 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   });
   const startedAt = new Date(Date.now() - 1_000);
 
-  // Pela navegação principal: Calendário → Ver em lista.
   await page.goto("/");
   await page.getByRole("link", { name: "Calendário" }).first().click();
   await expect(page.getByRole("heading", { name: "Calendário", exact: true })).toBeVisible();
@@ -69,7 +67,6 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   await expect(page.getByRole("heading", { name: "Tarefas", exact: true })).toBeVisible();
   await expect(page.getByText("Nenhuma tarefa pendente.")).toBeVisible();
 
-  // Prazo em 40 min com aviso 1 h antes: já está na janela do aviso.
   const soon = inSaoPaulo(40);
   await newTask(page, {
     title: "Lista 3",
@@ -79,7 +76,6 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
     remind: "1 h antes",
     link: "https://moodle.exemplo.edu.br/mod/assign/view.php?id=3",
   });
-  // Uma vencida (prazo ontem) e uma para daqui a 10 dias.
   await newTask(page, {
     title: "Relatório antigo",
     date: shift(todayInSaoPaulo(), -1),
@@ -107,21 +103,18 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   ).toHaveAttribute("href", "https://moodle.exemplo.edu.br/mod/assign/view.php?id=3");
   await expect(cards.filter({ hasText: "Projeto final" })).toContainText("Sem aviso.");
 
-  // O Início mostra as entregas próximas.
   await page.goto("/");
   const upcoming = page.getByTestId("proximas-entregas");
   await expect(upcoming).toContainText("Lista 3");
   await expect(upcoming).toContainText("Relatório antigo");
   await expect(page.getByText("1 tarefa passou do prazo: conte se você entregou.")).toBeVisible();
 
-  // O worker gera o aviso: e-mail (Mailpit) e sino/central.
   const mail = await waitForEmail(email, "Entrega em 1 h: Lista 3", startedAt, 90_000);
   expect(mail.text).toContain("Matéria: Algoritmos");
   expect(mail.text).toContain("/calendario");
   await page.goto("/avisos");
   await expect(page.getByText("Entrega em 1 h: Lista 3")).toBeVisible();
 
-  // Marca: vencida → não concluída; Lista 3 → concluída (e corrige depois).
   await page.goto("/tarefas");
   await cards
     .filter({ hasText: "Relatório antigo" })
@@ -145,7 +138,6 @@ test("tarefas: cadastrar, receber o aviso antes do prazo e marcar se entregou", 
   await page.getByRole("link", { name: "Não concluídas" }).click();
   await expect(cards.first()).toContainText("Relatório antigo");
 
-  // Filtro por matéria, editar e excluir.
   await page.getByRole("link", { name: "Todas", exact: true }).click();
   await expect(cards).toHaveCount(3);
   await page

@@ -11,14 +11,8 @@ import { REMIND_CHOICES } from "@/lib/tasks";
 
 type SubjectOption = { id: string; name: string };
 
-/** Hoje no fuso do aparelho (AAAA-MM-DD), para o valor inicial da data. */
 const localToday = () => new Date().toLocaleDateString("en-CA");
 
-/**
- * Criar ou editar uma tarefa. O prazo vai como data e hora locais; a API interpreta no fuso da
- * conta. Criar usa uma Idempotency-Key fixa por formulário (clique duplo não duplica); editar manda
- * a versão no If-Match.
- */
 export function TaskForm({
   task,
   subjects,
@@ -27,9 +21,7 @@ export function TaskForm({
 }: {
   task?: Task;
   subjects: SubjectOption[];
-  /** Lista ou calendário, já validado pela página (taskReturnPath). */
   returnTo?: string;
-  /** Data inicial vinda do calendário (dia clicado). */
   initialDate?: string;
 }) {
   const router = useRouter();
@@ -39,13 +31,11 @@ export function TaskForm({
   const [fields, setFields] = useState<Record<string, string>>({});
   const key = useRef(crypto.randomUUID());
   const imported = task !== undefined && task.source !== "manual";
-  // A matéria da tarefa pode ser de outro semestre: continua na lista.
   const options =
     task?.subject && !subjects.some((s) => s.id === task.subject!.id)
       ? [...subjects, { id: task.subject.id, name: task.subject.name }]
       : subjects;
   const [subjectId, setSubjectId] = useState(task?.subjectId ?? "");
-  // Avaliações da matéria escolhida (para ligar a tarefa a uma prova ou trabalho).
   const [evaluations, setEvaluations] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     let alive = true;
@@ -67,17 +57,13 @@ export function TaskForm({
     const common = {
       notes: formText(form, "tarefa-notas"),
       subjectId: formText(form, "tarefa-materia") || null,
-      // Só manda quando o campo apareceu (sem ele, não mexe no vínculo; trocar de matéria já
-      // desfaz o vínculo no banco).
       evaluationItemId: form.has("tarefa-avaliacao")
         ? formText(form, "tarefa-avaliacao") || null
         : undefined,
-      // "" = sem aviso.
       remindBeforeMinutes: formText(form, "tarefa-aviso")
         ? Number(formText(form, "tarefa-aviso"))
         : null,
     };
-    // Tarefa do Moodle: título, prazo e link seguem o Moodle (a API recusa mudar).
     const body = imported
       ? common
       : {
@@ -155,7 +141,6 @@ export function TaskForm({
         <label className="grid min-w-0 gap-1.5 text-sm font-medium" htmlFor="tarefa-avaliacao">
           Vale nota? Avaliação (opcional)
           <select
-            // Recria ao trocar de matéria: a avaliação precisa ser da mesma matéria.
             key={subjectId}
             id="tarefa-avaliacao"
             name="tarefa-avaliacao"

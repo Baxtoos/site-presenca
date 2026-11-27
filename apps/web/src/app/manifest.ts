@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 
-/** Manifest do app instalável (tela inicial do celular e janela própria no computador). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",

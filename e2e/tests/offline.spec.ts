@@ -23,12 +23,10 @@ test("sem internet: a marcação fica guardada, pode ser trocada e é enviada qu
   await expect(aviso).toContainText("Sem conexão.");
   await expect(aviso).toContainText("1 registro guardado");
 
-  // Trocar de ideia ainda offline: troca o que vai ser enviado (não cria outro).
   await aula.getByRole("button", { name: "Faltei parcial" }).click();
   await expect(aula).toContainText("Faltei 1 de 2 · não enviado");
   await expect(aviso).toContainText("1 registro guardado");
 
-  // A conexão volta: envia sozinho e a lista mostra o que a API gravou.
   await context.setOffline(false);
   await expect(page.getByText("1 registro enviado.")).toBeVisible();
   await expect(aviso).toHaveCount(0);
@@ -36,7 +34,6 @@ test("sem internet: a marcação fica guardada, pode ser trocada e é enviada qu
   await expect(aula).not.toContainText("não enviado");
   await expect(aula).toContainText("Ainda pode faltar 17 aulas");
 
-  // Gravou uma vez só, com o último status escolhido.
   await aula.getByRole("link", { name: "Química" }).click();
   await expect(page.getByTestId("registro")).toHaveCount(1);
   await expect(page.getByTestId("registro")).toContainText("Faltei 1 de 2");
@@ -61,11 +58,9 @@ test("app instalado: abre sem internet as páginas já visitadas e mostra o avis
     }
     return false;
   });
-  // O service worker só existe no build de produção (como no CI). Em `next dev` ele fica desligado.
   test.skip(!registered && !process.env.CI, "service worker desligado em next dev");
   expect(registered, "service worker registrado").toBe(true);
 
-  // Espera o SW assumir a página e recarrega para a navegação passar por ele (e ficar guardada).
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
     if (!navigator.serviceWorker.controller) {
@@ -84,11 +79,9 @@ test("app instalado: abre sem internet as páginas já visitadas e mostra o avis
   await aula.getByRole("button", { name: "Faltei", exact: true }).click();
   await expect(aula).toContainText("Faltei · não enviado");
 
-  // Página nunca aberta neste aparelho: aviso de sem conexão (sem dados de ninguém).
   await page.goto("/conta");
   await expect(page.getByRole("heading", { name: "Sem conexão" })).toBeVisible();
 
-  // A marcação sobreviveu à troca de página e vai quando a internet volta.
   await context.setOffline(false);
   await page.goto("/hoje");
   await expect(page.getByTestId("aula").filter({ hasText: "Biologia" })).toContainText(
@@ -114,7 +107,6 @@ test("botão Fui da notificação registra a presença sem abrir o app", async (
   });
   test.skip(!registered && !process.env.CI, "service worker desligado em next dev");
 
-  // A aula de hoje, como o worker manda no lembrete.
   const today = (await (await page.request.get("/api/v1/today")).json()) as {
     date: string;
     classes: { subject: { id: string; name: string }; scheduleId: string }[];
@@ -129,7 +121,6 @@ test("botão Fui da notificação registra a presença sem abrir o app", async (
     },
   ];
 
-  // O mesmo código que o toque em "Fui" roda, dentro do service worker (com o cookie da sessão).
   const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
   const result = await sw.evaluate(
     (c) =>
@@ -144,7 +135,6 @@ test("botão Fui da notificação registra a presença sem abrir o app", async (
     classes,
   );
   expect(result).toEqual({ ok: true, done: 1, already: 0 });
-  // Tocar de novo não duplica: a mesma chave devolve a resposta original (um registro só).
   expect(
     await sw.evaluate(
       (c) =>

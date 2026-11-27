@@ -1,4 +1,3 @@
-/** Mensagens para os códigos de erro que a API devolve no redirecionamento (?erro=). */
 export const LOGIN_REDIRECT_ERRORS: Record<string, string> = {
   google_indisponivel:
     "O login com Google ainda não está disponível. Use e-mail e senha ou um link de acesso.",

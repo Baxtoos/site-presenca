@@ -3,7 +3,6 @@ import { renderEmail } from "./render";
 export interface RenderedEmail {
   subject: string;
   html: string;
-  /** Versão em texto puro: alguns clientes (e filtros de spam) preferem. */
   text: string;
 }
 
@@ -12,21 +11,11 @@ interface ActionEmailProps {
   paragraphs: string[];
   actionLabel: string;
   actionUrl: string;
-  /** Link secundário, em texto, abaixo do botão (ex.: "Esqueci a senha"). */
   secondary?: { label: string; url: string };
-  /** Destaque em bloco cinza (o texto principal de um aviso). */
   callout?: string;
   footnote: string;
 }
 
-/*
- * Visual do app (inspirado no Notion): página quase branca, cartão branco de borda fina,
- * tinta grafite, azul só no botão. Sem imagens: nada a bloquear, nada a baixar.
- */
-/**
- * `bgcolor` (atributo antigo de tabela): leitores como o Outlook ignoram o CSS e só pintam a célula
- * com ele. O React repassa o atributo, mas os tipos dele não o conhecem.
- */
 const legacyBg = (color: string) => ({ bgcolor: color }) as Record<string, string>;
 
 const C = {
@@ -41,9 +30,7 @@ const C = {
 const FONT =
   "ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
 
-/** Layout de e-mail com uma ação principal: tabelas e estilos inline (Gmail, Outlook, Apple Mail). */
 function ActionEmail(props: ActionEmailProps) {
-  // Texto que aparece ao lado do assunto na caixa de entrada.
   const preview = props.callout ?? props.paragraphs.find((p) => !p.startsWith("Olá")) ?? "";
   return (
     <html lang="pt-BR">
@@ -152,11 +139,7 @@ function ActionEmail(props: ActionEmailProps) {
                             </tbody>
                           </table>
                         ) : null}
-                        {/*
-                          Botão "à prova de balas": a célula da tabela tem a cor e o link ocupa a
-                          área toda. Só com padding no <a>, alguns leitores (Outlook, apps de
-                          celular) ignoram o espaçamento e só o texto fica clicável.
-                        */}
+                        {}
                         <table
                           role="presentation"
                           cellPadding={0}
@@ -223,7 +206,7 @@ function ActionEmail(props: ActionEmailProps) {
                             wordBreak: "break-all",
                           }}
                         >
-                          {/* Também clicável: nem todo leitor transforma endereço em link sozinho. */}
+                          {}
                           <a
                             href={props.actionUrl}
                             target="_blank"
@@ -287,7 +270,6 @@ export function verifyEmailMessage(params: { name: string; url: string }): Rende
   });
 }
 
-/** Cadastro: a conta só é criada quando a pessoa usa este link. */
 export function confirmSignupMessage(params: { name: string; url: string }): RenderedEmail {
   return render("Confirme seu e-mail para criar a conta", {
     title: "Confirme seu e-mail",
@@ -302,10 +284,6 @@ export function confirmSignupMessage(params: { name: string; url: string }): Ren
   });
 }
 
-/**
- * Alguém tentou criar conta com um e-mail que já tem conta. O cadastro responde igual nos dois
- * casos (não revela quem tem conta); só o dono do e-mail fica sabendo, por aqui.
- */
 export function accountExistsMessage(params: {
   loginUrl: string;
   resetUrl: string;
@@ -323,7 +301,6 @@ export function accountExistsMessage(params: {
   });
 }
 
-/** Exclusão de conta (quem entra sem senha confirma por aqui). */
 export function deleteAccountMessage(params: { name: string; url: string }): RenderedEmail {
   return render("Confirme a exclusão da sua conta", {
     title: "Confirme a exclusão da conta",
@@ -339,7 +316,6 @@ export function deleteAccountMessage(params: { name: string; url: string }): Ren
   });
 }
 
-/** Ligar o segundo fator numa conta sem senha (o link confirma que é o dono do e-mail). */
 export function mfaEnableMessage(params: { name: string; url: string }): RenderedEmail {
   return render("Ligar a verificação em duas etapas", {
     title: "Ligar a verificação em duas etapas",
@@ -361,7 +337,6 @@ const FEEDBACK_KIND: Record<string, string> = {
   outro: "Mensagem",
 };
 
-/** Sugestão ou problema enviado por um aluno (vai para o responsável pelo app). */
 export function feedbackMessage(params: {
   kind: string;
   message: string;
@@ -418,10 +393,6 @@ export function magicLinkMessage(params: { url: string; newAccount: boolean }): 
   });
 }
 
-/**
- * Aviso do app (alerta de faltas, lembrete de chamada). O título e o texto vêm de
- * `notificationContent` (contracts), os mesmos da central e do push.
- */
 export function noticeMessage(params: {
   name: string;
   title: string;
@@ -439,17 +410,11 @@ export function noticeMessage(params: {
   });
 }
 
-/**
- * Aviso de entrega próxima: título da tarefa, matéria e prazo no fuso do aluno, com o link para a
- * tela de tarefas (onde ele marca se entregou).
- */
 export function taskDueMessage(params: {
   name: string;
   title: string;
   subjectName: string | null;
-  /** "sex., 28/11 às 23:59", já no fuso da conta. */
   dueLabel: string;
-  /** "24 h", "2 dias". */
   remindLabel: string;
   url: string;
   settingsUrl: string;

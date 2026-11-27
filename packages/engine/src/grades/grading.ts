@@ -14,44 +14,29 @@ import {
   ZERO,
 } from "./rational";
 
-/**
- * Regra de cálculo da nota de uma matéria, do jeito que o professor quiser: escala, nota mínima,
- * fórmula sobre as avaliações (ou grupos), grupos com descarte das piores, substitutiva e exame.
- * Todas as notas em centésimos de ponto (7,5 → 750), contas em frações exatas.
- */
 export interface GradeGroup {
   key: string;
   name: string;
-  /** mean: média das notas do grupo; sum: soma. */
   aggregate: "mean" | "sum";
-  /** Quantas das piores notas do grupo descartar. */
   dropLowest: number;
 }
 
 export interface GradingRules {
   scale: 10 | 100;
-  /** Nota mínima para passar, em centésimos (6,0 → 600). */
   passing: number;
-  /** Fórmula sobre as chaves das avaliações e dos grupos. */
   formula: string;
   groups: GradeGroup[];
-  /** Exame/prova final: quem fica entre minToTake e a nota mínima faz o exame. */
   exam: { minToTake: number; formula: string; passing: number } | null;
-  /** Substitutiva: troca a menor nota entre estas avaliações, se for maior. */
   substitute: { replaces: string[] } | null;
-  /** Arredondamento da nota final, em centésimos (1 = nenhum, 10 = 0,1, 50 = 0,5). */
   roundingStep: number;
 }
 
 export interface EvaluationItem {
   key: string;
   name: string;
-  /** Nota máxima da avaliação, em centésimos. */
   maxScore: number;
-  /** Grupo (ex.: listas) ou null. */
   group: string | null;
   role: "regular" | "substitute" | "exam";
-  /** Nota lançada, em centésimos; null = ainda não saiu. */
   score: number | null;
 }
 
@@ -59,22 +44,14 @@ export type GradeStatus =
   "aprovado_por_nota" | "em_curso" | "em_exame" | "sem_chance_direta" | "reprovado_por_nota";
 
 export interface GradeSummary {
-  /** Nota contando o que falta como zero. */
   guaranteed: number;
-  /** Média proporcional ao que já foi avaliado (null se nada foi avaliado). */
   partial: number | null;
-  /** Maior nota possível tirando nota máxima no que falta. */
   maxPossible: number;
-  /** Nota final (todas as avaliações lançadas), antes do exame. */
   final: number | null;
-  /** Nota depois do exame, se o exame foi lançado. */
   afterExam: number | null;
-  /** O que falta tirar, em cada avaliação pendente, para chegar à nota mínima. */
   needed: { items: { key: string; name: string; needed: number; maxScore: number }[] } | null;
-  /** Nota mínima no exame para passar (quando cabe). */
   neededOnExam: number | null;
   status: GradeStatus;
-  /** Avaliações lançadas / total (sem substitutiva e exame). */
   graded: number;
   total: number;
 }
@@ -95,7 +72,6 @@ const norm = (s: string) => s.toLowerCase();
 
 const OPS: Ops = { zero: ZERO, int: (n) => rat(n), add, sub, mul, div, min, max };
 
-/** Confere a regra e as avaliações; devolve os problemas (vazio = válida). */
 export function validateGrading(
   rules: GradingRules,
   items: Omit<EvaluationItem, "score">[],
@@ -193,7 +169,6 @@ export function validateGrading(
     errors.push({ path: "roundingStep", message: "Arredondamento inválido." });
   }
   if (errors.length === 0) {
-    // Teste de conta: tudo no máximo não pode dividir por zero.
     try {
       evalScenario(
         prepare(
@@ -229,13 +204,11 @@ function prepare(rules: GradingRules, items: EvaluationItem[]): Prepared {
   };
 }
 
-/** Valor da fórmula num cenário (como preencher as notas que faltam). */
 function evalScenario(p: Prepared, missing: (it: EvaluationItem) => Rational): Rational {
   const values = new Map<string, Rational>();
   for (const it of p.regular) {
     values.set(norm(it.key), it.score === null ? missing(it) : fromCenti(it.score));
   }
-  // Substitutiva: troca a menor das avaliações indicadas, se for maior.
   if (p.substitute && p.substitute.score !== null && p.rules.substitute) {
     const subScore = fromCenti(p.substitute.score);
     let lowest: string | null = null;
@@ -276,7 +249,6 @@ function examResult(p: Prepared, media: number, exam: number): number {
   return rounded(p, r);
 }
 
-/** Resumo da nota: garantida, parcial, máxima, quanto falta e situação. */
 export function summarizeGrades(rules: GradingRules, items: EvaluationItem[]): GradeSummary {
   const p = prepare(rules, items);
   const graded = p.regular.filter((i) => i.score !== null).length;
@@ -288,7 +260,6 @@ export function summarizeGrades(rules: GradingRules, items: EvaluationItem[]): G
     evalScenario(p, (it) => fromCenti(it.maxScore)),
   );
 
-  // Parcial: o que já tirou dividido pelo máximo que dava para tirar no que já foi avaliado.
   let partial: number | null = null;
   if (graded > 0) {
     const evaluatedMax = evalScenario(
@@ -320,7 +291,6 @@ export function summarizeGrades(rules: GradingRules, items: EvaluationItem[]): G
     return lo;
   };
 
-  // Quanto falta: a menor fração f das notas máximas, igual em todas as pendentes, que passa.
   let needed: GradeSummary["needed"] = null;
   if (final === null && guaranteed < rules.passing && maxPossible >= rules.passing) {
     const pass = (bp: number) =>
@@ -385,7 +355,6 @@ export function summarizeGrades(rules: GradingRules, items: EvaluationItem[]): G
   };
 }
 
-/** Simula: a mesma conta com notas hipotéticas (o navegador usa para "e se eu tirar X?"). */
 export function simulateGrades(
   rules: GradingRules,
   items: EvaluationItem[],
@@ -401,7 +370,6 @@ export function simulateGrades(
   );
 }
 
-/** "7,5" a partir de 750 (sem zeros sobrando: 700 → "7", 725 → "7,25"). */
 export function formatGrade(centi: number): string {
   const whole = Math.trunc(centi / 100);
   const frac = Math.abs(centi % 100);
@@ -409,7 +377,6 @@ export function formatGrade(centi: number): string {
   return `${whole},${String(frac).padStart(2, "0").replace(/0$/, "")}`;
 }
 
-/** "7,5" ou "7.5" → 750 (null se inválido). */
 export function parseGrade(text: string): number | null {
   const m = /^\s*(\d{1,3})(?:[.,](\d{1,2}))?\s*$/.exec(text);
   if (!m) return null;

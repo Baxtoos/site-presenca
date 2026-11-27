@@ -19,12 +19,6 @@ import { OfficialGrades, suapDraft } from "./official-grades";
 
 type Setup = { draft: EditorDraft; notice?: string; rev: number };
 
-/**
- * Seção "Notas" da matéria. Montar a regra: assistente de IA (só coleta) em cima e editor embaixo;
- * o que a IA entende preenche o editor, e sem IA (desligada, limite ou falha) o editor segue
- * sozinho. Com regra: nota garantida, média parcial, quanto falta, situação, lançar notas e simular
- * "e se eu tirar X?" (tudo calculado pelo motor, no navegador e na API).
- */
 export function GradesPanel({ initial }: { initial: SubjectGrading }) {
   const [setup, setSetup] = useState<Setup | null>(initial.scheme ? null : { draft: null, rev: 0 });
   const open = () => setSetup({ draft: null, rev: 0 });
@@ -122,7 +116,6 @@ export function GradesPanel({ initial }: { initial: SubjectGrading }) {
             </Button>
           ) : null}
           <GradingEditor
-            // Cada resposta da IA recria o editor com o rascunho novo.
             key={setup.rev}
             subjectId={initial.subjectId}
             base={initial}

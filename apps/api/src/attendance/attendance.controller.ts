@@ -56,10 +56,6 @@ export class AttendanceController {
     return this.today.get(query.date);
   }
 
-  /**
-   * Registra uma aula. Exige Idempotency-Key: repetir a chamada (clique duplo, reenvio da fila
-   * offline) devolve a resposta original, com `Idempotent-Replayed: true`, sem gravar de novo.
-   */
   @Post("attendance")
   async create(
     @Body(new ZodPipe(createAttendanceBodySchema)) body: CreateAttendanceBody,

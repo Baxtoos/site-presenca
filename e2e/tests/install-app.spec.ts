@@ -5,7 +5,6 @@ test("deixa claro que também é um app e mostra como instalar (apresentação, 
   page,
 }, testInfo) => {
   test.setTimeout(90_000);
-  // Apresentação: selo no topo e o bloco de instalar (sem o diálogo do navegador, o passo a passo).
   await page.goto("/");
   await expect(page.getByText("Site e app: celular e computador")).toBeVisible();
   await expect(
@@ -14,15 +13,12 @@ test("deixa claro que também é um app e mostra como instalar (apresentação, 
   const landing = page.getByTestId("instalar-app");
   await expect(landing).toBeVisible();
   await expect(landing).toContainText(/Instalar|Compartilhar|menu ⋮|barra de endereço/);
-  // Botão do topo: sem o diálogo do navegador, leva ao passo a passo.
   await page.getByRole("banner").getByRole("button", { name: /app/i }).click();
   await expect(landing).toBeInViewport();
 
-  // Cadastro: aviso curto.
   await page.goto("/cadastro");
   await expect(page.getByTestId("instalar-app")).toContainText("Também é um app.");
 
-  // Início: convite que some ao dispensar (e não volta na próxima visita).
   await setupStudentWithClassToday(page, testInfo, {
     name: "Ivo Instala",
     slug: "instala",

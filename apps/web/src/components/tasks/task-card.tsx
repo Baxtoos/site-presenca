@@ -9,10 +9,6 @@ import { dueLabel, dueRelative, STATUS_LABEL } from "@/lib/tasks";
 import { GradeHint } from "./grade-hint";
 import { useTaskActions } from "./use-task-actions";
 
-/**
- * Uma tarefa: prazo, matéria e, enquanto pendente, os botões para registrar se foi entregue.
- * Vencida e pendente ganha destaque; resolvida pode ser corrigida (volta para pendente ou troca).
- */
 export function TaskCard({ task, now }: { task: Task; now: string }) {
   const { pending, setStatus, remove, confirmDelete, setConfirmDelete } = useTaskActions(task);
   const soon =

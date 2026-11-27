@@ -25,7 +25,6 @@ const FILTERS: { value: AttendanceStatusKey | ""; label: string }[] = [
   { value: "no_call", label: "Sem chamada" },
 ];
 
-/** Histórico de chamadas da matéria, do mais recente para o mais antigo, com edição e exclusão. */
 export function AttendanceHistory({
   subjectId,
   initial,
@@ -44,7 +43,6 @@ export function AttendanceHistory({
   const [editing, setEditing] = useState<string>();
   const [deleting, setDeleting] = useState<string>();
 
-  // A página foi revalidada (ex.: registro feito em outro lugar) e estamos sem filtro: usa a lista nova.
   if (source !== initial) {
     setSource(initial);
     if (filter === "") {
@@ -208,7 +206,6 @@ export function AttendanceHistory({
   );
 }
 
-/** Registra uma aula fora da grade (reposição, aula extra), em qualquer dia do semestre até hoje. */
 export function ExtraClassForm({
   subjectId,
   defaultUnits,

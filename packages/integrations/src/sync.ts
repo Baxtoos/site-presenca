@@ -16,22 +16,14 @@ export interface ConnectionCredentials {
   icsUrlEnc: string;
   baseUrl: string | null;
   wstokenEnc: string | null;
-  /** Fuso da conta: vale para datas sem fuso no .ics. */
   timezone: string;
 }
 
 export interface FetchedDeadlines {
   deadlines: MoodleDeadline[];
-  /** Aviso de sincronização parcial (o .ics veio, a API com wstoken falhou). */
   warning: string | null;
 }
 
-/**
- * Busca os prazos de uma conexão: abre as credenciais, baixa o .ics (sempre) e, se houver wstoken,
- * enriquece pela API. Roda fora de transação (rede). Falha no .ics é erro; falha só na API vira
- * aviso e a sincronização segue com o .ics.
- */
-/** Baixa e lê o .ics (link em texto, já aberto). */
 export async function fetchIcsDeadlines(
   icsUrl: string,
   timezone: string,
@@ -64,10 +56,6 @@ export async function fetchMoodleDeadlines(
   }
 }
 
-/**
- * Livro de notas das turmas ligadas a matérias (só com wstoken). Roda fora de transação (rede).
- * Sem wstoken, devolve vazio.
- */
 export async function fetchMoodleGrades(
   conn: ConnectionCredentials,
   key: Buffer,

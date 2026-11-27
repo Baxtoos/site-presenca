@@ -1,7 +1,6 @@
 import type { CalendarDayException, Task } from "@presenca/contracts";
 import { addDays } from "@presenca/engine";
 
-/** Estado visual de uma tarefa no calendário e na linha do tempo. */
 export type TaskTone = "pending" | "overdue" | "completed" | "not_completed";
 
 export function taskTone(task: Pick<Task, "status" | "overdue">): TaskTone {
@@ -60,14 +59,10 @@ const DAY_SHORT = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "UTC",
 });
 
-/** "domingo, 29 de novembro de 2026" */
 export const dayLong = (date: string) => DAY_LONG.format(new Date(`${date}T12:00:00Z`));
-/** "novembro de 2026" */
 export const monthLong = (month: string) => MONTH_LONG.format(new Date(`${month}-15T12:00:00Z`));
-/** "29/11" */
 export const dayShort = (date: string) => DAY_SHORT.format(new Date(`${date}T12:00:00Z`));
 
-/** Janelas da linha do tempo (parâmetro `janela` da URL). */
 export const TIMELINE_WINDOWS = [
   { id: "atrasadas", label: "Atrasadas" },
   { id: "hoje", label: "Hoje" },
@@ -85,10 +80,6 @@ export const TIMELINE_STATUS = [
 ] as const;
 export type TimelineStatus = (typeof TIMELINE_STATUS)[number]["id"];
 
-/**
- * Intervalo de dias de cada janela, a partir de hoje no fuso do aluno. "Todas" cobre 200 dias para
- * trás e 199 para a frente (o limite da API é 400 dias).
- */
 export function windowRange(window: TimelineWindow, today: string): { from: string; to: string } {
   switch (window) {
     case "atrasadas":
@@ -104,7 +95,6 @@ export function windowRange(window: TimelineWindow, today: string): { from: stri
   }
 }
 
-/** Hoje (AAAA-MM-DD) num fuso. */
 export function todayIn(timezone: string, now = new Date()): string {
   try {
     return now.toLocaleDateString("en-CA", { timeZone: timezone });

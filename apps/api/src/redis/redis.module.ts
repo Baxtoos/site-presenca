@@ -4,12 +4,6 @@ import { ENV, type Env } from "../config/env";
 
 export const REDIS = Symbol("REDIS");
 
-/**
- * Redis (Valkey) para contadores de rate limit compartilhados entre instâncias da API.
- * Falha rápido: cada comando tem 1 s no máximo (inclusive esperando a conexão), então um Redis
- * fora do ar vira erro em ~1 s (e o rate limit recusa a requisição) em vez de requisição pendurada.
- * A fila offline fica ligada para os comandos dos primeiros instantes, enquanto a conexão abre.
- */
 @Global()
 @Module({
   providers: [
@@ -24,7 +18,6 @@ export const REDIS = Symbol("REDIS");
           commandTimeout: 1_000,
           retryStrategy: (attempt) => Math.min(attempt * 200, 2_000),
         });
-        // O ioredis emite um erro a cada tentativa de reconexão; registra no máximo a cada 30 s.
         const logger = new Logger("Redis");
         let lastLog = 0;
         client.on("error", (error: Error) => {

@@ -2,8 +2,6 @@ import { z } from "zod";
 import { timeSchema } from "./academic";
 import { remindLabel } from "./tasks";
 
-// ---------------------------------------------------------------- conteúdo dos avisos
-
 export const THRESHOLD_PCTS = [50, 75, 90, 100] as const;
 export const thresholdPctSchema = z.union(THRESHOLD_PCTS.map((p) => z.literal(p)));
 
@@ -16,7 +14,6 @@ export const notificationKindSchema = z.enum([
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
-/** Dados guardados em `notification_logs.payload`. O texto é montado na hora de mostrar/enviar. */
 export const thresholdPayloadSchema = z.object({
   subjectName: z.string(),
   thresholdPct: thresholdPctSchema,
@@ -27,37 +24,31 @@ export const thresholdPayloadSchema = z.object({
 });
 export type ThresholdPayload = z.infer<typeof thresholdPayloadSchema>;
 
-/** Aviso de entrega próxima: o prazo já vem formatado no fuso do aluno. */
 export const taskDuePayloadSchema = z.object({
   taskId: z.uuid(),
   title: z.string(),
   subjectName: z.string().nullable(),
   dueAt: z.iso.datetime({ offset: true }),
-  /** "sex., 28/11 às 23:59" no fuso da conta. */
   dueLabel: z.string(),
   remindBeforeMinutes: z.number().int(),
 });
 export type TaskDuePayload = z.infer<typeof taskDuePayloadSchema>;
 
-/** Nota nova publicada no Moodle (importada pela sincronização). */
 export const gradePostedPayloadSchema = z.object({
   subjectName: z.string(),
   itemName: z.string(),
   score: z.number().int(),
   maxScore: z.number().int(),
-  /** De onde veio a nota (padrão: Moodle, o primeiro). */
   source: z.enum(["moodle", "suap"]).default("moodle"),
 });
 export type GradePostedPayload = z.infer<typeof gradePostedPayloadSchema>;
 
-/** 750 → "7,5" (cópia mínima do formato do motor, para o texto do aviso). */
 const grade = (centi: number) => {
   const whole = Math.trunc(centi / 100);
   const frac = centi % 100;
   return frac === 0 ? String(whole) : `${whole},${String(frac).padStart(2, "0").replace(/0$/, "")}`;
 };
 
-/** Uma aula sem registro, para marcar direto pela notificação (botões Fui / Faltei). */
 export const pendingClassSchema = z.object({
   subjectId: z.uuid(),
   scheduleId: z.uuid(),
@@ -66,14 +57,11 @@ export const pendingClassSchema = z.object({
 });
 export type PendingClass = z.infer<typeof pendingClassSchema>;
 
-/** Até quantas aulas do dia o lembrete leva para marcar pela notificação. */
 export const CHECKIN_ACTION_LIMIT = 6;
 
 export const checkinPayloadSchema = z.object({
-  /** Aulas da grade sem registro. */
   count: z.number().int().min(1),
   scope: z.enum(["today", "week"]),
-  /** Só no lembrete do dia, com poucas aulas: quais são (para os botões da notificação). */
   classes: z.array(pendingClassSchema).max(CHECKIN_ACTION_LIMIT).optional(),
 });
 export type CheckinPayload = z.infer<typeof checkinPayloadSchema>;
@@ -83,7 +71,6 @@ export const systemPayloadSchema = z.object({ title: z.string(), body: z.string(
 export interface NotificationContent {
   title: string;
   body: string;
-  /** Caminho no app para abrir ao tocar no aviso. */
   url: string;
 }
 
@@ -91,10 +78,6 @@ const units = (n: number) => `${n} ${n === 1 ? "aula" : "aulas"}`;
 const days = (n: number) => `${n} ${n === 1 ? "dia" : "dias"}`;
 const classes = (n: number) => `${n} ${n === 1 ? "aula" : "aulas"}`;
 
-/**
- * Texto de um aviso, igual na central, no push e no assunto do e-mail.
- * Payload inválido (dado antigo ou corrompido) vira um aviso genérico em vez de quebrar a tela.
- */
 export function notificationContent(
   kind: NotificationKind,
   payload: unknown,
@@ -174,8 +157,6 @@ export function notificationContent(
   return { title: "Aviso", body: "Abra o app para ver os detalhes.", url: "/avisos" };
 }
 
-// ---------------------------------------------------------------- central de avisos
-
 export const notificationItemSchema = z.object({
   id: z.uuid(),
   kind: notificationKindSchema,
@@ -206,8 +187,6 @@ export type UnreadCount = z.infer<typeof unreadCountSchema>;
 export const notificationParamsSchema = z.object({
   id: z.uuid({ error: "Aviso inválido." }),
 });
-
-// ---------------------------------------------------------------- preferências
 
 export const checkinModeSchema = z.enum(["off", "daily", "weekly"]);
 
@@ -256,16 +235,11 @@ export const notificationPreferencesSchema = z.object({
   checkinWeekday: z.number().int(),
   quietStart: timeSchema.nullable(),
   quietEnd: timeSchema.nullable(),
-  /** Sem e-mail confirmado, alertas por e-mail ficam desligados (mesmo com emailEnabled). */
   emailVerified: z.boolean(),
-  /** Chave pública VAPID para assinar o push neste aparelho; null se o servidor não tem push. */
   vapidPublicKey: z.string().nullable(),
-  /** Aparelhos com push ativo nesta conta. */
   pushDevices: z.number().int(),
 });
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
-
-// ---------------------------------------------------------------- push
 
 /**
  * Serviços de push dos navegadores (Chrome/Edge/Brave via FCM, Firefox, Safari, Windows).
@@ -279,7 +253,6 @@ const PUSH_HOSTS = [
   /^([a-z0-9-]+\.)*notify\.windows\.com$/,
 ];
 
-/** true se o endereço é HTTPS, na porta padrão, de um serviço de push conhecido. */
 export function isPushServiceUrl(value: string): boolean {
   try {
     const url = new URL(value);

@@ -7,21 +7,13 @@ export interface RouteResponse {
   schema?: z.ZodType;
 }
 
-/**
- * Definição de uma rota da API. A API valida a entrada com estes schemas, o OpenAPI é gerado
- * a partir deles e um teste garante que toda rota registrada na API está aqui (e vice-versa).
- */
 export interface RouteDef {
   method: HttpMethod;
-  /** Caminho no formato Fastify/Nest (`/v1/semesters/:id`). */
   path: string;
   summary: string;
   tag: string;
-  /** Exige sessão (Fase 2). */
   auth: boolean;
-  /** Exige o cabeçalho If-Match com a versão atual (controle de concorrência). */
   ifMatch?: boolean;
-  /** Exige o cabeçalho Idempotency-Key: repetir a chamada devolve a mesma resposta, sem gravar de novo. */
   idempotent?: boolean;
   request?: {
     params?: z.ZodType;

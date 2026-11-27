@@ -29,7 +29,6 @@ export class HealthController {
     @Inject(ENV) private readonly env: Pick<Env, "APP_VERSION">,
   ) {}
 
-  /** Processo vivo. Não toca em dependências externas. */
   @Get("healthz")
   health(): HealthResponse {
     return {
@@ -40,10 +39,6 @@ export class HealthController {
     };
   }
 
-  /**
-   * Pronto para receber tráfego: banco e Redis acessíveis (sem Redis o login fica bloqueado
-   * pelo rate limit). O deploy só troca de versão quando isto responde 200.
-   */
   @Get("readyz")
   async ready(@Res({ passthrough: true }) reply: FastifyReply): Promise<ReadinessResponse> {
     const [database, redis] = await Promise.all([

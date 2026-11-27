@@ -40,7 +40,6 @@ async function student() {
 }
 type Student = Awaited<ReturnType<typeof student>>;
 
-/** Uma data daqui a 10 dias: aula já lançada que ainda não aconteceu. */
 const FUTURE = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
 
 const lesson = (date: string, units: number, absences = 0, excused = false) => ({
@@ -51,7 +50,6 @@ const lesson = (date: string, units: number, absences = 0, excused = false) => (
   content: absences > 0 ? "Metodologias Ágeis XP, Scrum, Kanban" : "",
 });
 
-/** Como o favorito monta a partir do boletim e das turmas (terças, 4 tempos). */
 function snapshot(): SuapSnapshot {
   return {
     format: "suap",
@@ -81,7 +79,6 @@ function snapshot(): SuapSnapshot {
           lesson("2026-08-11", 4),
           lesson("2026-08-18", 4, 4),
           lesson("2026-08-25", 4),
-          // Já lançada, ainda não aconteceu.
           lesson(FUTURE, 4),
         ],
       },
@@ -152,11 +149,9 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
       ],
     });
     expect(eso1!.summary).toMatchObject({ maxAbsenceUnits: 19, absentUnits: 4 });
-    // Banco de Dados 2: sem grade (aulas avulsas); a falta abonada não conta (política "deduct").
     expect(bd2).toMatchObject({ name: "Bancos de Dados 2", totalClasses: 20, schedules: [] });
     expect(bd2!.summary).toMatchObject({ absentUnits: 2, excusedUnits: 4 });
 
-    // A data do semestre cobre a aula futura; nenhum aviso por faltas antigas.
     const sem = (await ana.b.request("GET", `/v1/semesters/${result.semesterId}`)).json<{
       startsOn: string;
       endsOn: string;
@@ -175,7 +170,6 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
     );
     const [, eso1] = await subjectsOf(ana, first.semesterId);
 
-    // O aluno marcou falta em 25/08 (o SUAP diz presença) e numa terça que o SUAP ainda não tem.
     const history = (await ana.b.request("GET", `/v1/subjects/${eso1!.id}/attendance`)).json<{
       records: { id: string; classDate: string; version: number }[];
     }>().records;
@@ -200,7 +194,6 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
     );
     expect(own.statusCode, own.body).toBe(201);
 
-    // Novo retrato: 25/08 continua presença, 01/09 ainda não lançada, 08/09 lançada com falta.
     const next = snapshot();
     next.subjects[0]!.lessons.push(lesson("2026-09-08", 4, 4));
     const headers = key();
@@ -215,14 +208,11 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
       unchanged: 5,
     });
     const [, after] = await subjectsOf(ana, first.semesterId);
-    // 18/08 (4) + 08/09 (4) do SUAP + 01/09 (4) que só o aluno marcou.
     expect(after!.summary.absentUnits).toBe(12);
 
-    // Mesma chave: mesma resposta, nada muda de novo.
     const again = await sync(ana, { semesterId: first.semesterId, snapshot: next }, headers);
     expect(again.headers["idempotent-replayed"]).toBe("true");
 
-    // Repetir com chave nova: tudo igual.
     const third = suapSyncResultSchema.parse(
       (await sync(ana, { semesterId: first.semesterId, snapshot: next })).json(),
     );
@@ -261,7 +251,6 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
       };
       return s;
     };
-    // 1ª vez, já com nota: guarda, sem aviso (seria aviso de nota já conhecida).
     const first = suapSyncResultSchema.parse(
       (await sync(ana, { semesterId: null, snapshot: withGrades(7.5, null) })).json(),
     );
@@ -285,14 +274,12 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
       ).rows.map((r) => r.payload);
     expect(await grades()).toEqual([]);
 
-    // 2ª vez: saiu a média → um aviso "Nota nova" do SUAP; repetir não duplica.
     await sync(ana, { semesterId: first.semesterId, snapshot: withGrades(7.5, 8) });
     await sync(ana, { semesterId: first.semesterId, snapshot: withGrades(7.5, 8) });
     expect(await grades()).toEqual([
       { subjectName: subject.name, itemName: "Média", score: 800, maxScore: 1000, source: "suap" },
     ]);
 
-    // Favorito antigo (sem notas): não apaga o que já estava guardado.
     await sync(ana, { semesterId: first.semesterId, snapshot: snapshot() });
     const kept = subjectGradingSchema.parse(
       (await ana.b.request("GET", `/v1/subjects/${subject.id}/grading`)).json(),
@@ -348,14 +335,12 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
       };
       return s;
     };
-    // Sincroniza antes de existir a regra: a nota fica guardada no quadro do SUAP.
     const first = suapSyncResultSchema.parse(
       (await sync(bia, { semesterId: null, snapshot: detailed(9.1, null) })).json(),
     );
     const subject = (await subjectsOf(bia, first.semesterId)).find(
       (s) => s.code === snapshot().subjects[0]!.code,
     )!;
-    // Ao salvar a regra com A1 e A2, a A1 já recebe a nota do SUAP (9,10 → 910).
     const saved = subjectGradingSchema.parse(
       (
         await bia.b.request("PUT", `/v1/subjects/${subject.id}/grading`, {
@@ -378,7 +363,6 @@ describe("Sincronizar com o SUAP (POST /v1/imports/suap)", () => {
       ["A2", null, "user"],
     ]);
 
-    // O aluno lança a A2 à mão; o SUAP depois traz outra A2 e corrige a A1: só a A1 muda.
     const a2 = saved.items.find((i) => i.key === "A2")!;
     await bia.b.request(
       "PATCH",

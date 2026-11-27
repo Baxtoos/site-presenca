@@ -2,14 +2,12 @@
 
 import { api, ApiError } from "./api-client";
 
-/** Push precisa de service worker (build de produção), PushManager e permissão de notificação. */
 export function pushSupport(): "ok" | "unsupported" | "ios-needs-install" {
   if (typeof window === "undefined") return "unsupported";
   const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  // No iPhone, push só existe com o app instalado na tela de início (iOS 16.4+).
   if (isIos && !standalone) return "ios-needs-install";
   if (
     !("serviceWorker" in navigator) ||
@@ -36,7 +34,6 @@ async function registration(): Promise<ServiceWorkerRegistration | null> {
   return navigator.serviceWorker.ready;
 }
 
-/** A inscrição de push deste aparelho, se houver. */
 export async function currentPushSubscription(): Promise<PushSubscription | null> {
   const reg = await registration();
   return reg ? reg.pushManager.getSubscription() : null;
@@ -44,10 +41,6 @@ export async function currentPushSubscription(): Promise<PushSubscription | null
 
 export class PushSetupError extends Error {}
 
-/**
- * Pede permissão, inscreve o aparelho no serviço de push do navegador e registra na API.
- * Se o endereço estava em outra conta (aparelho compartilhado), refaz a inscrição uma vez.
- */
 export async function enablePush(vapidPublicKey: string): Promise<number> {
   const reg = await registration();
   if (!reg) {
@@ -70,7 +63,6 @@ export async function enablePush(vapidPublicKey: string): Promise<number> {
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
     } catch (e) {
-      // Aba anônima do Chrome, navegador sem serviço de push, ou permissão revogada no meio.
       if (e instanceof DOMException && e.name === "NotAllowedError") {
         throw new PushSetupError(
           "As notificações estão bloqueadas para este site. Libere nas configurações do navegador.",
@@ -96,7 +88,6 @@ export async function enablePush(vapidPublicKey: string): Promise<number> {
   }
 }
 
-/** Desliga o push neste aparelho (no navegador e na API). */
 export async function disablePushOnThisDevice(): Promise<number | null> {
   const sub = await currentPushSubscription();
   if (!sub) return null;

@@ -18,7 +18,6 @@ export function toMe(user: UserRow): MeResponse {
   };
 }
 
-/** Nome provisório para contas criadas sem formulário (magic link): "ana.ribeiro@x" → "Ana Ribeiro". */
 export function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? "";
   const words = local
@@ -28,7 +27,6 @@ export function nameFromEmail(email: string): string {
   return (words.join(" ") || "Estudante").slice(0, 120);
 }
 
-/** O Postgres sinaliza violação de unicidade com o código 23505 (o Drizzle embrulha em `cause`). */
 export function isUniqueViolation(error: unknown, constraint: string): boolean {
   const candidates = [error, (error as { cause?: unknown })?.cause];
   return candidates.some(

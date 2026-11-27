@@ -8,7 +8,6 @@
  * dela (imports, constantes do módulo), só o que o navegador já tem.
  */
 export async function suapCollector(monitorOrigin: string): Promise<void> {
-  // Aba do Monitor aberta já no clique (depois dos awaits o navegador bloquearia o pop-up).
   const target = window.open("", "_blank");
   const box = document.createElement("div");
   box.setAttribute(
@@ -47,7 +46,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
     if (!res.ok) throw new Error(`o SUAP respondeu ${res.status} ao abrir ${url}.`);
     return parse(await res.text());
   };
-  /** Abre a página num quadro escondido e espera o SUAP preencher a aba (conteúdo carregado depois). */
   const viaFrame = (url: string, ready: (doc: Document) => boolean) =>
     new Promise<Document>((resolve, reject) => {
       const frame = document.createElement("iframe");
@@ -69,12 +67,10 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
       }, 250);
       document.body.appendChild(frame);
     });
-  /** Caixa (.box) cujo título começa com o texto dado. */
   const boxNamed = (doc: Document, title: string) =>
     Array.from(doc.querySelectorAll(".box")).find((b) =>
       norm(text(b.querySelector("h3"))).startsWith(norm(title)),
     ) ?? null;
-  /** Índice de cada coluna pelo cabeçalho (primeira linha, contando colspan). */
   const columns = (table: Element) => {
     const map: Record<string, number> = {};
     const row = table.querySelector("thead tr") ?? table.querySelector("tr");
@@ -102,7 +98,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
       throw new Error("não achei o seu cadastro de aluno. Confira se você está logado no SUAP.");
     }
 
-    // ---- boletim do período escolhido na tela (ou o mais recente)
     say("lendo o boletim…");
     const chosen = document.querySelector<HTMLSelectElement>("select#ano_periodo")?.value;
     const boletim = await get(
@@ -122,7 +117,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
     const cDelivered = col(head, "total de aulas cumpridas");
     const cAbsences = col(head, "total de faltas");
     const cFreq = col(head, "% freq");
-    // Notas: cada "ETAPA n" ocupa 2 colunas (NOTA e FALTAS); a nota é a primeira.
     const cStages = Object.entries(head)
       .filter(([key]) => /^etapa \d/.test(key))
       .map(([key, i]) => ({ label: `Etapa ${key.replace(/\D/g, "")}`, i }));
@@ -130,7 +124,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
     const cExam = col(head, "naf");
     const cFinal = col(head, "mfd");
     const cStatus = col(head, "situacao");
-    /** "7,5" → 7.5; "-" ou vazio → null. */
     const score = (cell: Element | undefined) => {
       const v = text(cell).replace(",", ".");
       return /^\d{1,3}(\.\d+)?$/.test(v) ? Math.min(1000, Number(v)) : null;
@@ -152,7 +145,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
       const code = (m ? m[2]! : diario).trim();
       say(`lendo ${name} (${index + 1} de ${rows.length})…`);
 
-      // ---- aulas lançadas
       const lessonsUrl = `/edu/sala_virtual/${diario}/?tab=aulas`;
       const hasLessons = (doc: Document) =>
         !!doc.querySelector('.tab-container[data-tab="aulas"] table tbody tr') ||
@@ -191,7 +183,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
         }
       }
 
-      // ---- dados gerais: professor, local e horário
       const generalUrl = `/edu/sala_virtual/${diario}/?tab=dados_gerais`;
       const hasGeneral = (doc: Document) => !!boxNamed(doc, "horario de aula");
       let general = await get(generalUrl);
@@ -240,7 +231,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
         average: cAverage >= 0 ? score(cells[cAverage]) : null,
         finalExam: cExam >= 0 ? score(cells[cExam]) : null,
         finalGrade: cFinal >= 0 ? score(cells[cFinal]) : null,
-        // Curso com conceito: a coluna MFD/CONCEITO traz letra, não número.
         concept:
           finalText && finalText !== "-" && score(cells[cFinal]) === null
             ? finalText.slice(0, 20)
@@ -249,7 +239,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
         assessments: [] as unknown[],
       };
 
-      // ---- "Detalhar": cada avaliação (sigla, tipo, peso, nota) de cada etapa
       const assessments: {
         stage: string;
         method: string | null;
@@ -265,7 +254,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
         ?.getAttribute("href");
       if (detailHref) {
         const detail = await get(detailHref).catch(() => null);
-        // Título de cada etapa ("Etapa 1 - Média Aritmética") vem antes da tabela dela.
         const titles = detail
           ? Array.from(detail.querySelectorAll("h1,h2,h3,h4,h5,h6,strong,b,legend,caption")).filter(
               (el) => /^etapa\b/i.test(text(el)),
@@ -340,11 +328,6 @@ export async function suapCollector(monitorOrigin: string): Promise<void> {
   }
 }
 
-/**
- * Texto do favorito (javascript:...) para o Monitor neste endereço. É curto de propósito: só
- * carrega /suap.js (o suapCollector acima) do Monitor. Um favorito de 14 mil caracteres não roda
- * no Chrome do Android, e assim o favorito salvo recebe as versões novas sem salvar de novo.
- */
 export function suapBookmarklet(monitorOrigin: string): string {
   const src = JSON.stringify(`${monitorOrigin}/suap.js?v=`);
   const fail = JSON.stringify("Monitor de Presenças: não consegui carregar. Confira a internet.");

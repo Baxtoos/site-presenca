@@ -1,9 +1,5 @@
 import { Redis } from "ioredis";
 
-/**
- * Zera os contadores de rate limit antes da rodada: todos os testes saem do mesmo IP (localhost),
- * e rodadas seguidas estourariam o limite de cadastros por hora.
- */
 export default async function globalSetup(): Promise<void> {
   const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true });
   try {

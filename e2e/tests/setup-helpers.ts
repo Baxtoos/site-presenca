@@ -3,7 +3,6 @@ import { waitForLink } from "./mailpit";
 
 export const WEEKDAYS = ["", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
 
-/** Hoje no fuso do aluno (o padrão da conta é America/Sao_Paulo), como "AAAA-MM-DD". */
 export function todayInSaoPaulo(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }
@@ -22,16 +21,11 @@ export function isoWeekday(iso: string): number {
 export const uniqueEmail = (testInfo: TestInfo, slug: string) =>
   `e2e.${slug}.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
 
-/** Abre o link do e-mail no mesmo endereço do teste (o e-mail usa WEB_ORIGIN). */
 export async function openEmailLink(page: Page, link: string) {
   const url = new URL(link);
   await page.goto(`${url.pathname}${url.search}`);
 }
 
-/**
- * Preenche o cadastro (a página /cadastro já aberta), confere o "confira seu e-mail" e abre o
- * link de confirmação, que cria a conta e entra nela.
- */
 export async function signUp(
   page: Page,
   opts: { name: string; email: string; password: string },
@@ -48,10 +42,6 @@ export async function signUp(
   );
 }
 
-/**
- * Conta nova + semestre em volta de hoje + uma matéria com aula de 2 tempos no dia da semana de
- * hoje (limite de 18 tempos). Termina no semestre, com o card da matéria visível.
- */
 export async function setupStudentWithClassToday(
   page: Page,
   testInfo: TestInfo,
@@ -87,10 +77,6 @@ export async function setupStudentWithClassToday(
   return today;
 }
 
-/**
- * Caminho real da tela. A barra de endereço é mascarada (apps/web/src/lib/url-mask.ts) e mostra
- * só "/", então page.url() não serve; a URL real fica no estado do histórico.
- */
 export async function realPath(page: Page): Promise<string> {
   return page.evaluate(() => {
     const state = window.history.state as { __presencaUrl?: string } | null;

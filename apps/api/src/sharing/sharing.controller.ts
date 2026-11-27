@@ -23,7 +23,6 @@ const codePipe = new ZodPipe(shareCodeParamsSchema);
 export class SharingController {
   constructor(private readonly sharing: SharingService) {}
 
-  /** Publicar exige e-mail confirmado (decisão D10): o código circula entre pessoas. */
   @Post()
   @RequireVerifiedEmail()
   @RateLimit({ bucket: "template-create", by: "user", limit: 30, windowSeconds: 3600 })
@@ -45,7 +44,6 @@ export class SharingController {
     await this.sharing.revoke(id);
   }
 
-  /** Sem login (o link pode ser aberto por quem ainda não tem conta), com limite por IP. */
   @Get(":code")
   @Public()
   @RateLimit({ bucket: "template-preview", by: "ip", limit: 30, windowSeconds: 60 })

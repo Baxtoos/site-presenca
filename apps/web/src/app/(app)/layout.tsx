@@ -14,10 +14,6 @@ import { ToastProvider } from "@/components/toast";
 import { apiGet, getMe } from "@/lib/api-server";
 import { MobileTabBar, Sidebar } from "./shell";
 
-/**
- * Área logada no estilo de um espaço de trabalho: barra lateral com a navegação e as matérias do
- * semestre (computador), topo enxuto e abas embaixo (celular). Confere a sessão na API.
- */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const me = await getMe();
   if (!me) redirect("/entrar");
@@ -50,12 +46,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                   Presenças
                 </Link>
                 <span className="flex-1 lg:hidden" />
-                {/* Celular: a barra lateral (com a troca de tema) não aparece. */}
+                {}
                 <div className="lg:hidden">
                   <ThemeSwitcher name="tema-topo" showLabel={false} />
                 </div>
                 <NotificationBell unread={unreadCount} />
-                {/* Celular: a Conta saiu das abas de baixo para caber Tarefas e Notas. */}
+                {}
                 <Link
                   href="/conta"
                   aria-label="Conta"

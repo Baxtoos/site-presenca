@@ -33,10 +33,6 @@ function summary(r: MoodleSyncResult): string {
   return parts.length > 0 ? `Sincronizado: ${parts.join(", ")}.` : "Sincronizado: nada mudou.";
 }
 
-/**
- * Conectar o Moodle: passo a passo para copiar o link do calendário (.ics), teste antes de guardar,
- * estado da sincronização, turmas encontradas (ligar à matéria ou ignorar) e desconectar.
- */
 export function MoodlePanel({
   initial,
   subjects,

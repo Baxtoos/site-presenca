@@ -1,6 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
-/** Token aleatório de 256 bits em base64url (43 caracteres): cookie de sessão e links de e-mail. */
 export function generateToken(): string {
   return randomBytes(32).toString("base64url");
 }
@@ -12,7 +11,6 @@ export function hashToken(token: string): Buffer {
 
 export const TOKEN_FORMAT = /^[A-Za-z0-9_-]{43}$/;
 
-/** Comparação em tempo constante (state do OAuth). */
 export function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);

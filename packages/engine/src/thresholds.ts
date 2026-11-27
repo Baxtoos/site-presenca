@@ -1,14 +1,3 @@
-/**
- * Marcos de alerta (50/75/90/100% do limite de faltas) com rearme.
- *
- * Cada marco de cada matéria guarda `armed` e `cycle`:
- * - armado e cruzado → desarma, `cycle + 1` e gera alerta (um por ciclo, nunca repetido);
- * - desarmado e o consumo cai abaixo dele (falta apagada, abonada ou corrigida) → rearma, para
- *   avisar de novo se o aluno voltar a cruzar.
- * Se vários marcos são cruzados de uma vez (ex.: de 45% para 80%), só o mais grave é enviado; os
- * outros ficam registrados como pulados, para não mandar três avisos seguidos.
- */
-
 export const THRESHOLDS = [50, 75, 90, 100] as const;
 export type ThresholdPct = (typeof THRESHOLDS)[number];
 
@@ -19,22 +8,13 @@ export interface ThresholdState {
 }
 
 export interface ThresholdEvaluation {
-  /** Estados que mudaram (para gravar). Inclui marcos que ainda não tinham linha no banco. */
   changes: ThresholdState[];
-  /** Marco a avisar agora (o mais grave cruzado entre os que o aluno quer receber), ou null. */
   notify: ThresholdState | null;
-  /** Outros marcos cruzados nesta mesma mudança: registrados, mas sem envio. */
   skipped: ThresholdState[];
 }
 
 const initial = (pct: ThresholdPct): ThresholdState => ({ pct, armed: true, cycle: 0 });
 
-/**
- * @param consumption % do limite já usado (inteiro, como `consumptionPct` do motor).
- * @param current estados gravados (marcos sem linha contam como armados, ciclo 0).
- * @param wanted marcos que o aluno quer receber (preferências). Os outros mudam de estado, mas
- *   nunca geram aviso.
- */
 export function evaluateThresholds(
   consumption: number,
   current: readonly ThresholdState[],

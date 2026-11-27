@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CompassIcon } from "@/components/icons";
 
-/** 404, inclusive para semestre ou matéria de outra pessoa (a API não revela que existe). */
 export default function NotFound() {
   return (
     <main className="mx-auto grid min-h-dvh max-w-md content-center gap-4 px-4 text-center">

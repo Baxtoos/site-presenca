@@ -81,7 +81,6 @@ export class AuthRepository {
     );
   }
 
-  /** Marca o link como usado e devolve a conta (ou só o e-mail). Undefined = inválido/usado/expirado. */
   async consumeToken(
     tokenHash: Buffer,
     purpose: TokenPurpose,
@@ -93,7 +92,6 @@ export class AuthRepository {
     return row && { userId: row.user_id, email: row.email };
   }
 
-  /** Cadastro pendente: guarda nome e hash da senha no link de confirmação (só o último vale). */
   async issueRegistration(params: {
     email: string;
     fullName: string;
@@ -106,7 +104,6 @@ export class AuthRepository {
     );
   }
 
-  /** Consome o link de cadastro (uma vez só). Undefined = inválido, usado ou expirado. */
   async consumeRegistration(
     tokenHash: Buffer,
   ): Promise<{ email: string; fullName: string; passwordHash: string } | undefined> {

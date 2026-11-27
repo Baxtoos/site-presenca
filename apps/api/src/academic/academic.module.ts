@@ -6,7 +6,6 @@ import { ExceptionsService } from "./exceptions.service";
 import { SemestersService } from "./semesters.service";
 import { SubjectsService } from "./subjects.service";
 
-/** Semestres, matérias, grade semanal e calendário de exceções. Tudo exige sessão (guard global). */
 @Module({
   imports: [NotificationsModule],
   controllers: [SemestersController, SubjectsController],

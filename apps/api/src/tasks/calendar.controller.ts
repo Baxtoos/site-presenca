@@ -7,7 +7,6 @@ import {
 import { ZodPipe } from "../common/zod.pipe";
 import { TaskCalendarService } from "./calendar.service";
 
-/** Linha do tempo e calendário mensal do aluno logado (tarefas, exceções e chamadas pendentes). */
 @Controller("v1/calendar")
 export class TaskCalendarController {
   constructor(private readonly calendar: TaskCalendarService) {}

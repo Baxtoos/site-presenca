@@ -14,8 +14,6 @@ export function ConfirmDeletion({ token, email }: { token?: string; email: strin
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
 
-  // Tira o token da barra de endereço (e do histórico); ele continua guardado aqui.
-  // Caminho do roteador: a barra é mascarada (lib/url-mask.ts) e window.location seria "/".
   useEffect(() => {
     if (token) window.history.replaceState(null, "", pathname);
   }, [pathname, token]);

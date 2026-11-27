@@ -13,7 +13,6 @@ import { app, createdAt, ownerId, pk, updatedAt, version } from "./_shared";
 import { taskSource, taskStatus, taskStatusSource } from "./enums";
 import { users } from "./identity";
 
-/** Antecedências permitidas para o aviso (minutos antes do prazo). */
 export const TASK_REMIND_OPTIONS = [60, 180, 720, 1440, 2880] as const;
 
 /**
@@ -28,39 +27,30 @@ export const tasks = app.table(
     subjectId: uuid(),
     title: text().notNull(),
     notes: text(),
-    /** Prazo de envio (instante; a tela informa data e hora no fuso do aluno). */
     dueAt: timestamp({ withTimezone: true }).notNull(),
-    /** Antecedência do aviso; null = sem aviso. */
     remindBeforeMinutes: integer().default(1440),
     status: taskStatus().notNull().default("pending"),
     /** "user" quando o aluno marcou: a sincronização nunca sobrescreve. */
     statusSource: taskStatusSource().notNull().default("user"),
     source: taskSource().notNull().default("manual"),
-    /** Identificador na origem (UID do .ics, id da atividade no Moodle); null nas manuais. */
     externalUid: text(),
-    /** Link para a atividade original (só https). */
     externalUrl: text(),
-    /** Turma de origem no Moodle (moodle_course_mappings.course_key), para trocar a matéria em lote. */
     externalCourseKey: text(),
     /** Avaliação da matéria a que a entrega corresponde (FK composta na migration de segurança). */
     evaluationItemId: uuid(),
-    /** Quando virou concluída ou não concluída (null enquanto pendente). */
     resolvedAt: timestamp({ withTimezone: true }),
     version: version(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
-    // Alvo da FK composta da outbox (task_id, user_id).
     unique("tasks_id_user_key").on(t.id, t.userId),
     index("tasks_user_due_idx").on(t.userId, t.dueAt),
-    // Worker: pendentes com prazo nas próximas 48 h (a maior antecedência permitida).
     index("tasks_pending_due_idx")
       .on(t.dueAt)
       .where(sql`${t.status} = 'pending'`),
     check("tasks_title_chk", sql`char_length(btrim(${t.title})) between 1 and 200`),
     check("tasks_notes_chk", sql`${t.notes} is null or char_length(${t.notes}) <= 2000`),
-    // Uma tarefa importada por origem: a sincronização reconcilia por (user_id, source, external_uid).
     uniqueIndex("tasks_external_uid_key")
       .on(t.userId, t.source, t.externalUid)
       .where(sql`${t.externalUid} is not null`),

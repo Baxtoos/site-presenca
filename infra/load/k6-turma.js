@@ -16,7 +16,6 @@ import { Trend } from "k6/metrics";
 
 const API_URL = (__ENV.API_URL || "http://localhost:4000").replace(/\/$/, "");
 const WEB_ORIGIN = (__ENV.WEB_ORIGIN || "http://localhost:3000").replace(/\/$/, "");
-// O cadastro só termina pelo link do e-mail: o teste lê o link no Mailpit (MAIL_TRANSPORT=smtp).
 const MAILPIT_URL = (__ENV.MAILPIT_URL || "http://localhost:8025").replace(/\/$/, "");
 
 const PERFIS = {
@@ -48,9 +47,7 @@ export const options = {
     },
   },
   thresholds: {
-    // Menos de 1% de erros (409 de aula já marcada não conta como erro).
     http_req_failed: ["rate<0.01"],
-    // Leituras do dia a dia rápidas; escrita (marcar aula) um pouco mais folgada.
     "http_req_duration{tipo:leitura}": ["p(95)<500", "p(99)<1000"],
     "http_req_duration{tipo:escrita}": ["p(95)<800"],
     checks: ["rate>0.99"],
@@ -61,7 +58,6 @@ const marcar = new Trend("marcar_aula_ms", true);
 http.setResponseCallback(http.expectedStatuses(200, 201, 202, 204, 409));
 
 const DAY = 86_400_000;
-/** Data de hoje em São Paulo (UTC−3), como AAAA-MM-DD. */
 function today() {
   return new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
 }
@@ -75,10 +71,6 @@ function isoWeekday(iso) {
 
 const json = { "content-type": "application/json", origin: WEB_ORIGIN };
 
-/**
- * O cookie de sessão é `__Host-sid` (Secure): o k6 não o devolve sozinho em http://localhost,
- * então cada usuário virtual guarda o próprio e manda no cabeçalho.
- */
 let session = "";
 const auth = () => (session ? { cookie: `__Host-sid=${session}` } : {});
 const read = (name) => ({ headers: auth(), tags: { tipo: "leitura", name } });
@@ -87,7 +79,6 @@ const write = (name, extra = {}) => ({
   tags: { tipo: "escrita", name },
 });
 
-/** Estado de cada usuário virtual. */
 let aluno = null;
 
 function criarAluno() {
@@ -100,7 +91,6 @@ function criarAluno() {
   );
   if (!check(reg, { "cadastro 202": (r) => r.status === 202 })) return null;
 
-  // Link de confirmação: espera o e-mail chegar no Mailpit e usa o token dele.
   let token = null;
   for (let i = 0; i < 30 && !token; i++) {
     const query = encodeURIComponent(`to:"${email}"`);
@@ -187,7 +177,6 @@ export default function () {
   sleep(1 + Math.random() * 3);
 
   group("marcar uma aula", () => {
-    // Uma aula passada diferente a cada volta (de 1 a 50 dias atrás).
     const date = shift(today(), -1 - (__ITER % 50));
     const status = Math.random() < 0.8 ? "present" : "absent";
     const res = http.post(

@@ -1,12 +1,5 @@
 import { zonedTimeToUtc } from "@presenca/engine";
 
-/**
- * Leitor de iCalendar (RFC 5545) suficiente para o "Exportar calendário" do Moodle: linhas dobradas,
- * parâmetros com aspas, textos escapados, datas em UTC (Z), com TZID (nomes IANA) ou flutuantes
- * (fuso do aluno) e dias inteiros. Ignora o que não é VEVENT. Tem limites para não travar com um
- * arquivo hostil.
- */
-
 export interface IcsEvent {
   uid: string;
   summary: string;
@@ -15,7 +8,6 @@ export interface IcsEvent {
   url: string | null;
   start: Date;
   end: Date | null;
-  /** DTSTART só com a data (dia inteiro). */
   allDay: boolean;
 }
 
@@ -32,7 +24,6 @@ interface Property {
   value: string;
 }
 
-/** "DTSTART;TZID=\"America/Sao_Paulo\":20261130T235900" → nome, parâmetros e valor. */
 function parseLine(line: string): Property | null {
   let i = 0;
   let inQuotes = false;
@@ -68,12 +59,10 @@ function parseLine(line: string): Property | null {
   return { name: name!.toUpperCase(), params, value };
 }
 
-/** Texto do iCal: \n, \, \; e \\. */
 export function unescapeText(value: string): string {
   return value.replace(/\\([nN,;\\])/g, (_m, c: string) => (c === "n" || c === "N" ? "\n" : c));
 }
 
-/** CATEGORIES separa por vírgula não escapada. */
 function splitList(value: string): string[] {
   const out: string[] = [];
   let current = "";
@@ -100,14 +89,12 @@ function validZone(tz: string): boolean {
   }
 }
 
-/** DTSTART/DTEND → instante. `fallbackTz` vale para hora flutuante, dia inteiro e TZID desconhecido. */
 function parseDate(prop: Property, fallbackTz: string): { at: Date; allDay: boolean } | null {
   const v = prop.value.trim();
   const dateOnly = /^(\d{4})(\d{2})(\d{2})$/.exec(v);
   if (dateOnly || prop.params.VALUE === "DATE") {
     const m = dateOnly ?? /^(\d{4})(\d{2})(\d{2})/.exec(v);
     if (!m) return null;
-    // Dia inteiro: o prazo é o fim do dia no fuso do aluno.
     return { at: zonedTimeToUtc(`${m[1]}-${m[2]}-${m[3]}`, "23:59", fallbackTz), allDay: true };
   }
   const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/.exec(v);
@@ -138,7 +125,7 @@ export function parseIcs(text: string, fallbackTz = "America/Sao_Paulo"): IcsEve
       continue;
     }
     if (current && upper.startsWith("BEGIN:")) {
-      depth++; // VALARM dentro do evento
+      depth++;
       continue;
     }
     if (current && upper.startsWith("END:") && upper !== "END:VEVENT") {

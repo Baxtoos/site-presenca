@@ -6,32 +6,23 @@ export interface MailMessage {
   subject: string;
   html: string;
   text: string;
-  /** "Responder" vai para este endereço (ex.: sugestão de um aluno, respondida pelo dono). */
   replyTo?: string;
 }
 
 export interface SendOptions {
-  /**
-   * Mesma chave = mesmo e-mail: o provedor descarta a repetição (Resend). Use o id do aviso, para
-   * que uma retentativa depois de uma falha "no meio do caminho" não chegue duas vezes.
-   */
   idempotencyKey?: string;
 }
 
-/** Envio de e-mail. A implementação é escolhida por MAIL_TRANSPORT. */
 export interface Mailer {
   send(message: MailMessage, options?: SendOptions): Promise<void>;
 }
 
 export type MailTransportName = "smtp" | "resend" | "relay" | "log";
 
-/** Cabeçalho com o segredo compartilhado entre a API e a rota de repasse do app web. */
 export const MAIL_RELAY_SECRET_HEADER = "x-presenca-mail-secret";
 
-/** Caminho da rota de repasse no app web (apps/web/src/app/interno/email/route.ts). */
 export const MAIL_RELAY_PATH = "/interno/email";
 
-/** SMTP (Mailpit em desenvolvimento, ou qualquer provedor SMTP). */
 export class SmtpMailer implements Mailer {
   private readonly transport: Transporter;
 
@@ -51,7 +42,6 @@ export class SmtpMailer implements Mailer {
   }
 }
 
-/** API HTTP do Resend. A chave de idempotência evita e-mail duplicado em retentativas. */
 export class ResendMailer implements Mailer {
   constructor(
     private readonly apiKey: string,
@@ -100,7 +90,6 @@ export class RelayMailer implements Mailer {
       method: "POST",
       headers: { "content-type": "application/json", [MAIL_RELAY_SECRET_HEADER]: this.secret },
       body: JSON.stringify({ ...message, idempotencyKey: options.idempotencyKey }),
-      // A função da Vercel pode estar fria; o envio SMTP leva alguns segundos.
       signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok) {
@@ -109,7 +98,6 @@ export class RelayMailer implements Mailer {
   }
 }
 
-/** Só imprime no log (com o texto, que contém o link). Proibido em produção pela validação do ambiente. */
 export class LogMailer implements Mailer {
   constructor(private readonly log: (line: string) => void = (line) => console.log(line)) {}
 
@@ -118,7 +106,6 @@ export class LogMailer implements Mailer {
   }
 }
 
-/** Guarda os e-mails em memória. Usado nos testes para ler os links enviados. */
 export class CaptureMailer implements Mailer {
   readonly sent: (MailMessage & SendOptions)[] = [];
 
@@ -126,7 +113,6 @@ export class CaptureMailer implements Mailer {
     this.sent.push({ ...message, ...options });
   }
 
-  /** Último e-mail enviado para o endereço, ou undefined. */
   lastTo(to: string): (MailMessage & SendOptions) | undefined {
     return [...this.sent].reverse().find((m) => m.to === to);
   }

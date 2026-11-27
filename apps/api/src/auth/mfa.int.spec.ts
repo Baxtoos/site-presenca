@@ -29,11 +29,9 @@ const browser = () => new Browser(env.app);
 const problem = (res: { json: () => unknown }) => problemSchema.parse(res.json());
 const email = () => `mfa.${Date.now()}.${++seq}@exemplo.com`;
 
-/** Código do app autenticador no relógio (falso) da API, com deslocamento em passos de 30 s. */
 const codeFor = (secret: string, offsetSteps = 0) =>
   totpCode(base32Decode(secret), stepAt(env.clock.now().getTime()) + offsetSteps);
 
-/** Avança o relógio da API um passo: um código novo passa a valer. */
 const nextStep = () => {
   env.clock.instant = new Date(env.clock.instant.getTime() + 30_000);
 };
@@ -78,7 +76,6 @@ describe("ativar o segundo fator", () => {
     expect(setup.secret).toMatch(/^[A-Z2-7]{32}$/);
     expect(setup.otpauthUrl).toContain(`secret=${setup.secret}`);
 
-    // Pendente não conta como ligado.
     expect((await b.request("GET", "/v1/me/mfa")).json()).toMatchObject({ enabled: false });
 
     const wrong = await b.request("POST", "/v1/me/mfa/enable", {
@@ -101,7 +98,6 @@ describe("ativar o segundo fator", () => {
       recoveryCodesLeft: 10,
     });
 
-    // O segredo fica cifrado no banco (nem em base32, nem em bytes puros).
     const { rows } = await env.db.admin.query<{ secret_ciphertext: Buffer }>(
       "select secret_ciphertext from app.user_mfa order by created_at desc limit 1",
     );
@@ -179,7 +175,6 @@ describe("login com segundo fator", () => {
     const { b: owner, email: address, recoveryCodes } = await accountWithMfa();
     const code = recoveryCodes[0]!;
     const first = await loginWithPassword(address);
-    // Aceita minúsculas e sem hífen.
     const ok = await first.b.request("POST", "/v1/auth/mfa/verify", {
       code: code.replace("-", "").toLowerCase(),
     });
@@ -219,14 +214,12 @@ describe("login com segundo fator", () => {
       password: NEW,
     });
     expect(res.json()).toEqual({ mfaRequired: true });
-    // Sem o código: a senha antiga continua e as sessões seguem abertas.
     expect((await oldDevice.request("GET", "/v1/me")).statusCode).toBe(200);
     expect((await loginWithPassword(address)).res.json()).toEqual({ mfaRequired: true });
 
     expect(
       (await b.request("POST", "/v1/auth/mfa/verify", { code: codeFor(secret) })).statusCode,
     ).toBe(200);
-    // Com o código: senha nova aplicada e as outras sessões encerradas.
     expect((await oldDevice.request("GET", "/v1/me")).statusCode).toBe(401);
     const old = await browser().request("POST", "/v1/auth/login", {
       email: address,
@@ -248,14 +241,12 @@ describe("login com segundo fator", () => {
         await b.request("POST", "/v1/auth/mfa/verify", { code: "000000" });
       }
     }
-    // 8 erros até aqui; mais 2 num desafio novo travam a conta.
     const { b } = await loginWithPassword(address);
     await b.request("POST", "/v1/auth/mfa/verify", { code: "000000" });
     const locked = await b.request("POST", "/v1/auth/mfa/verify", { code: "000000" });
     expect(locked.statusCode).toBe(429);
     expect(problem(locked).code).toBe("MFA_LOCKED");
 
-    // Nem com a senha e o código certos, durante o bloqueio.
     const again = await loginWithPassword(address);
     expect(again.res.statusCode).toBe(429);
     expect(problem(again.res).code).toBe("MFA_LOCKED");
@@ -351,7 +342,6 @@ describe("conta sem senha: ligar pede o link do e-mail", () => {
     expect(enable.statusCode).toBe(200);
     expect((await b.request("GET", "/v1/me/mfa")).json()).toMatchObject({ enabled: true });
 
-    // Já ligado: responde 409 antes de olhar (e gastar) o link.
     const again = await b.request("POST", "/v1/me/mfa/setup", { token });
     expect(problem(again).code).toBe("MFA_ALREADY_ENABLED");
   });

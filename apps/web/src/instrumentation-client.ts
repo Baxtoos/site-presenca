@@ -5,10 +5,6 @@ import { scrubSentryEvent } from "@/lib/sentry-scrub";
 // bloqueia, e cada teste vira um alerta de violação. Sem JIT, valida igual, só sem o atalho.
 z.config({ jitless: true });
 
-/**
- * Rastreamento de erros no navegador (Sentry), só com NEXT_PUBLIC_SENTRY_DSN configurada no build.
- * Sem a variável, o SDK nem é baixado. Sem replay, sem rastreio de desempenho, sem dados pessoais.
- */
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (dsn) {
@@ -24,7 +20,5 @@ if (dsn) {
         beforeSend: (event) => scrubSentryEvent(event),
       }),
     )
-    .catch(() => {
-      // Sem o Sentry o app funciona igual; não atrapalha quem usa.
-    });
+    .catch(() => {});
 }

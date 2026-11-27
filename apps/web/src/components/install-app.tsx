@@ -10,8 +10,6 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-// O navegador avisa uma vez só que dá para instalar ("beforeinstallprompt"), às vezes antes de
-// o componente montar: guarda o evento no módulo, que carrega com a página.
 let deferred: BeforeInstallPromptEvent | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -33,19 +31,16 @@ const subscribe = (l: () => void) => {
 
 type Platform = "ios" | "android" | "desktop";
 
-/** Aparelho e se o app já está aberto como app instalado (leitura única, só no navegador). */
 function useDevice(): { platform: Platform; standalone: boolean } | null {
   const [device, setDevice] = useState<{ platform: Platform; standalone: boolean } | null>(null);
   useEffect(() => {
     const ua = navigator.userAgent;
-    // Leitura única de ambiente na montagem (não dá para saber isso no servidor).
     setDevice({
       platform: /iPad|iPhone|iPod/.test(ua) ? "ios" : /Android/i.test(ua) ? "android" : "desktop",
       standalone:
         window.matchMedia("(display-mode: standalone)").matches ||
         (navigator as Navigator & { standalone?: boolean }).standalone === true,
     });
-    // Sem o service worker, o navegador não oferece a instalação (fora da área logada também).
     void registerServiceWorker().catch(() => undefined);
   }, []);
   return device;
@@ -61,14 +56,6 @@ const HOW_TO: Record<Platform, string> = {
 const DISMISSED = "presenca:install-dismissed";
 const DISMISS_DAYS = 30;
 
-/**
- * Mostra que o sistema também é um app e oferece instalar. Com o diálogo do navegador
- * (Android, Chrome, Edge), um botão abre a instalação; sem ele (iPhone, Firefox), explica o
- * caminho. Some quando o site já está aberto como app.
- * - `landing`: bloco da página de apresentação;
- * - `signup`: aviso curto no cadastro;
- * - `home`: convite no Início, que dá para dispensar por 30 dias.
- */
 export function InstallApp({ variant }: { variant: "landing" | "signup" | "home" | "header" }) {
   const device = useDevice();
   const canPrompt = useSyncExternalStore(
@@ -81,7 +68,6 @@ export function InstallApp({ variant }: { variant: "landing" | "signup" | "home"
     if (variant !== "home") return;
     try {
       const at = Number(localStorage.getItem(DISMISSED) ?? 0);
-      // Leitura única do armazenamento na montagem.
       setDismissed(Date.now() - at < DISMISS_DAYS * 86_400_000);
     } catch {
       setDismissed(false);
@@ -100,7 +86,6 @@ export function InstallApp({ variant }: { variant: "landing" | "signup" | "home"
     });
   };
   if (variant === "header") {
-    // Com o diálogo do navegador, instala na hora; sem ele, leva ao passo a passo da página.
     return (
       <Button
         type="button"
@@ -153,9 +138,7 @@ export function InstallApp({ variant }: { variant: "landing" | "signup" | "home"
       setDismissed(true);
       try {
         localStorage.setItem(DISMISSED, String(Date.now()));
-      } catch {
-        // Sem armazenamento: o convite volta na próxima visita, sem problema.
-      }
+      } catch {}
     };
     return (
       <section

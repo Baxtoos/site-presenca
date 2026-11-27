@@ -13,10 +13,6 @@ import { api, ApiError } from "@/lib/api-client";
 import { formatDate, plural, SUBJECT_COLOR_CLASS, WEEKDAYS_SHORT } from "@/lib/format";
 import { withNext } from "@/lib/next-path";
 
-/**
- * Uma consulta por código por vez: o React (StrictMode) monta o efeito duas vezes, e cada busca
- * gasta o limite de consultas do visitante. A segunda montagem reaproveita a promessa em curso.
- */
 const inFlight = new Map<string, Promise<TemplatePreview>>();
 function fetchPreview(code: string): Promise<TemplatePreview> {
   let promise = inFlight.get(code);
@@ -32,10 +28,6 @@ type State =
   | { kind: "ok"; preview: TemplatePreview }
   | { kind: "error"; message: string };
 
-/**
- * Prévia buscada PELO NAVEGADOR (não pelo servidor do Next): o limite de consultas é por IP, e
- * vinda do servidor todo mundo pareceria o mesmo visitante.
- */
 export function ImportPreview({
   code,
   loggedIn,
@@ -52,7 +44,6 @@ export function ImportPreview({
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
-  // Mesma chave em todas as tentativas desta tela: clique duplo ou rede instável não duplicam.
   const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   useEffect(() => {

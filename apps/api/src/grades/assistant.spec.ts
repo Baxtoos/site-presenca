@@ -7,7 +7,6 @@ import {
   gradingAiFactory,
 } from "./assistant.service";
 
-// Palavras do JSON Schema que o responseJsonSchema do Gemini aceita (tipos do @google/genai 3.6).
 const GEMINI_KEYWORDS = new Set([
   "$id",
   "$defs",

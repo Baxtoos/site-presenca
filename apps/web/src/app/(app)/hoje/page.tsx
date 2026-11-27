@@ -16,7 +16,6 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 const navClass =
   "inline-flex min-h-11 items-center gap-1 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium transition-colors hover:bg-surface-2 sm:min-h-10";
 
-/** Aulas de um dia (hoje por padrão). Dá para voltar dias para marcar o que esqueceu. */
 export default async function DayPage({
   searchParams,
 }: {

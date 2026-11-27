@@ -3,7 +3,6 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { INPUT_CLASS } from "@/components/ui";
 
-/** Select que troca um parâmetro da URL (mantém os outros filtros). */
 export function UrlSelect({
   id,
   label,
@@ -13,7 +12,6 @@ export function UrlSelect({
   id: string;
   label: string;
   param: string;
-  /** O primeiro é o padrão (value ""), que tira o parâmetro da URL. */
   options: { value: string; label: string }[];
 }) {
   const router = useRouter();

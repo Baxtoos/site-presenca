@@ -27,13 +27,12 @@ let db: TestDb;
 let worker: Pool;
 beforeAll(async () => {
   db = await startTestDb();
-  worker = db.pools.app_worker; // o papel real do worker: valida as permissões da migration
+  worker = db.pools.app_worker;
 });
 afterAll(async () => {
   await db?.stop();
 });
 
-/** Push de mentira: cada endpoint pode responder ok, "gone" (410) ou erro. */
 class FakePush implements PushSender {
   configured = true;
   readonly sent: { endpoint: string; message: PushMessage; urgent: boolean }[] = [];
@@ -70,7 +69,6 @@ interface Student {
   scheduleId: string;
 }
 
-/** Aluno criado como a API faria (papel app_api, RLS ligado). */
 async function student(
   opts: {
     verified?: boolean;
@@ -106,7 +104,6 @@ async function student(
         [userId, semesterId],
       )
     ).rows[0]!.id;
-    // Aula toda quarta.
     const scheduleId = (
       await c.query<{ id: string }>(
         `insert into subject_schedules (user_id, subject_id, weekday, starts_at, ends_at, units)
@@ -131,7 +128,6 @@ async function student(
   });
 }
 
-/** Alerta de 75% como a API grava (in_app entregue + e-mail/push pendentes). */
 async function thresholdAlert(s: Student, channels: ("email" | "push")[] = ["email"]) {
   const dedupe = `threshold:${s.subjectId}:75:1`;
   const payload = {
@@ -209,10 +205,8 @@ describe("entrega de e-mail", () => {
     expect(failed).toMatchObject({ status: "failed", attempts: 1, last_error: "SMTP fora do ar" });
     expect(failed.scheduled_for.getTime()).toBeGreaterThan(Date.now() + 30_000);
 
-    // Ainda não venceu: nada acontece.
     await processOutbox(deps());
     expect(mail.lastTo(s.email)).toBeUndefined();
-    // Venceu: entrega.
     await db.admin.query("update app.notification_logs set scheduled_for = now() where id = $1", [
       email,
     ]);
@@ -257,18 +251,17 @@ describe("horário silencioso", () => {
   it("dentro da janela: adia para o fim dela sem gastar tentativa", async () => {
     const s = await student({ prefs: { quiet_start: "22:00", quiet_end: "07:00" } });
     const { email } = await thresholdAlert(s);
-    // 23:30 em São Paulo.
     await processOutbox(deps(new Date("2026-11-19T02:30:00Z")));
     const r = await row(email!);
     expect(r).toMatchObject({ status: "pending", attempts: 0 });
-    expect(r.scheduled_for.toISOString()).toBe("2026-11-19T10:00:00.000Z"); // 07:00 local
+    expect(r.scheduled_for.toISOString()).toBe("2026-11-19T10:00:00.000Z");
     expect(mail.lastTo(s.email)).toBeUndefined();
   });
 
   it("fora da janela: envia normalmente", async () => {
     const s = await student({ prefs: { quiet_start: "22:00", quiet_end: "07:00" } });
     const { email } = await thresholdAlert(s);
-    await processOutbox(deps(new Date("2026-11-18T15:00:00Z"))); // 12:00 local
+    await processOutbox(deps(new Date("2026-11-18T15:00:00Z")));
     expect(await row(email!)).toMatchObject({ status: "sent" });
   });
 });
@@ -344,7 +337,6 @@ describe("entrega de push", () => {
 });
 
 describe("lembrete de chamada", () => {
-  // Quarta, 18/11/2026, 21:10 em São Paulo.
   const WED_2110 = new Date("2026-11-19T00:10:00Z");
 
   const reminderLogs = async (userId: string) =>
@@ -379,7 +371,7 @@ describe("lembrete de chamada", () => {
 
   it("sem push, o lembrete vai por e-mail; antes do horário, nada", async () => {
     const s = await student({ prefs: { checkin_reminder: "daily", checkin_time: "21:00" } });
-    await enqueueReminders(worker, new Date("2026-11-18T23:50:00Z")); // 20:50 local
+    await enqueueReminders(worker, new Date("2026-11-18T23:50:00Z"));
     expect(await reminderLogs(s.userId)).toEqual([]);
     await enqueueReminders(worker, WED_2110);
     expect((await reminderLogs(s.userId)).map((r) => r.channel)).toEqual(["email", "in_app"]);
@@ -415,7 +407,7 @@ describe("lembrete de chamada", () => {
     const s = await student({
       prefs: { checkin_reminder: "weekly", checkin_time: "21:00", checkin_weekday: 3 },
     });
-    await enqueueReminders(worker, new Date("2026-11-18T00:10:00Z")); // terça 21:10: dia errado
+    await enqueueReminders(worker, new Date("2026-11-18T00:10:00Z"));
     expect(await reminderLogs(s.userId)).toEqual([]);
     await enqueueReminders(worker, WED_2110);
     const [inApp] = (await reminderLogs(s.userId)).filter((r) => r.channel === "in_app");
@@ -423,7 +415,6 @@ describe("lembrete de chamada", () => {
   });
 
   it("respeita o fuso de cada aluno", async () => {
-    // 21:10 de quarta em São Paulo é 09:10 de quinta em Tóquio: o aluno de Tóquio não recebe.
     const tokyo = await student({
       timezone: "Asia/Tokyo",
       prefs: { checkin_reminder: "daily", checkin_time: "21:00" },
@@ -483,7 +474,7 @@ describe("despertador e limpeza", () => {
       () => undefined,
     );
     await listener.start();
-    const before = woke; // ao conectar ele já acorda uma vez
+    const before = woke;
     const s = await student();
     await thresholdAlert(s);
     await expect.poll(() => woke, { timeout: 5_000 }).toBeGreaterThan(before);
@@ -570,7 +561,6 @@ describe("ciclo único (modo once)", () => {
 });
 
 describe("aviso de tarefa (task_due)", () => {
-  // Quarta, 18/11/2026 12:00 em São Paulo.
   const NOW = new Date("2026-11-18T15:00:00Z");
   const hours = (h: number) => new Date(NOW.getTime() + h * 3_600_000);
 
@@ -615,7 +605,7 @@ describe("aviso de tarefa (task_due)", () => {
       prefs: { push_enabled: true },
       pushEndpoints: ["https://push.exemplo/tarefa-1"],
     });
-    const id = await task(s, { dueAt: hours(10) }); // prazo em 10 h, aviso 24 h antes: já na janela
+    const id = await task(s, { dueAt: hours(10) });
     expect(await enqueueTaskReminders(worker, NOW)).toBeGreaterThanOrEqual(1);
 
     const logs = await logsOf(id);
@@ -630,7 +620,6 @@ describe("aviso de tarefa (task_due)", () => {
       taskId: id,
       title: "Lista 3",
       subjectName: "Física I",
-      // 01:00 UTC de quinta = 22:00 de quarta em São Paulo.
       dueLabel: "qua., 18/11 às 22:00",
       remindBeforeMinutes: 1440,
     });
@@ -651,7 +640,7 @@ describe("aviso de tarefa (task_due)", () => {
 
   it("antes da janela nada; dentro dela, uma vez só, mesmo com ciclos repetidos", async () => {
     const s = await student();
-    const id = await task(s, { dueAt: hours(30) }); // aviso 24 h antes: janela abre em 6 h
+    const id = await task(s, { dueAt: hours(30) });
     await enqueueTaskReminders(worker, NOW);
     expect(await logsOf(id)).toEqual([]);
 
@@ -665,9 +654,7 @@ describe("aviso de tarefa (task_due)", () => {
 
   it("worker pontual atrasado ainda avisa antes do prazo; depois do prazo, nada", async () => {
     const s = await student();
-    // Janela de 3 h abriu há 2 h e o worker não rodou: ainda dá tempo.
     const late = await task(s, { title: "Atrasado", dueAt: hours(1), remind: 180 });
-    // Prazo já passou sem aviso: não manda mais.
     const gone = await task(s, { title: "Passou", dueAt: hours(-1), remind: 180 });
     await enqueueTaskReminders(worker, NOW);
     expect((await logsOf(late)).length).toBeGreaterThan(0);
@@ -694,13 +681,11 @@ describe("aviso de tarefa (task_due)", () => {
 
   it("horário silencioso adia push/e-mail (o sino recebe na hora); se o adiamento passar do prazo, pula", async () => {
     const s = await student({ prefs: { quiet_start: "22:00", quiet_end: "07:00" } });
-    const night = new Date("2026-11-19T02:30:00Z"); // 23:30 em São Paulo
-    // Prazo às 10:00 locais (13:00 UTC): o e-mail espera até as 07:00 e ainda chega antes.
+    const night = new Date("2026-11-19T02:30:00Z");
     const morning = await task(s, {
       title: "Lista da manhã",
       dueAt: new Date("2026-11-19T13:00:00Z"),
     });
-    // Prazo à 01:00 local (04:00 UTC), aviso 3 h antes: às 07:00 o prazo já passou.
     const early = await task(s, {
       title: "Madrugada",
       dueAt: new Date("2026-11-19T04:00:00Z"),
@@ -769,7 +754,6 @@ describe("aviso de tarefa (task_due)", () => {
     ]);
     expect(mail.lastTo(s.email)).toBeUndefined();
 
-    // O prazo novo gera outro aviso (outra chave) quando entrar na janela.
     await enqueueTaskReminders(worker, hours(20));
     expect((await logsOf(moved)).filter((l) => l.channel === "in_app")).toHaveLength(2);
   });
@@ -912,10 +896,8 @@ describe("sincronização com o Moodle", () => {
     expect(wait).toBeGreaterThanOrEqual(45);
     expect(wait).toBeLessThanOrEqual(55);
 
-    // Rodar de novo antes da hora não pega a conexão; e a importação é idempotente.
     expect(await sync(new Date(NOW.getTime() + 60_000))).toBe(0);
 
-    // A tarefa importada entra na fila normal de avisos (prazo em menos de 24 h).
     await enqueueTaskReminders(worker, NOW);
     const due = await db.admin.query<{ channel: string }>(
       "select channel from app.notification_logs where task_id = $1 order by channel",
@@ -1010,7 +992,6 @@ describe("sincronização com o Moodle", () => {
         reconcileDeadlines(tx, { userId: s.userId, deadlines, now: NOW }),
       );
     await run([deadline("a", false), deadline("b", false)]);
-    // O aluno marcou "b" como não concluída.
     await db.admin.query(
       "update app.tasks set status = 'not_completed', resolved_at = now(), status_source = 'user' where user_id = $1 and external_uid = 'b'",
       [s.userId],
@@ -1057,9 +1038,9 @@ describe("sincronização com o Moodle", () => {
           [s.userId, s.subjectId, key, external, source, score],
         )
       ).rows[0]!.id;
-    const p1 = await item("P1", "gi:900", "moodle", null); // segue o Moodle
-    const p2 = await item("P2", "gi:901", "user", 300); // aluno lançou à mão: não muda
-    const p3 = await item("P3", null, "moodle", null); // não ligada
+    const p1 = await item("P1", "gi:900", "moodle", null);
+    const p2 = await item("P2", "gi:901", "user", 300);
+    const p3 = await item("P3", null, "moodle", null);
     const courses = await workerDb.db.transaction((tx) => mappedCourses(tx, s.userId));
     expect([...courses.entries()]).toEqual([["FIS1 - 2026-2", s.subjectId]]);
     const grades = new Map([
@@ -1074,7 +1055,7 @@ describe("sincronização com o Moodle", () => {
     const apply = () =>
       workerDb.db.transaction((tx) => applyMoodleGrades(tx, { userId: s.userId, grades, courses }));
     expect(await apply()).toEqual({ updated: 1, posted: 1 });
-    expect(await apply()).toEqual({ updated: 0, posted: 0 }); // idempotente
+    expect(await apply()).toEqual({ updated: 0, posted: 0 });
 
     const scores = await db.admin.query<{ id: string; score: number | null; score_source: string }>(
       "select id, score, score_source from app.evaluation_items where user_id = $1",

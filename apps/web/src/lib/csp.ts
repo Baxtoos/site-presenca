@@ -24,7 +24,6 @@ export function contentSecurityPolicy(nonce: string, opts: { sentry: boolean; de
   ].join("; ");
 }
 
-/** 128 bits aleatórios em base64. */
 export function generateNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return btoa(String.fromCharCode(...bytes));

@@ -1,33 +1,25 @@
 import type { IcsEvent } from "./ics";
 import { SafeFetchError, safeFetch, type SafeFetchOptions } from "./safe-fetch";
 
-/** Um prazo vindo do Moodle, pronto para virar (ou atualizar) uma tarefa. */
 export interface MoodleDeadline {
   source: "moodle_ics" | "moodle_api";
-  /** Identificador estável na origem (UID do .ics ou "assign:{id}"). */
   externalUid: string;
   title: string;
   dueAt: Date;
-  /** Código da turma (CATEGORIES do .ics ou shortname da API); null se o Moodle não informar. */
   courseKey: string | null;
   url: string | null;
-  /** Só com wstoken: o aluno já enviou a atividade no Moodle. */
   submitted: boolean;
 }
 
-// Eventos de abertura não são prazo ("Questionário 2 abre", "Quiz opens").
 const OPENING = /\b(abre|abrir[áa]|opens|começa|inicia|disponível a partir)\s*$/i;
-// Sufixos que o Moodle põe no título do prazo, em português e inglês.
 const DUE_SUFFIX =
   /\s*(?:[-–:]\s*)?(?:está para ser entregue|deve ser entregue|vence|venceu|fecha|encerra|is due|closes|due)\s*$/i;
 
-/** Remove o "está para ser entregue" e afins: "Lista 3 está para ser entregue" → "Lista 3". */
 export function cleanMoodleTitle(summary: string): string {
   const cleaned = summary.replace(DUE_SUFFIX, "").trim();
   return (cleaned || summary.trim()).slice(0, 200);
 }
 
-/** Normaliza para comparar títulos (sem acento, caixa e espaços extras). */
 export const normalizeTitle = (text: string) =>
   text
     .normalize("NFD")
@@ -36,7 +28,6 @@ export const normalizeTitle = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Eventos do .ics do Moodle → prazos (sem aberturas, com título limpo e a turma). */
 export function deadlinesFromIcs(events: readonly IcsEvent[]): MoodleDeadline[] {
   return events
     .filter((e) => e.summary && !OPENING.test(e.summary))
@@ -51,13 +42,10 @@ export function deadlinesFromIcs(events: readonly IcsEvent[]): MoodleDeadline[] 
     }));
 }
 
-// ---------------------------------------------------------------- Web Services (wstoken)
-
 export class MoodleApiError extends Error {
   override name = "MoodleApiError";
   constructor(
     message: string,
-    /** errorcode do Moodle (invalidtoken, accessexception, servicenotavailable…). */
     readonly code: string,
   ) {
     super(message);
@@ -77,20 +65,16 @@ export interface MoodleClient {
   courses(userId: number): Promise<{ id: number; shortname: string; fullname: string }[]>;
   assignments(courseIds: number[]): Promise<MoodleAssignment[]>;
   submitted(assignId: number): Promise<boolean>;
-  /** Itens do livro de notas do aluno numa turma (sem o total do curso e das categorias). */
   gradeItems(courseId: number, userId: number): Promise<MoodleGradeItem[]>;
 }
 
 export interface MoodleGradeItem {
   id: number;
   name: string;
-  /** Nota na escala do item (null = ainda sem nota). */
   grade: number | null;
-  /** Nota máxima do item no Moodle. */
   max: number;
 }
 
-/** Endereço base do Moodle normalizado ("https://moodle.x.edu.br" sem barra no fim). */
 export function normalizeBaseUrl(value: string): string {
   const url = new URL(value.trim());
   url.hash = "";
@@ -193,11 +177,6 @@ export function moodleClient(
   };
 }
 
-/**
- * Upgrade com wstoken: casa as atividades da API com os prazos do .ics (mesma turma, mesmo título
- * normalizado e mesmo minuto do prazo) para trazer o link direto e saber se já foi enviada. Atividades
- * futuras que o .ics não trouxe entram como prazo próprio (source moodle_api).
- */
 export async function enrichWithApi(
   deadlines: MoodleDeadline[],
   client: MoodleClient,
@@ -216,7 +195,6 @@ export async function enrichWithApi(
   for (const a of assignments) {
     if (!a.dueAt || a.dueAt.getTime() < recent) continue;
     const url = `${base}/mod/assign/view.php?id=${a.cmid}`;
-    // Limite de chamadas por sincronização (cada status é uma requisição ao Moodle).
     const submitted = statusCalls < 60 ? (statusCalls++, await client.submitted(a.id)) : false;
     const match = result.find(
       (d) =>
@@ -244,7 +222,6 @@ export async function enrichWithApi(
   return result;
 }
 
-/** Mensagem curta e sem dados sensíveis para "última sincronização falhou". */
 export function describeSyncError(error: unknown): string {
   if (error instanceof SafeFetchError) {
     switch (error.code) {

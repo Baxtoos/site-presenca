@@ -3,11 +3,6 @@ import ExcelJS from "exceljs";
 import { describe, expect, it } from "vitest";
 import { readSpreadsheet } from "./spreadsheet-import";
 
-/**
- * Planilha de verdade, baixada da API no teste de integração (spreadsheet-import.int.spec.ts):
- * semestre 2026.1 com Cálculo II (carga horária, roxa, 2 horários) e Laboratório de Redes
- * (limite manual de 4, atestado desconta), feriado de Tiradentes e 8 registros de todo tipo.
- */
 const FIXTURE = readFileSync(new URL("./__fixtures__/semestre-exportado.xlsx", import.meta.url));
 
 const toArrayBuffer = (buf: Buffer | ArrayBuffer): ArrayBuffer =>
@@ -15,7 +10,6 @@ const toArrayBuffer = (buf: Buffer | ArrayBuffer): ArrayBuffer =>
     ? buf
     : (buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer);
 
-/** Abre a planilha, aplica a mudança e devolve o arquivo novo. */
 async function edited(change: (wb: ExcelJS.Workbook) => void): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(toArrayBuffer(FIXTURE));
@@ -64,7 +58,6 @@ describe("readSpreadsheet", () => {
     if (!r.ok) throw new Error(r.error);
     expect(r.source).toBe("abas");
     expect(r.warnings[0]).toMatch(/não guarda as presenças nem os feriados/);
-    // Datas estimadas pelo nome (2026.1 → fevereiro a julho).
     expect(r.body.semester).toEqual({
       label: "2026.1",
       startsOn: "2026-02-02",
@@ -94,12 +87,10 @@ describe("readSpreadsheet", () => {
       professor: null,
       countingMode: "manual",
       manualMaxUnits: 4,
-      // A falta "Abonada" mostra que o atestado descontava do limite.
       excusedPolicy: "deduct",
       schedules: [{ weekday: 5, startsAt: "08:00", endsAt: "09:40", units: 2 }],
     });
 
-    // Só faltas (presenças não estão nas abas visíveis), com horário, parcial e aula extra.
     const byDate = Object.fromEntries(r.body.attendance.map((a) => [a.classDate, a]));
     expect(r.body.attendance).toHaveLength(6);
     expect(byDate["2026-03-04"]).toMatchObject({

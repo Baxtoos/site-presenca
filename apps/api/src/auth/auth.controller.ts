@@ -41,9 +41,7 @@ import { safeEqual } from "./tokens";
 const HOUR = 3600;
 const OAUTH_COOKIE = "__Host-oauth";
 
-/** Limites de tentativa por rota (janela fixa, contadores no Redis). */
 const LIMITS = {
-  // 10/h por IP: redes de universidade põem muitos alunos atrás do mesmo IP.
   register: { bucket: "register", by: "ip", limit: 10, windowSeconds: HOUR },
   loginPerAccount: { bucket: "login", by: "ip+email", limit: 5, windowSeconds: 60 },
   loginPerIp: { bucket: "login-ip", by: "ip", limit: 30, windowSeconds: 60 },
@@ -52,7 +50,6 @@ const LIMITS = {
   tokenPerIp: { bucket: "token", by: "ip", limit: 20, windowSeconds: 10 * 60 },
   resendPerUser: { bucket: "verify-resend", by: "user", limit: 3, windowSeconds: 15 * 60 },
   googlePerIp: { bucket: "google", by: "ip", limit: 20, windowSeconds: 10 * 60 },
-  // Código do segundo fator: além disso, 5 erros encerram o desafio (MfaService).
   mfaPerIp: { bucket: "mfa", by: "ip", limit: 20, windowSeconds: 10 * 60 },
 } as const;
 
@@ -171,8 +168,6 @@ export class AuthController {
     return this.auth.completeMfa(body.code, request, reply);
   }
 
-  // ---------------------------------------------------------------- Google (redirecionamentos)
-
   @Public()
   @Get("google")
   @RateLimit(LIMITS.googlePerIp)
@@ -180,7 +175,6 @@ export class AuthController {
     if (!this.google) return this.redirectToApp(reply, "google_indisponivel");
     const state = generateState();
     const verifier = generateCodeVerifier();
-    // state e code_verifier ficam num cookie curto, só deste navegador (PKCE + proteção de CSRF).
     void reply.setCookie(OAUTH_COOKIE, `${state}.${verifier}`, {
       httpOnly: true,
       secure: true,
@@ -227,7 +221,6 @@ export class AuthController {
       const path = result === "mfa" ? "/entrar/verificacao" : "/";
       return reply.redirect(`${this.env.WEB_ORIGIN}${path}`, 302);
     } catch (error) {
-      // Segundo passo travado por excesso de códigos errados (MfaService).
       if (error instanceof HttpException && error.getStatus() === 429) {
         return this.redirectToApp(reply, "segundo_fator_travado");
       }

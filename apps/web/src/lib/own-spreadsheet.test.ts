@@ -20,7 +20,6 @@ import {
 
 const TODAY = "2026-11-19";
 
-/** Fluxo completo: detecta, extrai, aceita os palpites e monta o corpo. */
 function run(
   table: Table,
   edit: (subjects: SubjectConfig[]) => void = () => {},
@@ -60,7 +59,7 @@ describe("parseDate", () => {
     ["02/03", "2026-03-02"],
     ["seg, 02/03", "2026-03-02"],
     ["2 de março", "2026-03-02"],
-    ["12-dez", "2025-12-12"], // ainda não chegou em 2026: ano anterior
+    ["12-dez", "2025-12-12"],
     ["31/02/2026", null],
     ["Cálculo", null],
     [new Date(Date.UTC(2026, 2, 2)), "2026-03-02"],
@@ -117,7 +116,6 @@ describe("planilha própria", () => {
       header: 2,
       columns: { date: 0, subject: 1, status: 2, units: 3, reason: 4, note: 5 },
     });
-    // Seg e Qua aparecem 3 e 2 vezes; o sábado (uma vez) vira aula avulsa.
     expect(subjects.map((s) => [s.name, s.weekdays])).toEqual([
       ["Cálculo II", [1, 3]],
       ["Física", [5]],
@@ -269,7 +267,6 @@ describe("planilha própria", () => {
         ["10/12/2026", "Cálculo", "F"],
       ],
     };
-    // Sem grade (dias desmarcados): as duas faltas do mesmo dia viram uma aula avulsa de 4 tempos.
     const { subjects, result } = run(table, (s) => {
       s[0]!.weekdays = [];
     });
@@ -279,7 +276,6 @@ describe("planilha própria", () => {
     ]);
     expect(result.warnings).toEqual([expect.stringMatching(/1 registro tem data no futuro/)]);
 
-    // O sábado foi detectado (o registro do futuro não conta) e pede o horário.
     expect(run(table).subjects[0]!.weekdays).toEqual([6]);
     expect(subjects).toHaveLength(1);
     const noTime = run(table);

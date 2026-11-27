@@ -18,14 +18,12 @@ export const PROXY_SECRET_HEADER = "x-presenca-proxy-secret";
 
 declare module "fastify" {
   interface FastifyRequest {
-    /** IP do cliente para sessões e rate limit. Preenchido no onRequest (ver client-ip.ts). */
     clientIp: string;
   }
 }
 
 const digest = (value: string) => createHash("sha256").update(value).digest();
 
-/** Compara em tempo constante (o tamanho dos hashes é sempre o mesmo). */
 function sameSecret(received: string, expected: string): boolean {
   return timingSafeEqual(digest(received), digest(expected));
 }

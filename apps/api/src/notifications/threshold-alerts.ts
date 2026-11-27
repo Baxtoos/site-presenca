@@ -17,18 +17,8 @@ const { subjects, subjectThresholdState, notificationPreferences, notificationLo
 
 type NewLog = typeof notificationLogs.$inferInsert;
 
-/**
- * Marcos de alerta (50/75/90/100% do limite). Roda DENTRO da transação que mudou os números
- * (registro, correção, exclusão ou novas regras da matéria): o alerta e o dado que o causou são
- * gravados juntos ou nenhum dos dois. O envio fica com o worker, acordado pelo NOTIFY do commit.
- */
 @Injectable()
 export class ThresholdAlerts {
-  /**
-   * Só atualiza o estado dos marcos, sem gerar aviso. Para quando os números chegam de uma vez
-   * (importação de planilha): os marcos já passados ficam como "já avisados", e só um marco novo
-   * a partir daqui gera aviso.
-   */
   sync(tx: Tx, subject: SubjectRow, summary: SubjectSummary): Promise<void> {
     return this.evaluate(tx, subject, summary, { silent: true });
   }
@@ -39,7 +29,6 @@ export class ThresholdAlerts {
     summary: SubjectSummary,
     options: { silent?: boolean } = {},
   ): Promise<void> {
-    // Uma avaliação por matéria por vez: duas correções simultâneas não geram alerta em dobro.
     await tx
       .select({ id: subjects.id })
       .from(subjects)
@@ -85,7 +74,6 @@ export class ThresholdAlerts {
         });
     }
 
-    // Matéria arquivada continua com o estado em dia, mas não incomoda ninguém.
     if (!result.notify || subject.archivedAt || options.silent) return;
 
     const [user] = await tx.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users);
@@ -114,7 +102,6 @@ export class ThresholdAlerts {
 
     const top = base(result.notify);
     const logs: NewLog[] = [
-      // A central recebe na hora (não depende do worker).
       { ...top, channel: "in_app", status: "sent", sentAt: new Date() },
       {
         ...top,
@@ -133,7 +120,6 @@ export class ThresholdAlerts {
           ? { status: "pending" }
           : { status: "skipped", lastError: "push desligado nas preferências" }),
       },
-      // Marcos menores cruzados no mesmo salto: ficam no histórico, sem aparecer nem ser enviados.
       ...result.skipped.map((s): NewLog => ({
         ...base(s),
         channel: "in_app",

@@ -17,7 +17,6 @@ import { SharingModule } from "./sharing/sharing.module";
 
 @Module({})
 export class AppModule {
-  /** Recebe o ambiente já validado pelo bootstrap (validado uma única vez). */
   static forRoot(env: Env): DynamicModule {
     return {
       module: AppModule,

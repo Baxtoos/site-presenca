@@ -4,16 +4,13 @@ import { type MoodleClient, type MoodleGradeItem, normalizeTitle } from "./moodl
 
 const { evaluationItems, subjects, moodleCourseMappings } = schema;
 
-/** Identificador guardado em evaluation_items.external_grade_item_id. */
 export const gradeItemKey = (id: number) => `gi:${id}`;
 
-/** Nota do Moodle (escala do item) → centésimos na nota máxima da avaliação do app. */
 export function moodleScoreToCenti(grade: number, gradeMax: number, maxScore: number): number {
   const centi = Math.round((grade / gradeMax) * maxScore);
   return Math.min(maxScore, Math.max(0, centi));
 }
 
-/** Livro de notas das turmas pedidas (pela chave da turma: shortname no Moodle). */
 export async function fetchCourseGrades(
   client: MoodleClient,
   courseKeys: readonly string[],
@@ -31,10 +28,6 @@ export async function fetchCourseGrades(
   return out;
 }
 
-/**
- * Turmas do Moodle ligadas a matérias do aluno que têm alguma avaliação seguindo o Moodle (chave da
- * turma → matéria). Sem avaliação ligada, nem busca o livro de notas (poupa o Moodle da instituição).
- */
 export async function mappedCourses(tx: Tx, userId: string): Promise<Map<string, string>> {
   const rows = await tx
     .select({
@@ -57,9 +50,7 @@ export async function mappedCourses(tx: Tx, userId: string): Promise<Map<string,
 }
 
 export interface ApplyGradesResult {
-  /** Avaliações cuja nota mudou. */
   updated: number;
-  /** Notas novas (antes sem nota): cada uma gera o aviso "Nota nova". */
   posted: number;
 }
 
@@ -78,7 +69,6 @@ export async function applyMoodleGrades(
     userId: string;
     grades: Map<string, MoodleGradeItem[]>;
     courses: Map<string, string>;
-    /** false: só grava as notas (ao ligar pela tela, a nota já existente não é "nova"). */
     notify?: boolean;
   },
 ): Promise<ApplyGradesResult> {
@@ -133,7 +123,6 @@ export async function applyMoodleGrades(
 
   for (const ev of linked) {
     const found = byKey.get(ev.externalGradeItemId!);
-    // A turma do item precisa ser a da matéria da avaliação (ligação trocada de matéria).
     if (!found || found.subjectId !== ev.subjectId) continue;
     const score =
       found.item.grade === null

@@ -42,11 +42,6 @@ const CALENDAR_STATUS = [
 const pillClass = (active: boolean) =>
   `inline-flex min-h-9 items-center rounded-md border px-3 text-sm transition-colors ${active ? "border-accent bg-accent-soft font-medium text-accent" : "border-line-strong bg-surface text-muted hover:bg-surface-2"}`;
 
-/**
- * Painel de pendências: linha do tempo (o que vence, o que atrasou, o que foi feito) e calendário
- * mensal com as tarefas, as exceções do semestre e as chamadas que ficaram sem registro. Todos os
- * filtros ficam na URL (Voltar e recarregar mantêm a tela).
- */
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const me = await apiGet("/v1/me", meResponseSchema);
@@ -54,7 +49,6 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   const window: TimelineWindow =
     TIMELINE_WINDOWS.find((w) => w.id === one(params.janela))?.id ?? "7";
-  // "Atrasadas" são sempre pendentes.
   const statusId: TimelineStatus =
     window === "atrasadas"
       ? "pendentes"

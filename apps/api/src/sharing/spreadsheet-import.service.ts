@@ -14,17 +14,11 @@ import { ThresholdAlerts } from "../notifications/threshold-alerts";
 
 const { semesters, subjects, subjectSchedules, calendarExceptions, attendanceLogs, users } = schema;
 
-/** Erro de validação apontando o item da planilha (o site mostra a linha certa). */
 const invalid = (path: string, message: string) =>
   new UnprocessableEntityException({ code: "IMPORT_INVALID", errors: [{ path, message }] });
 
 const brDate = (iso: string) => iso.split("-").reverse().join("/");
 
-/**
- * Importa um semestre a partir da planilha exportada pelo app: semestre, matérias com regras,
- * grade, feriados e registros de presença, numa transação só (nada fica pela metade). Os marcos
- * de aviso ficam em dia sem gerar avisos sobre faltas antigas.
- */
 @Injectable()
 export class SpreadsheetImportService {
   private readonly logger = new Logger(SpreadsheetImportService.name);
@@ -67,7 +61,6 @@ export class SpreadsheetImportService {
     const [me] = await tx.select({ timezone: users.timezone }).from(users);
     const today = this.clock.todayIn(me?.timezone ?? "America/Sao_Paulo");
 
-    // ---- semestre
     const label = await freeSemesterLabel(tx, sem.label);
     const [hasCurrent] = await tx
       .select({ id: semesters.id })
@@ -81,13 +74,11 @@ export class SpreadsheetImportService {
         label,
         startsOn: sem.startsOn,
         endsOn: sem.endsOn,
-        // Primeiro semestre do aluno já vira o atual; senão ele escolhe depois.
         isCurrent: !hasCurrent,
       })
       .returning({ id: semesters.id });
     const semesterId = semester!.id;
 
-    // ---- matérias e grade (guarda os ids na ordem da planilha)
     const created: {
       id: string;
       unitsPerClass: number;
@@ -118,7 +109,6 @@ export class SpreadsheetImportService {
       created.push({ id: row!.id, unitsPerClass: row!.unitsPerClass, schedules: scheduleRows });
     }
 
-    // ---- feriados e dias sem aula
     const exceptions = body.exceptions.map((e, i) => {
       if (!inside(e.startsOn) || !inside(e.endsOn) || e.endsOn < e.startsOn) {
         throw invalid(`exceptions.${i}`, `"${e.label}" fica fora do semestre (${period}).`);
@@ -141,7 +131,6 @@ export class SpreadsheetImportService {
     });
     if (exceptions.length > 0) await tx.insert(calendarExceptions).values(exceptions);
 
-    // ---- registros de presença (validados como no registro um a um)
     const seen = new Set<string>();
     const logs = body.attendance.map((a, i) => {
       const where = `Registro ${i + 1} (${brDate(a.classDate)})`;
@@ -204,7 +193,6 @@ export class SpreadsheetImportService {
       await tx.insert(attendanceLogs).values(logs.slice(i, i + 500));
     }
 
-    // ---- marcos de aviso em dia, sem avisar sobre faltas antigas
     for (const s of created) {
       const [row] = await tx.select().from(subjects).where(eq(subjects.id, s.id));
       await this.thresholds.sync(tx, row!, await loadSummary(tx, row!));

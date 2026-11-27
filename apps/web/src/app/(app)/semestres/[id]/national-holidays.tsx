@@ -8,10 +8,6 @@ import { ApiError } from "@/lib/api-client";
 import { formatDate } from "@/lib/format";
 import { addHolidays, missingHolidays } from "@/lib/holidays";
 
-/**
- * Feriados nacionais do período do semestre que ainda faltam cadastrar, para marcar e adicionar
- * de uma vez. Pontos facultativos (Carnaval, Corpus Christi) vêm desmarcados: depende da faculdade.
- */
 export function NationalHolidays({
   semester,
   exceptions,

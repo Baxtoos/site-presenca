@@ -8,16 +8,11 @@ import { HideToken } from "./hide-token";
 
 export const metadata: Metadata = {
   title: "Verificação em duas etapas · Monitor de Presenças",
-  // A URL contém o token: nada de enviá-la como Referer para outros sites.
   referrer: "no-referrer",
 };
 
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 
-/**
- * Destino do link "ligar a verificação em duas etapas" (contas sem senha). Não consome o link ao
- * abrir: o token só é usado no clique em Continuar.
- */
 export default async function MfaConfirmPage({
   searchParams,
 }: {

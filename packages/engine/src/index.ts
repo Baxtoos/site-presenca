@@ -1,7 +1,3 @@
-/**
- * Motor de cálculo acadêmico: puro, sem I/O, sem dependências.
- * A API usa como fonte oficial dos números; o web usa só para a prévia enquanto o aluno digita.
- */
 export {
   FULL_BP,
   maxAbsenceUnits,

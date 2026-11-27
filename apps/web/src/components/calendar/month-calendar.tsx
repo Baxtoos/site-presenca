@@ -24,11 +24,6 @@ const WEEKDAYS = [
 const navClass =
   "inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-ink";
 
-/**
- * Calendário mensal (segunda a domingo). No computador, cada dia mostra as tarefas como etiquetas;
- * no celular, bolinhas coloridas. Escolher um dia mostra a lista dele logo abaixo, com as ações e o
- * atalho para criar uma tarefa já com aquela data.
- */
 export function MonthCalendar({
   grid,
   days,
@@ -128,7 +123,6 @@ export function MonthCalendar({
                 ]
                   .filter(Boolean)
                   .join(", ");
-                // No computador cabem 3 linhas além do número: exceção, aulas e tarefas dividem.
                 const room = 3 - (exceptions.length > 0 ? 1 : 0);
                 const shownClasses = classes.slice(
                   0,
@@ -152,9 +146,9 @@ export function MonthCalendar({
                       >
                         {Number(date.slice(8))}
                       </span>
-                      {/* Nome para leitores de tela (o número visível vem antes, como pede a WCAG 2.5.3). */}
+                      {}
                       <span className="sr-only">, {label}</span>
-                      {/* Celular: quadradinhos das aulas (cor da matéria) e bolinhas das tarefas. */}
+                      {}
                       <span className="flex flex-wrap justify-center gap-0.5 sm:hidden" aria-hidden>
                         {classes.slice(0, 3).map((c, i) => (
                           <span
@@ -169,7 +163,7 @@ export function MonthCalendar({
                           />
                         ))}
                       </span>
-                      {/* Computador: feriado, aulas e tarefas. */}
+                      {}
                       <span className="hidden min-w-0 gap-0.5 sm:grid" aria-hidden>
                         {exceptions.slice(0, 1).map((e) => (
                           <span

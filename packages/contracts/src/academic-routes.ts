@@ -21,7 +21,6 @@ import type { RouteDef } from "./route-types";
 const notFound = { description: "Não encontrado (ou de outra pessoa)" };
 
 export const academicRoutes = {
-  // ---- Semestres ----
   listSemesters: {
     method: "GET",
     path: "/v1/semesters",
@@ -72,7 +71,6 @@ export const academicRoutes = {
     responses: { 204: { description: "Apagado" }, 404: notFound },
   },
 
-  // ---- Matérias ----
   listSubjects: {
     method: "GET",
     path: "/v1/semesters/:id/subjects",
@@ -121,7 +119,6 @@ export const academicRoutes = {
     responses: { 204: { description: "Apagada" }, 404: notFound },
   },
 
-  // ---- Grade semanal ----
   createSchedule: {
     method: "POST",
     path: "/v1/subjects/:id/schedules",
@@ -151,7 +148,6 @@ export const academicRoutes = {
     responses: { 204: { description: "Removido" }, 404: notFound },
   },
 
-  // ---- Feriados e exceções ----
   listExceptions: {
     method: "GET",
     path: "/v1/semesters/:id/exceptions",

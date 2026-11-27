@@ -76,11 +76,6 @@ function initialItems(base: SubjectGrading, draft: EditorDraft): Item[] {
   ];
 }
 
-/**
- * Editor manual da regra de cálculo: escala, nota mínima, avaliações, fórmula (com atalhos para
- * média simples e soma), grupos com descarte, substitutiva, exame e arredondamento. Também é o
- * plano B do assistente de IA (abre já preenchido com o que a IA entendeu).
- */
 export function GradingEditor({
   subjectId,
   base,

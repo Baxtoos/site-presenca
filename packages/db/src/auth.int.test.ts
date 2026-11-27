@@ -17,7 +17,6 @@ afterAll(async () => {
 const api = () => db.pools.app_api;
 const sha256 = (value: string) => createHash("sha256").update(value).digest();
 
-/** Cria uma sessão para Alice e devolve o hash do token, como o cookie faria. */
 async function createSession(overrides: { createdAt?: string; expiresAt?: string } = {}) {
   const token = randomBytes(32).toString("base64url");
   const hash = sha256(token);

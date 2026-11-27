@@ -19,7 +19,6 @@ import { app, createdAt, ownerId, pk, updatedAt, version } from "./_shared";
 import { subjects } from "./academic";
 import { absenceReason, attendanceStatus, auditAction } from "./enums";
 
-/** Uma linha por ocorrência de aula: a fonte da verdade da contagem de faltas. */
 export const attendanceLogs = app.table(
   "attendance_logs",
   {
@@ -28,7 +27,6 @@ export const attendanceLogs = app.table(
     subjectId: uuid().notNull(),
     /** Null = aula extra/reposição. FK (schedule_id, subject_id) criada na migration de segurança. */
     scheduleId: uuid(),
-    /** Data local da aula, no fuso do aluno. */
     classDate: date().notNull(),
     status: attendanceStatus().notNull(),
     unitsScheduled: smallint().notNull(),
@@ -36,7 +34,6 @@ export const attendanceLogs = app.table(
     isExcused: boolean().notNull().default(false),
     reason: absenceReason(),
     note: text(),
-    /** O que foi passado na aula (opcional, escrito pelo aluno). */
     content: text(),
     version: version(),
     createdAt: createdAt(),
@@ -71,12 +68,10 @@ export const attendanceLogs = app.table(
   ],
 );
 
-/** Trilha de auditoria. Escrita só pelo trigger; a API apenas lê. */
 export const attendanceLogEvents = app.table(
   "attendance_log_events",
   {
     id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-    /** Sem FK: o evento sobrevive à exclusão do registro. */
     logId: uuid().notNull(),
     userId: ownerId(),
     action: auditAction().notNull(),

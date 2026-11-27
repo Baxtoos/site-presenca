@@ -265,7 +265,6 @@ describe("tarefas (FKs compostas e restrições)", () => {
       await c.query("rollback to savepoint dup");
       await c.query("delete from tasks where external_uid is not null");
     });
-    // O mesmo identificador em outra conta é aceito.
     await inTx(api(), { userId: bob.userId }, async (c) => {
       await insert(c, bob.userId);
       await c.query("delete from tasks where external_uid is not null");
@@ -345,7 +344,6 @@ describe("notas (FKs compostas, mesma matéria e restrições)", () => {
         c.query("update tasks set evaluation_item_id = $2 where id = $1", [foreignTask, item.id]),
       ).rejects.toThrow(/mesma matéria/);
       await c.query("rollback to savepoint s");
-      // Mudou a matéria da tarefa: a ligação some, sem erro.
       await c.query("update tasks set subject_id = $2 where id = $1", [alice.taskId, other]);
       const after = (
         await c.query("select evaluation_item_id from tasks where id = $1", [alice.taskId])
@@ -401,7 +399,6 @@ describe("notas (FKs compostas, mesma matéria e restrições)", () => {
       /permission denied/,
     );
     const item = await itemOf(alice.userId);
-    // Nota do aluno (score_source = 'user'): invisível para a escrita do worker.
     expect(
       (
         await worker.query(
@@ -516,7 +513,6 @@ describe("restrições de dados", () => {
 describe("view subject_totals", () => {
   it("deriva os totais dos registros e respeita a política de atestado", async () => {
     await inTx(api(), { userId: bob.userId }, async (c) => {
-      // Bob já tem 1 falta total de 2 tempos. Soma uma parcial abonada de 1 tempo.
       await c.query(
         `insert into attendance_logs
            (user_id, subject_id, class_date, status, units_scheduled, units_missed, is_excused)
@@ -531,7 +527,6 @@ describe("view subject_totals", () => {
           )
         ).rows[0];
 
-      // track_only: o atestado é só controle pessoal e conta no limite.
       expect(await totals()).toEqual({ units_counted: 3, units_excused: 1, units_held: 4 });
 
       await c.query("update subjects set excused_policy = 'deduct' where id = $1", [bob.subjectId]);
@@ -615,9 +610,7 @@ describe("auditoria e versão", () => {
 describe("papéis", () => {
   it("o worker lê notificações de todos, mas dos registros de presença só o necessário para o lembrete", async () => {
     const worker = db.pools.app_worker;
-    // Os de todos os usuários (o semeado de cada um, mais os criados por outros testes).
     expect(await count(worker, "select 1 from notification_logs")).toBeGreaterThanOrEqual(2);
-    // Lembrete de chamada: saber QUAIS aulas têm registro, sem ver o conteúdo deles.
     expect(
       await count(
         worker,
@@ -629,7 +622,6 @@ describe("papéis", () => {
         /permission denied/,
       );
     }
-    // Pode criar avisos (lembretes), mas não apagar o histórico de ninguém.
     await expect(worker.query("delete from notification_logs")).rejects.toThrow(
       /permission denied/,
     );
@@ -653,7 +645,6 @@ describe("papéis", () => {
     }
     await expect(worker.query("delete from tasks")).rejects.toThrow(/permission denied/);
     await expect(worker.query("update tasks set notes = 'x'")).rejects.toThrow(/permission denied/);
-    // Tarefa manual: invisível para a escrita do worker (RLS), nada muda.
     const upd = await worker.query("update tasks set title = 'x' where source = 'manual'");
     expect(upd.rowCount).toBe(0);
     await expect(
@@ -671,7 +662,6 @@ describe("papéis", () => {
          values ($1, 'Importada', now() + interval '2 days', 'moodle_ics', $2, 'TURMA1') returning id`,
         [userId, uid],
       );
-    // A conexão semeada está desligada.
     await expect(insert(alice.userId, "uid-desligada")).rejects.toThrow(/row-level security/);
 
     await db.admin.query(
@@ -685,18 +675,15 @@ describe("papéis", () => {
         [id],
       );
       expect(upd.rowCount).toBe(1);
-      // Não pode transformar a importada em manual nem trocar a turma.
       await expect(
         worker.query("update tasks set source = 'manual' where id = $1", [id]),
       ).rejects.toThrow(/permission denied/);
-      // Vínculo turma → matéria é do aluno: o worker só registra quando viu a turma.
       await expect(
         worker.query("update moodle_course_mappings set ignored = true"),
       ).rejects.toThrow(/permission denied/);
       expect(
         (await worker.query("update moodle_course_mappings set last_seen_at = now()")).rowCount,
       ).toBeGreaterThan(0);
-      // Credenciais cifradas são legíveis (a chave só existe no processo), mas não alteráveis.
       await expect(worker.query("update moodle_connections set ics_url_enc = 'x'")).rejects.toThrow(
         /permission denied/,
       );

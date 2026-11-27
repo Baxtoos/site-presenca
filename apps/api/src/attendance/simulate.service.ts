@@ -18,7 +18,6 @@ import { inOrder } from "../common/in-order";
 
 const { subjects, semesters, subjectSchedules, calendarExceptions, attendanceLogs, users } = schema;
 
-/** Limite do motor por chamada (classOccurrences recusa intervalos maiores que 400 dias). */
 const MAX_DAYS = 399;
 
 @Injectable()
@@ -28,11 +27,6 @@ export class SimulateService {
     private readonly clock: ClockService,
   ) {}
 
-  /**
-   * "Posso faltar?": o que acontece se faltar à próxima aula e quantas aulas seguidas dá para
-   * faltar sem passar do limite, contando só as aulas que ainda vão acontecer (a grade real,
-   * sem feriados e sem as aulas que já têm registro).
-   */
   get(subjectId: string): Promise<SimulateResponse> {
     return this.db.tx(async (tx) => {
       const [found] = await tx
@@ -49,7 +43,6 @@ export class SimulateService {
       const rules = rulesFromRow(subject);
       const summary = summarize(rules, await loadTotals(tx, subject.id));
 
-      // Aulas futuras: de hoje (se ainda sem registro) até o fim do semestre.
       const from = today < semester.startsOn ? semester.startsOn : today;
       const lastDay =
         semester.endsOn < addDays(from, MAX_DAYS) ? semester.endsOn : addDays(from, MAX_DAYS);

@@ -1,7 +1,3 @@
-/**
- * Frações exatas com BigInt: toda conta de nota é feita sem ponto flutuante (nada de 5,9999…).
- * Notas entram e saem em centésimos de ponto (7,5 → 750); pesos como "0.4" viram 2/5.
- */
 export interface Rational {
   readonly n: bigint;
   readonly d: bigint;
@@ -42,7 +38,6 @@ export const cmp = (a: Rational, b: Rational) => {
 export const min = (a: Rational, b: Rational) => (cmp(a, b) <= 0 ? a : b);
 export const max = (a: Rational, b: Rational) => (cmp(a, b) >= 0 ? a : b);
 
-/** "0.4" ou "12" → fração exata. */
 export function fromDecimal(text: string): Rational {
   const m = /^(\d+)(?:[.,](\d+))?$/.exec(text);
   if (!m) throw new RangeError(`número inválido: ${text}`);
@@ -50,20 +45,16 @@ export function fromDecimal(text: string): Rational {
   return rat(BigInt(m[1]! + frac), 10n ** BigInt(frac.length));
 }
 
-/** Centésimos de ponto (inteiro) → fração em pontos. */
 export const fromCenti = (centi: number) => rat(BigInt(Math.round(centi)), 100n);
 
-/** Fração em pontos → centésimos, arredondando meio para cima (0,005 → 0,01). */
 export function toCenti(r: Rational): number {
   const scaled = r.n * 100n;
   const q = scaled / r.d;
   const rem = scaled % r.d;
-  // meio para cima, simétrico para negativos (não esperados em notas)
   const up = abs(rem) * 2n >= r.d ? (scaled < 0n ? -1n : 1n) : 0n;
   return Number(q + up);
 }
 
-/** Arredonda para múltiplos de `step` centésimos (10 = 0,1; 50 = 0,5), meio para cima. */
 export function roundToStep(centi: number, step: number): number {
   if (step <= 1) return centi;
   return Math.floor((centi + step / 2) / step) * step;
@@ -81,7 +72,6 @@ export function roundRational(r: Rational, step: number): number {
     const q = scaled / r.d;
     return Number(scaled < 0n && scaled % r.d !== 0n ? q - 1n : q);
   }
-  // floor((x*100 + step/2) / step) * step, exato
   const num = r.n * 200n + s * r.d;
   const den = 2n * s * r.d;
   const q = num / den;

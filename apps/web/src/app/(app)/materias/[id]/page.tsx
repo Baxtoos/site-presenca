@@ -37,7 +37,6 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** "Posso faltar a próxima aula?": o simulador da API, que já desconta feriados e o que foi registrado. */
 function CanISkip({ sim }: { sim: SimulateResponse }) {
   const next = sim.ifSkipNext;
   return (
@@ -85,7 +84,6 @@ export default async function SubjectPage({ params }: { params: Promise<{ id: st
     apiGet(`/v1/subjects/${id}/simulate`, simulateResponseSchema),
     apiGet(`/v1/subjects/${id}/attendance?limit=30`, attendanceListSchema),
     apiGet(`/v1/subjects/${id}/grading`, subjectGradingSchema),
-    // Sem o gráfico (ex.: API antiga durante o deploy), a página continua.
     apiGet(`/v1/subjects/${id}/evolution`, subjectEvolutionSchema).catch(() => null),
   ]);
   const s = subject.summary;

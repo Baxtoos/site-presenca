@@ -12,7 +12,6 @@ test("exporta a planilha do semestre e importa de volta, já configurado", async
     subject: "Estatística",
   });
 
-  // Uma falta hoje (pela API, com a sessão desta página).
   const origin = new URL(page.url()).origin;
   const { semesters } = (await (await page.request.get("/api/v1/semesters")).json()) as {
     semesters: { id: string }[];
@@ -35,18 +34,14 @@ test("exporta a planilha do semestre e importa de volta, já configurado", async
   const card = page.getByRole("main").getByRole("link", { name: /Estatística/ });
   await expect(card).toContainText("2 de 18 faltas");
 
-  // Exporta.
   const downloading = page.waitForEvent("download");
   await page.getByRole("link", { name: "Exportar Excel (.xlsx)" }).click();
   const file = testInfo.outputPath("semestre.xlsx");
   await (await downloading).saveAs(file);
 
-  // Importa pela tela de Semestres.
   await page.goto("/semestres");
   await page.getByRole("link", { name: "Importar planilha (.xlsx)" }).click();
   await expect(page.getByRole("heading", { name: "Importar planilha" })).toBeVisible();
-  // Conteúdo em vez do caminho: o caminho tem acentos (vem do título do teste) e o Chromium
-  // daqui não anexa arquivo de caminho assim.
   await page.locator("input#planilha").setInputFiles({
     name: "semestre.xlsx",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -58,14 +53,12 @@ test("exporta a planilha do semestre e importa de volta, já configurado", async
   await page.getByLabel("Nome do semestre").fill("Cópia importada");
   await page.getByRole("button", { name: "Importar semestre" }).click();
 
-  // Cai no semestre novo, com a matéria e a falta.
   await expect(page.getByRole("heading", { name: /^Cópia importada/ })).toBeVisible();
   await expectPath(page, /^\/semestres\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("main").getByRole("link", { name: /Estatística/ })).toContainText(
     "2 de 18 faltas",
   );
 
-  // Arquivo que não é do app: mensagem clara, nada é enviado.
   await page.goto("/semestres/importar");
   await page.locator("input#planilha").setInputFiles({
     name: "notas.xlsx",
@@ -99,13 +92,11 @@ test("importa a planilha que o aluno fazia sozinho (CSV), sem perder registros",
     ),
   });
 
-  // Entendeu o formato; "X" é ambíguo e pede escolha.
   await expect(page.getByTestId("formato-aba")).toContainText("Uma linha por aula · 5 registros");
   await expect(page.getByText("Diga o que significa cada marcação")).toBeVisible();
   await expect(page.getByRole("button", { name: "Importar semestre" })).toBeDisabled();
   await page.getByLabel(/“x”/).selectOption("absent");
 
-  // Dias detectados pelos registros; falta o horário.
   await expect(page.getByTestId("materia-propria")).toHaveCount(2);
   await expect(page.getByText(/Cálculo II: informe o horário/)).toBeVisible();
   for (const i of [0, 1]) {
@@ -116,7 +107,6 @@ test("importa a planilha que o aluno fazia sozinho (CSV), sem perder registros",
     "2 matérias · 4 faltas · 1 presença",
   );
 
-  // A leitura guiada também é acessível.
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

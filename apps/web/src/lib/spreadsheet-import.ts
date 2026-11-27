@@ -9,25 +9,14 @@ import {
 import { isoWeekday } from "@presenca/engine";
 import type { Workbook, Worksheet } from "exceljs";
 
-/**
- * Lê no navegador a planilha exportada pelo Monitor de Presenças e monta o semestre para a API
- * importar (POST /v1/imports/semester). A API valida tudo de novo; aqui é só a leitura.
- *
- * - Planilha nova: aba "muito oculta" `Dados` com tudo (regras, grade, feriados, presenças e
- *   faltas). A importação é exata.
- * - Planilha antiga (sem essa aba): lê Resumo, Histórico e Grade Horária. Presenças e feriados
- *   não existem nelas, e o que falta (datas do semestre, tempos de cada aula) é estimado e avisado.
- */
 export type SpreadsheetReading =
   | { ok: true; source: "completa" | "abas"; body: SemesterImportBody; warnings: string[] }
-  /** `foreign`: não é planilha do app (a tela oferece ler como planilha própria). */
   | { ok: false; error: string; foreign?: boolean };
 
 const NOT_OURS =
   "Esta planilha não parece ter sido exportada pelo Monitor de Presenças. Use o arquivo baixado no botão Exportar Excel (.xlsx), na página do semestre.";
 
 export async function readSpreadsheet(file: ArrayBuffer): Promise<SpreadsheetReading> {
-  // exceljs é grande: só carrega quando alguém escolhe um arquivo.
   const { Workbook: WorkbookClass } = await import("exceljs");
   const workbook = new WorkbookClass();
   try {
@@ -46,8 +35,6 @@ export async function readSpreadsheet(file: ArrayBuffer): Promise<SpreadsheetRea
   return fromVisibleSheets(workbook);
 }
 
-// ---------------------------------------------------------------- planilha nova (aba Dados)
-
 function fromDataSheet(workbook: Workbook, sheet: Worksheet): SpreadsheetReading | null {
   let json = "";
   for (let row = 2; row <= sheet.rowCount; row++) json += cellText(sheet.getCell(`A${row}`));
@@ -57,12 +44,10 @@ function fromDataSheet(workbook: Workbook, sheet: Worksheet): SpreadsheetReading
   } catch {
     return null;
   }
-  // Aba corrompida (editada à mão): tenta as abas visíveis.
   if (!parsed.success) return null;
   const body = parsed.data.data;
   const warnings: string[] = [];
 
-  // Edições feitas no Excel na aba Histórico não entram: avisa se ela não bate com os dados.
   const historico = workbook.getWorksheet("Historico");
   if (historico) {
     const visible = historyRows(historico).length;
@@ -78,8 +63,6 @@ function fromDataSheet(workbook: Workbook, sheet: Worksheet): SpreadsheetReading
   return { ok: true, source: "completa", body, warnings };
 }
 
-// ---------------------------------------------------------------- planilha antiga (abas visíveis)
-
 const REASONS: Record<string, ImportAttendance["reason"]> = {
   saúde: "health",
   trabalho: "work",
@@ -88,7 +71,6 @@ const REASONS: Record<string, ImportAttendance["reason"]> = {
   outro: "other",
 };
 
-/** Cor de fundo da Grade Horária → cor da matéria (mesma tabela da exportação). */
 const TINT_TO_COLOR: Record<string, (typeof SUBJECT_COLORS)[number]> = {
   FFE2ECF5: "blue",
   FFDDF2EE: "teal",
@@ -124,7 +106,6 @@ interface DraftSubject {
   name: string;
   professor: string | null;
   rules: Rules;
-  /** Tempos por aula informados pela planilha (só no modo por número de aulas). */
   unitsPerClass: number | null;
   color: (typeof SUBJECT_COLORS)[number] | null;
   schedules: DraftSchedule[];
@@ -141,7 +122,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
   const title = cellText(resumo.getCell("A1"));
   const label = /·\s*(.+)$/.exec(title)?.[1]?.trim().slice(0, 60) || "Semestre importado";
 
-  // ---- matérias (aba Resumo, da linha 5 até a primeira linha vazia)
   const drafts: DraftSubject[] = [];
   for (let row = 5; row <= resumo.rowCount; row++) {
     const name = cellText(resumo.getCell(row, 1)).trim();
@@ -195,7 +175,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
   if (drafts.length === 0) return { ok: false, error: "A aba Resumo não tem nenhuma matéria." };
   const byName = new Map(drafts.map((d) => [d.name.toLowerCase(), d]));
 
-  // ---- grade (aba Grade Horária): "19:00 – 20:40" × Segunda…Sábado
   const grade = workbook.getWorksheet("Grade Horária");
   if (grade) {
     for (let row = 2; row <= grade.rowCount; row++) {
@@ -215,7 +194,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
           const subject = byName.get((rawName ?? "").toLowerCase());
           if (!subject) continue;
           if (!subject.color && tint && TINT_TO_COLOR[tint]) subject.color = TINT_TO_COLOR[tint];
-          // Depois do nome: "sala · prédio" e/ou professor (se for o da matéria, não repete).
           let location: string | undefined;
           let professor: string | undefined;
           if (rest.length >= 2) [location, professor] = rest;
@@ -240,7 +218,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
     warnings.push("A planilha não tem a aba Grade Horária: as matérias entram sem horários.");
   }
 
-  // ---- tempos de cada aula: vêm do número de aulas, ou da duração do horário
   const subjects = drafts.map((d) => {
     const unitsFor = (s: DraftSchedule) => {
       if (d.unitsPerClass) return d.unitsPerClass;
@@ -255,7 +232,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
     return { draft: d, schedules, unitsPerClass };
   });
 
-  // ---- faltas (aba Historico)
   const historico = workbook.getWorksheet("Historico");
   const attendance: ImportAttendance[] = [];
   const deduct = new Set<number>();
@@ -270,7 +246,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
     const s = subjects[index]!;
     if (h.kind === "Abonada") deduct.add(index);
     const weekday = isoWeekday(h.date);
-    // Horário do dia da semana ainda livre nesta data; sem horário, vira aula extra.
     const scheduleIndex = s.schedules.findIndex(
       (x, i) => x.weekday === weekday && !used.has(`${index}|${h.date}|${i}`),
     );
@@ -305,7 +280,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
     );
   }
 
-  // ---- datas do semestre: pelo nome (2026.1 / 2026.2), cobrindo as faltas registradas
   const dates = attendance.map((a) => a.classDate).sort();
   const guess = semesterGuess(label, dates[0], dates.at(-1));
 
@@ -334,8 +308,6 @@ function fromVisibleSheets(workbook: Workbook): SpreadsheetReading {
   return { ok: true, source: "abas", body: body.data, warnings };
 }
 
-// ---------------------------------------------------------------- utilitários
-
 interface HistoryRow {
   date: string;
   subject: string;
@@ -345,7 +317,6 @@ interface HistoryRow {
   note: string;
 }
 
-/** Linhas da aba Historico: data, dia, matéria, tempos, horas, tipo, motivo, observações. */
 function historyRows(sheet: Worksheet): HistoryRow[] {
   const rows: HistoryRow[] = [];
   for (let row = 2; row <= sheet.rowCount; row++) {
@@ -393,7 +364,6 @@ function cellNumber(cell: Cell): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Data da célula como AAAA-MM-DD (Date do Excel, ou texto dd/mm/aaaa). */
 function cellDate(cell: Cell): string | null {
   const v = cell.value as unknown;
   if (v instanceof Date) return v.toISOString().slice(0, 10);
@@ -416,7 +386,6 @@ function mostCommon(values: number[]): number | undefined {
 
 const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
-/** "2026.1" → fev–jul; "2026.2" → ago–dez; sempre cobrindo a primeira e a última falta. */
 function semesterGuess(
   label: string,
   first: string | undefined,

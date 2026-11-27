@@ -32,7 +32,6 @@ import { PasswordService } from "./password.service";
 
 const MFA_CHANGE = { bucket: "mfa-change", by: "user", limit: 10, windowSeconds: 15 * 60 } as const;
 
-/** Segundo fator na página Conta: situação, ativar, desligar e códigos de recuperação. */
 @Controller("v1/me/mfa")
 export class MfaController {
   constructor(
@@ -47,7 +46,6 @@ export class MfaController {
     return this.mfa.status(auth.userId);
   }
 
-  /** Conta sem senha: manda o link que libera a ativação (confirma que é o dono do e-mail). */
   @Post("enable-request")
   @HttpCode(202)
   @RateLimit({ bucket: "mfa-link", by: "user", limit: 3, windowSeconds: 15 * 60 })
@@ -65,7 +63,6 @@ export class MfaController {
     return this.auth.requestMfaEnableLink(auth.userId);
   }
 
-  /** Começa a ativação. Conta sem senha precisa do token do link enviado ao e-mail. */
   @Post("setup")
   @HttpCode(200)
   @RateLimit(MFA_CHANGE)
@@ -77,7 +74,6 @@ export class MfaController {
       tx.query.users.findFirst({ columns: { email: true, passwordHash: true } }),
     );
     if (!user) throw new NotFoundException();
-    // Já ligado: responde antes de gastar o link do e-mail.
     if (await this.mfa.isEnabled(auth.userId)) {
       throw new ConflictException({
         code: "MFA_ALREADY_ENABLED",
@@ -98,7 +94,6 @@ export class MfaController {
     return this.mfa.setup(auth.userId, user.email);
   }
 
-  /** Ligar o segundo fator é mudar como se entra: conta com senha confirma a senha. */
   @Post("enable")
   @HttpCode(200)
   @RateLimit(MFA_CHANGE)

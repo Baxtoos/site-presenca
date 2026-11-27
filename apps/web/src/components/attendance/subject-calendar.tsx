@@ -37,7 +37,6 @@ const MONTHS = [
   "Novembro",
   "Dezembro",
 ];
-/** Domingo primeiro, como nos calendários brasileiros. */
 const WEEK_HEADER = ["D", "S", "T", "Q", "Q", "S", "S"];
 const WEEK_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -47,7 +46,6 @@ type DayState =
 
 const classKey = (c: CalendarClass) => c.scheduleId ?? `extra-${c.record?.id}`;
 
-/** Cor de cada dia (classes literais, para o Tailwind gerar). */
 const DAY_STYLE: Record<DayState, string> = {
   present: "bg-ok-soft text-ok border-transparent",
   absent: "bg-fail-soft text-fail border-transparent",
@@ -69,7 +67,6 @@ const LEGEND: { state: DayState; label: string }[] = [
   { state: "future", label: "Ainda vai acontecer" },
 ];
 
-/** Estado de um dia: o pior registro manda (falta > parcial > presença); sem registro, depende da data. */
 function dayState(classes: CalendarClass[], date: string, today: string): DayState {
   const records = classes.map((c) => c.record).filter((r): r is AttendanceRecord => r !== null);
   const pending = classes.filter((c) => !c.record && !c.blocked);
@@ -97,7 +94,6 @@ function successMessage(mark: Mark): string {
   }
 }
 
-/** Dias do mês em semanas (domingo a sábado), com espaços vazios antes do dia 1. */
 function monthGrid(month: string): (string | null)[] {
   const [y, m] = month.split("-").map(Number) as [number, number];
   const firstWeekday = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
@@ -108,10 +104,6 @@ function monthGrid(month: string): (string | null)[] {
   return cells;
 }
 
-/**
- * Calendário do mês de uma matéria: os dias de aula aparecem coloridos pelo que foi registrado.
- * Tocar num dia abre as aulas dele para marcar presença, falta, falta parcial ou aula cancelada.
- */
 export function SubjectCalendar({
   subjectId,
   initial,
@@ -130,7 +122,6 @@ export function SubjectCalendar({
   const [picking, setPicking] = useState<string>();
   const [editing, setEditing] = useState<string>();
 
-  // Dados novos do servidor (router.refresh): recomeça a partir deles, se for o mesmo mês.
   if (source !== initial) {
     setSource(initial);
     if (initial.month === cal.month) setCal(initial);
@@ -160,7 +151,6 @@ export function SubjectCalendar({
     }
   }
 
-  /** Atualiza o registro de uma aula e o resumo da matéria com a resposta da API. */
   function apply(
     date: string,
     key: string,
@@ -178,7 +168,6 @@ export function SubjectCalendar({
                 ...d,
                 classes: d.classes
                   .map((c) => (classKey(c) === key ? { ...c, record } : c))
-                  // Aula extra apagada some do dia.
                   .filter((c) => c.scheduleId !== null || c.record !== null),
               },
         )
@@ -255,7 +244,6 @@ export function SubjectCalendar({
     }
   }
 
-  /** Volta ao que era: apaga o registro novo ou restaura o status anterior. */
   async function undo(
     date: string,
     key: string,

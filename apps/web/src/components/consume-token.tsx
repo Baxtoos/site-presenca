@@ -7,10 +7,6 @@ import { api, ApiError } from "@/lib/api-client";
 import { needsMfa } from "@/lib/mfa";
 import { withNext } from "@/lib/next-path";
 
-/**
- * Consome um token de link assim que a página abre (verificar e-mail, magic link, cadastro).
- * Tira o token da barra de endereço na hora, para não ficar no histórico.
- */
 export function ConsumeToken({
   token,
   endpoint,
@@ -21,11 +17,9 @@ export function ConsumeToken({
 }: {
   token: string;
   endpoint: "/v1/auth/magic-link/consume" | "/v1/auth/verify-email" | "/v1/auth/register/confirm";
-  /** Para onde ir depois do sucesso. Sem valor, mostra successContent. */
   redirectTo?: string;
   pendingText: string;
   successContent?: ReactNode;
-  /** Conteúdo extra abaixo da mensagem de erro (ex.: formulário para pedir novo link). */
   failureExtra?: ReactNode;
 }) {
   const router = useRouter();
@@ -35,18 +29,15 @@ export function ConsumeToken({
   >({
     status: "pending",
   });
-  // O efeito roda duas vezes em desenvolvimento (Strict Mode); o link só pode ser consumido uma.
   const started = useRef(false);
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    // Caminho do roteador: a barra é mascarada (lib/url-mask.ts) e window.location seria "/".
     window.history.replaceState(null, "", pathname);
     api<unknown>(endpoint, { method: "POST", body: { token } })
       .then((result) => {
         if (needsMfa(result)) {
-          // Conta com segundo fator: o link prova o e-mail, mas falta o código do app.
           router.replace(
             withNext("/entrar/verificacao", redirectTo && redirectTo !== "/" ? redirectTo : null),
           );

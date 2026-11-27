@@ -1,13 +1,10 @@
-// Passo de migration do deploy:  node dist/cli/migrate.js   (usa DATABASE_URL_OWNER)
 import { resolve } from "node:path";
 import { runMigrations } from "../migrate";
 
 if (process.env.NODE_ENV !== "production") {
   try {
     process.loadEnvFile(resolve(__dirname, "../../../../.env"));
-  } catch {
-    // sem .env: usa o ambiente
-  }
+  } catch {}
 }
 
 const url = process.env.DATABASE_URL_OWNER;

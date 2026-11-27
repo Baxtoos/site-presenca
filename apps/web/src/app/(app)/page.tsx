@@ -31,7 +31,6 @@ export default async function Home() {
         apiGet("/v1/today", todayResponseSchema),
       ])
     : [[], null];
-  // Uma chamada por matéria: são poucas (uma grade tem ~5–8) e cada uma é barata na API.
   const hints = new Map(
     await Promise.all(
       subjects.map(
@@ -136,7 +135,7 @@ export default async function Home() {
           ) : null}
           <section className="grid gap-3" aria-labelledby="materias">
             <SectionTitle id="materias">Suas matérias</SectionTitle>
-            {/* No celular não há aba Semestres: o SUAP e o semestre ficam à mão aqui. */}
+            {}
             <div className="-mt-2 flex flex-wrap gap-1">
               <ButtonLink href="/semestres/suap" variant="ghost" className="-ml-3">
                 Atualizar pelo SUAP

@@ -14,10 +14,6 @@ const normalize = (text: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-/**
- * Lista da linha do tempo: busca por título ou matéria e agrupamento por dia (por extenso) ou por
- * matéria, no navegador, sem recarregar. A janela e o status vêm da URL (servidor).
- */
 export function Timeline({ tasks, emptyText }: { tasks: Task[]; emptyText: string }) {
   const [query, setQuery] = useState("");
   const [grouping, setGrouping] = useState<Grouping>("data");

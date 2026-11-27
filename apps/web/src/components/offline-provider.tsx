@@ -32,10 +32,8 @@ interface OfflineContextValue {
   userId: string;
   online: boolean;
   syncing: boolean;
-  /** Marcações deste aluno ainda não enviadas. */
   pending: PendingMark[];
   enqueue: (mark: Omit<PendingMark, "userId" | "createdAt">) => Promise<void>;
-  /** Troca o status de uma marcação pendente. Ganha chave nova: o corpo mudou. */
   replace: (key: string, next: Pick<PendingMark, "status" | "unitsMissed">) => Promise<string>;
   discard: (key: string) => Promise<void>;
   syncNow: () => Promise<void>;
@@ -49,16 +47,13 @@ export function useOffline() {
   return ctx;
 }
 
-/** Avisa esta e as outras abas que a fila mudou. */
 function announce() {
   window.dispatchEvent(new Event(CHANGED));
   try {
     const channel = new BroadcastChannel(CHANGED);
     channel.postMessage("changed");
     channel.close();
-  } catch {
-    // Navegador sem BroadcastChannel: só esta aba se atualiza.
-  }
+  } catch {}
 }
 
 function subscribeOnline(callback: () => void) {
@@ -77,10 +72,6 @@ function toFailure(error: unknown): SendFailure {
   return { status: 0, code: "NETWORK_ERROR", message: "Sem conexão." };
 }
 
-/**
- * Fila de marcações feitas sem internet. Envia sozinha quando a conexão volta, quando o app volta
- * para a frente e, enquanto houver pendências, a cada 30 s. Também registra o service worker.
- */
 export function OfflineProvider({ userId, children }: { userId: string; children: ReactNode }) {
   const router = useRouter();
   const toast = useToast();
@@ -140,14 +131,12 @@ export function OfflineProvider({ userId, children }: { userId: string; children
         });
       }
     } catch {
-      // IndexedDB indisponível no meio do caminho: tenta na próxima.
     } finally {
       syncingRef.current = false;
       setSyncing(false);
     }
   }, [store, userId, toast, router]);
 
-  // Inicialização: service worker, troca de conta e primeira leitura/envio da fila.
   useEffect(() => {
     void registerServiceWorker().catch(() => undefined);
     void rememberUser(userId)
@@ -156,7 +145,6 @@ export function OfflineProvider({ userId, children }: { userId: string; children
       .then(syncNow);
   }, [userId, reload, syncNow]);
 
-  // A fila mudou (nesta ou em outra aba).
   useEffect(() => {
     const onChange = () => void reload();
     window.addEventListener(CHANGED, onChange);
@@ -173,7 +161,6 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     };
   }, [reload]);
 
-  // Conexão voltou ou o app voltou para a frente: tenta enviar.
   useEffect(() => {
     const trigger = () => {
       if (document.visibilityState === "visible") void syncNow();
@@ -186,7 +173,6 @@ export function OfflineProvider({ userId, children }: { userId: string; children
     };
   }, [syncNow]);
 
-  // Enquanto houver pendência, tenta de tempos em tempos (Wi-Fi que volta sem evento "online").
   useEffect(() => {
     if (pending.length === 0) return;
     const timer = setInterval(() => void syncNow(), RETRY_MS);
@@ -238,7 +224,6 @@ export function OfflineProvider({ userId, children }: { userId: string; children
   );
 }
 
-/** Faixa de aviso: sem conexão e/ou registros esperando envio. */
 function OfflineBanner() {
   const { online, pending, syncing, syncNow } = useOffline();
   if (online && pending.length === 0) return null;

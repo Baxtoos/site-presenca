@@ -2,15 +2,8 @@ import { requireInt } from "./rules";
 
 export type Risk = "safe" | "warning" | "critical" | "limit" | "failed";
 
-/** Ordem de gravidade (para comparar e ordenar). */
 export const RISK_ORDER: readonly Risk[] = ["safe", "warning", "critical", "limit", "failed"];
 
-/**
- * Semáforo de risco.
- * @param absent A: tempos perdidos que contam
- * @param max F: limite de tempos
- * @param unitsPerClass tempos por encontro (para a regra "restam 2 encontros ou menos")
- */
 export function riskLevel(absent: number, max: number, unitsPerClass: number): Risk {
   requireInt("absent", absent, 0);
   requireInt("max", max, 0);
@@ -31,10 +24,8 @@ export function presencePct(total: number, absent: number): number {
   return Math.max(0, Math.floor(((total - absent) * 1000) / total) / 10);
 }
 
-/** Presença projetada (indo a todas as aulas restantes), em %, truncada em 1 casa decimal. */
 export const projectedPresence = presencePct;
 
-/** Quanto do limite já foi usado, em % inteiro (truncado). Sem margem nenhuma, qualquer falta é 100%. */
 export function consumptionPct(absent: number, max: number): number {
   requireInt("absent", absent, 0);
   requireInt("max", max, 0);

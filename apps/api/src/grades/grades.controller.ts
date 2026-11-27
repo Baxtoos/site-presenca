@@ -29,7 +29,6 @@ import { RateLimit } from "../rate-limit/rate-limit";
 import { GradingAssistantService } from "./assistant.service";
 import { GradesService } from "./grades.service";
 
-/** Notas das matérias do aluno logado (o RLS só deixa ver e mexer nas próprias). */
 @Controller("v1")
 export class GradesController {
   constructor(
@@ -37,7 +36,6 @@ export class GradesController {
     private readonly assistant: GradingAssistantService,
   ) {}
 
-  /** Cada chamada custa (IA paga): até 10 por conversa e 30 por dia por aluno. */
   @Post("subjects/:id/grading/assistant")
   @HttpCode(200)
   @RateLimit({ bucket: "grading-ai", by: "user", limit: 30, windowSeconds: 86_400 })
@@ -63,7 +61,6 @@ export class GradesController {
     return result;
   }
 
-  /** If-Match só é exigido quando a regra já existe (a primeira vez cria). */
   @Put("subjects/:id/grading")
   async save(
     @Param(new ZodPipe(idParamsSchema)) { id }: { id: string },

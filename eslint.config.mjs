@@ -41,10 +41,10 @@ export default tseslint.config(
       ],
       eqeqeq: ["error", "always"],
       "no-console": "off",
+      "no-empty": ["error", { allowEmptyCatch: true }],
     },
   },
   {
-    // Regras que usam o compilador: promises esquecidas, await em não-promise, uso inseguro de any.
     files: ["{apps,packages}/*/src/**/*.{ts,tsx}"],
     extends: [tseslint.configs.recommendedTypeChecked],
     languageOptions: {
@@ -57,7 +57,6 @@ export default tseslint.config(
     },
   },
   {
-    // Nos testes, respostas HTTP vêm como any e são validadas pelos schemas logo em seguida.
     files: ["**/*.{spec,test}.{ts,tsx}"],
     rules: {
       "@typescript-eslint/no-unsafe-assignment": "off",
@@ -84,7 +83,6 @@ export default tseslint.config(
     },
   },
   {
-    // Service worker: JS puro servido como está, roda no escopo do worker (self, caches, clients).
     files: ["apps/web/public/sw.js"],
     languageOptions: { sourceType: "script", globals: { ...globals.serviceworker } },
   },

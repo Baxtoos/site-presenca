@@ -6,19 +6,14 @@ import { apiGet } from "@/lib/api-server";
 import { SUBJECT_COLOR_CLASS } from "@/lib/format";
 import { dueLabel, dueRelative } from "@/lib/tasks";
 
-/**
- * Resumo de entregas (Início e Hoje): vencidas sem registro e as que vencem logo. Some quando não
- * há nada, para não ocupar espaço.
- */
 export async function UpcomingTasks({ days, title }: { days: number; title: string }) {
   const now = new Date();
   const limit = now.getTime() + days * 86_400_000;
-  // Só até o fim da janela (as vencidas vêm primeiro). Um resumo que falha não derruba a página.
   const to = new Date(limit + 86_400_000).toISOString().slice(0, 10);
   const tasks = await apiGet(`/v1/tasks?status=pending&to=${to}&limit=50`, taskListSchema)
     .then((r) => r.tasks)
     .catch((error: unknown) => {
-      unstable_rethrow(error); // redirecionamento para o login continua valendo
+      unstable_rethrow(error);
       return null;
     });
   if (!tasks) return null;

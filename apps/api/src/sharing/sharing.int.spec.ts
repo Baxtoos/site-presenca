@@ -40,8 +40,6 @@ async function student(opts: { verified?: boolean; name?: string } = {}) {
   });
   expect(reg.statusCode).toBe(200);
   const userId = meResponseSchema.parse(reg.json()).id;
-  // A confirmação do cadastro já verifica o e-mail; "não verificado" só existe em contas
-  // antigas (criadas antes da confirmação obrigatória), simuladas aqui.
   if (opts.verified === false) {
     await env.db.admin.query("update app.users set email_verified_at = null where id = $1", [
       userId,
@@ -51,7 +49,6 @@ async function student(opts: { verified?: boolean; name?: string } = {}) {
 }
 type Student = Awaited<ReturnType<typeof student>>;
 
-/** Semestre com duas matérias (regras diferentes), grade, um feriado e uma exceção só de uma matéria. */
 async function semesterWithSubjects(s: Student, label = "2026.2") {
   const sem = await s.b.request("POST", "/v1/semesters", {
     label,
@@ -104,7 +101,6 @@ async function semesterWithSubjects(s: Student, label = "2026.2") {
     label: "Lab fechado",
     subjectId: lab.id,
   });
-  // Uma falta registrada: o modelo NUNCA pode levar isso.
   const absent = await s.b.request(
     "POST",
     "/v1/attendance",
@@ -234,7 +230,6 @@ describe("prévia pública", () => {
     ]) {
       expect(raw).not.toContain(secret);
     }
-    // E o que está guardado também não tem falta nenhuma.
     const stored = await env.db.admin.query(
       "select payload::text as p from app.shared_templates where id = $1",
       [t.id],
@@ -323,7 +318,6 @@ describe("importar", () => {
     );
     expect(records.rows[0]).toEqual({ n: 0 });
 
-    // A exceção "só do laboratório" foi ligada ao laboratório NOVO da Bia.
     const lab = subs.find((x) => x.name === "Laboratório de Física")!;
     const ex = await env.db.admin.query(
       "select label, subject_id from app.calendar_exceptions where semester_id = $1 order by label",
@@ -334,7 +328,6 @@ describe("importar", () => {
       { label: "Lab fechado", subject_id: lab.id },
     ]);
 
-    // Contagem de usos, histórico de importação e origem das matérias.
     const mine = sharedTemplatesResponseSchema.parse(
       (await ana.b.request("GET", "/v1/templates")).json(),
     );
@@ -382,7 +375,6 @@ describe("importar", () => {
       [t.id],
     );
     expect(row.rows[0]).toEqual({ uses_count: 2 });
-    // Esgotado: a prévia também some.
     expect((await preview(t.code)).statusCode).toBe(404);
   });
 
@@ -416,7 +408,7 @@ describe("importar", () => {
     const bia = await student();
     const result = importTemplateResultSchema.parse((await importIt(bia, t.code)).json());
     expect((await ana.b.request("DELETE", `/v1/templates/${t.id}`)).statusCode).toBe(204);
-    expect((await ana.b.request("DELETE", `/v1/templates/${t.id}`)).statusCode).toBe(204); // idempotente
+    expect((await ana.b.request("DELETE", `/v1/templates/${t.id}`)).statusCode).toBe(204);
     const cris = await student();
     expect((await importIt(cris, t.code)).statusCode).toBe(404);
     expect((await bia.b.request("GET", `/v1/semesters/${result.semesterId}`)).statusCode).toBe(200);
@@ -495,8 +487,8 @@ describe("importar", () => {
     );
     expect(stored.rows[0]!.payload_version).toBe(2);
     const raw = JSON.stringify(stored.rows[0]!.payload);
-    expect(raw).not.toContain("850"); // nota
-    expect(raw).not.toContain("2026-10-01"); // data da avaliação
+    expect(raw).not.toContain("850");
+    expect(raw).not.toContain("2026-10-01");
     const shown = templatePreviewSchema.parse((await preview(t.code)).json());
     expect(shown.subjects.map((s) => [s.name, s.hasGrading])).toEqual([
       ["Cálculo II", true],
@@ -520,7 +512,6 @@ describe("importar", () => {
     const tasks = await bia.b.request("GET", "/v1/tasks");
     expect(tasks.json<{ tasks: unknown[] }>().tasks).toEqual([]);
 
-    // Modelo antigo (versão 1, sem regra de notas) continua importando.
     await env.db.admin.query(
       `update app.shared_templates
           set payload_version = 1, payload = payload - 'gradings'

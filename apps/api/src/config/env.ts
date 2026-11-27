@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-/**
- * Quais proxies podem informar o IP real do cliente (X-Forwarded-For).
- * "false" (padrão): nenhum, o IP é o da conexão. Número: quantos saltos confiar.
- * Lista separada por vírgula: IPs/CIDRs confiáveis. Nunca "true" em produção:
- * qualquer cliente poderia forjar o IP e driblar o rate limit.
- */
 const trustProxySchema = z
   .string()
   .default("false")
@@ -28,9 +22,7 @@ const trustProxySchema = z
     return list;
   });
 
-/** Variável opcional: string vazia (`X=` no .env) conta como não definida. */
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
-/** Chave de desenvolvimento do .env.example (pública: recusada em produção). */
 export const DEV_MFA_KEY = "cHJlc2VuY2EtZGV2LW1mYS1uYW8tdXNlLWVtLXByb2Q=";
 
 const optionalString = z.preprocess(emptyToUndefined, z.string().min(1).optional());
@@ -64,29 +56,18 @@ const envSchema = z
     LOG_LEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
       .default("info"),
-    /** Publica /openapi.json. Padrão: ligado fora de produção. */
     OPENAPI_ENABLED: optionalBool,
     APP_VERSION: z.string().default("dev"),
-    /** Rastreamento de erros (Sentry). Vazio = desligado. */
     SENTRY_DSN: optionalString,
 
-    // ---- E-mail ----
-    /**
-     * smtp (Mailpit em desenvolvimento), resend, relay (repasse pelo app web, para o Render gratuito,
-     * que bloqueia SMTP) ou log (só imprime; nunca em produção).
-     */
     MAIL_TRANSPORT: z.enum(["smtp", "resend", "relay", "log"]).default("log"),
     MAIL_FROM: z.string().min(3).default("Monitor de Presenças <nao-responda@presenca.local>"),
-    /** Para onde vão as sugestões e os problemas enviados pela página Conta. Vazio = desligado. */
     FEEDBACK_TO: z.preprocess(emptyToUndefined, z.email().optional()),
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
 
-    // ---- Web Push (opcional: sem a chave, o app não oferece push) ----
-    /** Chave pública VAPID (a privada fica só no worker). Gerar: `npx web-push generate-vapid-keys`. */
     VAPID_PUBLIC_KEY: optionalString,
 
-    // ---- Login com Google (opcional: sem as duas variáveis, o botão some) ----
     GOOGLE_CLIENT_ID: optionalString,
     GOOGLE_CLIENT_SECRET: optionalString,
 
@@ -105,11 +86,6 @@ const envSchema = z
         .optional(),
     ),
 
-    /**
-     * Chave (32 bytes em base64) que cifra o link .ics e a chave do Moodle em repouso. A mesma no
-     * worker. Vazia: a integração com o Moodle fica desligada (a tela explica). Gerar:
-     * `openssl rand -base64 32`. Trocar a chave obriga os alunos a conectar o Moodle de novo.
-     */
     INTEGRATION_ENCRYPTION_KEY: z.preprocess(
       emptyToUndefined,
       z
@@ -119,18 +95,9 @@ const envSchema = z
         })
         .optional(),
     ),
-    /**
-     * Chave da API do Google Gemini para o assistente de notas (aistudio.google.com → API key).
-     * Vazia: o assistente fica desligado e a tela usa só o editor manual.
-     */
     GEMINI_API_KEY: optionalString,
-    /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
     INTEGRATIONS_ALLOW_INSECURE_FETCH: optionalBool,
 
-    /**
-     * Recusa senhas que aparecem em vazamentos (Have I Been Pwned, por k-anonimato). Desligado por
-     * padrão desde 23/11/2026 (o dono preferiu aceitar senhas comuns); `true` liga de novo.
-     */
     HIBP_ENABLED: optionalBool,
 
     /**
@@ -202,18 +169,12 @@ const envSchema = z
     ...env,
     OPENAPI_ENABLED: env.OPENAPI_ENABLED ?? env.NODE_ENV !== "production",
     HIBP_ENABLED: env.HIBP_ENABLED ?? false,
-    /** Origem do app web, normalizada (sem barra final), para comparar com o cabeçalho Origin. */
     WEB_ORIGIN: new URL(env.WEB_ORIGIN).origin,
   }));
 
 export type Env = z.infer<typeof envSchema>;
 export const ENV = Symbol("ENV");
 
-/** Valida o ambiente na inicialização. A API não sobe com variável faltando ou inválida. */
-/**
- * Versão publicada. APP_VERSION manda; sem ela, o Render informa o commit do deploy em
- * RENDER_GIT_COMMIT (os 7 primeiros caracteres bastam); fora disso, "dev".
- */
 function resolveVersion(source: NodeJS.ProcessEnv): string | undefined {
   if (source.APP_VERSION) return source.APP_VERSION;
   const commit = source.RENDER_GIT_COMMIT?.trim();

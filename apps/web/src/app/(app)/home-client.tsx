@@ -30,12 +30,10 @@ export function LogoutButton({ variant = "secondary" }: { variant?: "secondary" 
           return;
         }
         setPending(true);
-        // Este aparelho para de receber os avisos desta conta (antes de a sessão acabar).
         void disablePushOnThisDevice()
           .catch(() => undefined)
           .then(() => api("/v1/auth/logout", { method: "POST" }))
           .catch(() => undefined)
-          // Páginas guardadas e fila offline têm dados desta conta: não ficam no aparelho.
           .then(() => clearOfflineData(offline.userId).catch(() => undefined))
           .then(() => {
             router.replace("/entrar");
@@ -85,7 +83,6 @@ export function VerifyEmailBanner({ email }: { email: string }) {
   );
 }
 
-/** Descreve o dispositivo pelo User-Agent, de forma simples e legível. */
 function describeDevice(userAgent: string | null): string {
   if (!userAgent) return "Dispositivo desconhecido";
   const os = /Android/i.test(userAgent)

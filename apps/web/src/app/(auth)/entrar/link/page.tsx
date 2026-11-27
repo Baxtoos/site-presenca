@@ -5,7 +5,6 @@ import { TextLink } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Link de acesso · Monitor de Presenças",
-  // A URL pode conter o token: nada de enviá-la como Referer para outros sites.
   referrer: "no-referrer",
 };
 

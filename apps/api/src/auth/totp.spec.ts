@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { base32Decode, base32Encode, otpauthUrl, totpCode, verifyTotp } from "./totp";
 
-// Vetores do RFC 6238 (apêndice B), segredo ASCII "12345678901234567890", SHA-1, 8 dígitos;
-// os 6 dígitos finais são o código de 6 dígitos.
 const RFC_SECRET = Buffer.from("12345678901234567890");
 
 describe("TOTP (RFC 6238)", () => {

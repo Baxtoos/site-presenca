@@ -17,10 +17,8 @@ export const users = app.table(
   "users",
   {
     id: pk(),
-    /** Sempre em minúsculas (garantido por check), o que dispensa a extensão citext. */
     email: text().notNull(),
     emailVerifiedAt: timestamp({ withTimezone: true }),
-    /** Argon2id. Null para contas só com Google ou magic link. */
     passwordHash: text(),
     fullName: text().notNull(),
     institution: text(),
@@ -90,7 +88,6 @@ export const authTokens = app.table(
   "auth_tokens",
   {
     id: pk(),
-    /** Null só para magic link e cadastro pendente (a conta ainda não existe). */
     userId: uuid().references(() => users.id, { onDelete: "cascade" }),
     email: text().notNull(),
     purpose: tokenPurpose().notNull(),
@@ -98,9 +95,7 @@ export const authTokens = app.table(
     createdAt: createdAt(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     usedAt: timestamp({ withTimezone: true }),
-    /** Cadastro pendente: nome informado no formulário. */
     pendingFullName: text(),
-    /** Cadastro pendente: hash Argon2id da senha. Apagado assim que o link é usado. */
     pendingPasswordHash: text(),
   },
   (t) => [
@@ -111,7 +106,6 @@ export const authTokens = app.table(
     check("auth_tokens_token_hash_len_chk", sql`octet_length(${t.tokenHash}) = 32`),
     check(
       "auth_tokens_user_required_chk",
-      // ::text: o valor novo do enum não pode ser citado na transação que o cria (migration 0009).
       sql`${t.userId} is not null or ${t.purpose}::text in ('magic_link', 'register')`,
     ),
   ],
@@ -127,11 +121,8 @@ export const userMfa = app.table(
     userId: uuid()
       .primaryKey()
       .references(() => users.id, { onDelete: "cascade" }),
-    /** iv (12 bytes) + tag (16) + segredo cifrado. */
     secretCiphertext: bytea().notNull(),
-    /** Null enquanto a ativação não foi confirmada com um código do app. */
     enabledAt: timestamp({ withTimezone: true }),
-    /** Último intervalo de 30 s aceito: o mesmo código não serve duas vezes. */
     lastUsedStep: bigint({ mode: "number" }),
     createdAt: createdAt(),
   },

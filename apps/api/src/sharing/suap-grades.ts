@@ -13,7 +13,6 @@ const {
 
 type NewLog = typeof notificationLogs.$inferInsert;
 
-/** Notas do boletim em pares (rótulo, nota), na ordem em que aparecem. */
 function entries(g: SuapGrades): [string, number | null][] {
   return [
     ...g.stages.map((s): [string, number | null] => [s.label, s.score]),
@@ -79,12 +78,6 @@ export async function applySuapScoresTx(
   return changed;
 }
 
-/**
- * Guarda as notas do boletim do SUAP na matéria e avisa "Nota nova" (no app, push e e-mail,
- * conforme as preferências) para cada nota que apareceu ou mudou desde a última sincronização.
- * Na primeira vez não avisa: seria um aviso por nota já conhecida. Sem notas no envio (favorito
- * antigo), não mexe em nada.
- */
 export async function saveSuapGradesTx(
   tx: Tx,
   input: {
@@ -105,7 +98,6 @@ export async function saveSuapGradesTx(
   await applySuapScoresTx(tx, input.subjectId, next, input.now);
   if (!previous) return 0;
 
-  // Notas guardadas antes da parte 2 não têm avaliações: o padrão vazio vale.
   const before = new Map(entries({ ...previous, assessments: previous.assessments ?? [] }));
   const posted = entries(next).filter(
     ([label, score]) => score !== null && before.get(label) !== score,
@@ -122,7 +114,6 @@ export async function saveSuapGradesTx(
       subjectName: input.subjectName,
       itemName: label,
       score: centi,
-      // Escala do curso: até 10 (ex.: 7,5) ou até 100 (ex.: 75).
       maxScore: score! <= 10 ? 1000 : 10000,
       source: "suap",
     };

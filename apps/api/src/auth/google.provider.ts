@@ -3,14 +3,12 @@ import { z } from "zod";
 import type { Env } from "../config/env";
 
 export interface GoogleProfile {
-  /** Identificador estável da conta Google (claim "sub"). */
   sub: string;
   email: string;
   emailVerified: boolean;
   name: string | null;
 }
 
-/** Fluxo OAuth 2.0 Authorization Code com PKCE. Interface própria para os testes simularem o Google. */
 export interface GoogleOAuth {
   authorizationUrl(state: string, codeVerifier: string): URL;
   exchange(code: string, codeVerifier: string): Promise<GoogleProfile>;
@@ -28,7 +26,6 @@ const idTokenClaims = z.object({
   name: z.string().optional(),
 });
 
-/** Endereço de retorno: passa pelo proxy /api do app web, no mesmo domínio do cookie. */
 export const googleRedirectUri = (env: Pick<Env, "WEB_ORIGIN">) =>
   `${env.WEB_ORIGIN}/api/v1/auth/google/callback`;
 
@@ -53,10 +50,6 @@ export class ArcticGoogleOAuth implements GoogleOAuth {
     return url;
   }
 
-  /**
-   * Troca o código pelo id_token direto no endpoint de token do Google (TLS), então a assinatura
-   * não precisa ser revalidada (OIDC Core 3.1.3.7). Ainda assim confere emissor, audiência e validade.
-   */
   async exchange(code: string, codeVerifier: string): Promise<GoogleProfile> {
     const tokens = await this.client.validateAuthorizationCode(code, codeVerifier);
     const claims = idTokenClaims.parse(decodeIdToken(tokens.idToken()));

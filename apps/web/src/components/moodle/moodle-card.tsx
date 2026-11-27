@@ -2,7 +2,6 @@ import { moodleStatusSchema } from "@presenca/contracts";
 import { ButtonLink, SectionTitle } from "@/components/ui";
 import { apiGet } from "@/lib/api-server";
 
-/** Cartão na página Conta: estado do Moodle e o caminho para conectar ou gerenciar. */
 export async function MoodleCard() {
   const status = await apiGet("/v1/moodle", moodleStatusSchema).catch(() => null);
   if (!status?.available) return null;

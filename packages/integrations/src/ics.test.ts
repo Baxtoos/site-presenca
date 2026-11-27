@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { IcsError, parseIcs } from "./ics";
 import { cleanMoodleTitle, deadlinesFromIcs } from "./moodle";
 
-// Formato do "Exportar calendário" do Moodle 4.x (anonimizado), com linha dobrada e escapes.
 const MOODLE_ICS = [
   "BEGIN:VCALENDAR",
   "METHOD:PUBLISH",

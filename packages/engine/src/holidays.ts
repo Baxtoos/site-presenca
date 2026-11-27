@@ -1,19 +1,12 @@
 import { addDays, type IsoDate } from "./calendar";
 
-/**
- * Feriados nacionais do Brasil (Lei 662/1949, Lei 6.802/1980 e Lei 14.759/2023) e os pontos
- * facultativos que costumam parar as aulas. Sem feriados estaduais e municipais: esses o aluno
- * cadastra à mão, como os recessos da faculdade.
- */
 export interface Holiday {
   startsOn: IsoDate;
   endsOn: IsoDate;
   label: string;
-  /** Ponto facultativo (Carnaval, Corpus Christi): cada faculdade decide se tem aula. */
   optional: boolean;
 }
 
-/** Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher, calendário gregoriano). */
 export function easterSunday(year: number): IsoDate {
   const a = year % 19;
   const b = Math.floor(year / 100);
@@ -39,7 +32,6 @@ const single = (date: IsoDate, label: string, optional = false): Holiday => ({
   optional,
 });
 
-/** Feriados nacionais e pontos facultativos de um ano, em ordem de data. */
 export function brazilHolidays(year: number): Holiday[] {
   const y = String(year);
   const easter = easterSunday(year);
@@ -65,7 +57,6 @@ export function brazilHolidays(year: number): Holiday[] {
   return list.sort((p, q) => p.startsOn.localeCompare(q.startsOn));
 }
 
-/** Feriados que caem (ao menos em parte) entre `from` e `to`, inclusive. */
 export function brazilHolidaysBetween(from: IsoDate, to: IsoDate): Holiday[] {
   const first = Number(from.slice(0, 4));
   const last = Number(to.slice(0, 4));

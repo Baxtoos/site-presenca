@@ -31,10 +31,6 @@ type Mark = { status: AttendanceStatusKey; unitsMissed?: number };
 
 const keyOf = (c: TodayClass) => c.scheduleId ?? `extra-${c.record?.id}`;
 
-/**
- * POST idempotente: se a rede cair no meio, repete UMA vez com a mesma chave (o servidor não
- * duplica). Se ainda assim falhar, a mesma chave vai para a fila offline.
- */
 async function createOnce(body: Record<string, unknown>, key: string): Promise<AttendanceResult> {
   const send = () =>
     api<AttendanceResult>("/v1/attendance", { method: "POST", body, idempotencyKey: key });
@@ -47,15 +43,12 @@ async function createOnce(body: Record<string, unknown>, key: string): Promise<A
 }
 
 const noopSubscribe = () => () => {};
-/** Data de hoje no relógio do aparelho (só para notar uma cópia offline de outro dia). */
 const deviceToday = () => new Intl.DateTimeFormat("en-CA").format(new Date());
 
 function vibrate() {
   try {
     navigator.vibrate?.(15);
-  } catch {
-    // Alguns navegadores bloqueiam vibração sem gesto recente; não é essencial.
-  }
+  } catch {}
 }
 
 function successMessage(mark: Mark, subject: string) {
@@ -73,11 +66,6 @@ function successMessage(mark: Mark, subject: string) {
   }
 }
 
-/**
- * As aulas de um dia, com marcação de um toque. Cada ação mostra um aviso com "Desfazer".
- * O estado local é atualizado com a resposta da API (o resumo vem recalculado pelo motor) e a página
- * é revalidada no fundo para os cards da home acompanharem.
- */
 export function TodayPanel({ data, compact = false }: { data: TodayResponse; compact?: boolean }) {
   const router = useRouter();
   const toast = useToast();
@@ -89,14 +77,12 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
   const offline = useOffline();
   const today = useSyncExternalStore(noopSubscribe, deviceToday, () => data.date);
 
-  /** Marcação desta aula guardada no aparelho, esperando a internet. */
   const pendingFor = (c: TodayClass) =>
     offline.pending.find(
       (p) =>
         p.subjectId === c.subject.id && p.scheduleId === c.scheduleId && p.classDate === data.date,
     );
 
-  // Dados novos do servidor (router.refresh ou outro dia): recomeça a partir deles.
   if (source !== data) {
     setSource(data);
     setClasses(data.classes);
@@ -111,7 +97,6 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     setClasses((all) =>
       all.map((c) => {
         if (c.subject.id !== subjectId) return c;
-        // O resumo vale para todas as aulas da matéria no dia; o registro, só para esta.
         return keyOf(c) === key ? { ...c, record, summary } : { ...c, summary };
       }),
     );
@@ -138,7 +123,6 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     setBusy(key);
     setPicking(undefined);
 
-    // Já está na fila (sem internet): só troca o que vai ser enviado.
     const queued = previous ? undefined : pendingFor(c);
     if (queued) {
       try {
@@ -193,7 +177,6 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     }
   }
 
-  /** Sem internet: guarda no aparelho com a MESMA chave da tentativa (se ela chegou, não duplica). */
   async function queueOffline(c: TodayClass, next: Mark, idempotencyKey: string) {
     try {
       await offline.enqueue({
@@ -220,7 +203,6 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     }
   }
 
-  /** Volta ao que era: apaga o registro novo ou restaura os campos do anterior. */
   async function undo(
     subjectId: string,
     key: string,
@@ -257,7 +239,6 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
     }
   }
 
-  // Cópia offline de outro dia (o app abriu sem internet num dia seguinte).
   const stale =
     data.isToday && today !== data.date ? (
       <p className="rounded-lg border border-warn/40 bg-warn-soft px-3 py-2 text-sm" role="status">
@@ -361,7 +342,6 @@ export function TodayPanel({ data, compact = false }: { data: TodayResponse; com
                             title={STATUS_HINT[s]}
                             onClick={() => {
                               if (s !== "partial") return void mark(c, { status: s });
-                              // Com 2 tempos, parcial só pode ser 1; com mais, pergunta quantos.
                               if (c.units === 2)
                                 return void mark(c, { status: "partial", unitsMissed: 1 });
                               setPicking(picking === key ? undefined : key);

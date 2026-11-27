@@ -7,41 +7,25 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     WORKER_DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "precisa ser uma URL postgres://"),
-    /**
-     * loop: processo contínuo (escuta o outbox e varre a cada WORKER_POLL_INTERVAL_MS).
-     * once: roda um ciclo e sai, para ser disparado por um agendador (hospedagem gratuita, sem
-     * processo sempre ligado). Nesse modo os avisos chegam no próximo disparo, não na hora.
-     */
     WORKER_MODE: z.enum(["loop", "once"]).default("loop"),
-    /** Varredura de segurança do outbox (o NOTIFY acorda o worker antes disso). */
     WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(1_000).default(30_000),
-    /** Endereço do app, para os links dos e-mails e dos pushes. */
     WEB_ORIGIN: z.url().transform((v) => v.replace(/\/+$/, "")),
 
-    // ---- E-mail (mesmas variáveis da API) ----
     MAIL_TRANSPORT: z.enum(["smtp", "resend", "log"]).default("log"),
     MAIL_FROM: z.string().min(3).default("Monitor de Presenças <nao-responda@presenca.local>"),
     SMTP_URL: optionalString,
     RESEND_API_KEY: optionalString,
 
-    /**
-     * Chave (32 bytes em base64) que abre as credenciais do Moodle. A mesma da API. Vazia = a
-     * sincronização com o Moodle fica desligada.
-     */
     INTEGRATION_ENCRYPTION_KEY: optionalString,
-    /** Só para testes: deixa buscar .ics em http e em endereço local (servidor falso). */
     INTEGRATIONS_ALLOW_INSECURE_FETCH: z
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
 
-    /** Rastreamento de erros (Sentry). Vazio = desligado. */
     SENTRY_DSN: optionalString,
 
-    // ---- Web Push (opcional: sem as chaves, os pushes ficam como "pulados") ----
     VAPID_PUBLIC_KEY: optionalString,
     VAPID_PRIVATE_KEY: optionalString,
-    /** Contato do remetente exigido pelo protocolo: mailto: ou https:. */
     VAPID_SUBJECT: z.preprocess(
       emptyToUndefined,
       z

@@ -15,8 +15,6 @@ export function ResetPasswordForm({ token }: { token: string }) {
   const [error, setError] = useState<{ message: string; tokenInvalid: boolean }>();
   const [fieldError, setFieldError] = useState<string>();
 
-  // Tira o token do histórico (o formulário já o tem em memória). Usa o caminho do roteador:
-  // a barra é mascarada (lib/url-mask.ts) e window.location mostraria só "/".
   useEffect(() => {
     window.history.replaceState(null, "", pathname);
   }, [pathname]);

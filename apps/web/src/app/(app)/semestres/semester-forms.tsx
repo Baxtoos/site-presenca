@@ -8,7 +8,6 @@ import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 import { addHolidays, missingHolidays } from "@/lib/holidays";
 
-/** Sugere o rótulo e as datas do semestre corrente (1º: fev–jul, 2º: ago–dez). */
 function suggestion() {
   const now = new Date();
   const year = now.getFullYear();
@@ -42,7 +41,6 @@ export function CreateSemesterForm({ makeCurrentByDefault }: { makeCurrentByDefa
         },
       });
       if (form.get("feriados") === "on") {
-        // Só os feriados de fato; pontos facultativos ficam para o aluno marcar na página.
         await addHolidays(
           created.id,
           missingHolidays(created, []).filter((h) => !h.optional),
@@ -118,7 +116,6 @@ export function CreateSemesterForm({ makeCurrentByDefault }: { makeCurrentByDefa
   );
 }
 
-/** Marcar como atual, arquivar/desarquivar e apagar (com confirmação na própria tela). */
 export function SemesterActions({ semester }: { semester: Semester }) {
   const router = useRouter();
   const [pending, setPending] = useState<string>();

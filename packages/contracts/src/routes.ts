@@ -52,7 +52,6 @@ export const routes = {
     },
   },
 
-  // ---- Autenticação ----
   register: {
     method: "POST",
     path: "/v1/auth/register",
@@ -206,7 +205,6 @@ export const routes = {
     responses: { 302: { description: "Redireciona para o app (com ?erro= em caso de falha)" } },
   },
 
-  // ---- Perfil e sessões ----
   me: {
     method: "GET",
     path: "/v1/me",
@@ -367,16 +365,12 @@ export const routes = {
     },
   },
 
-  // ---- Semestres, matérias, grade e feriados ----
   ...academicRoutes,
 
-  // ---- Presença, aulas de hoje e simulador ----
   ...attendanceRoutes,
 
-  // ---- Notificações, preferências e push ----
   ...notificationRoutes,
 
-  // ---- Compartilhamento de grades ----
   ...sharingRoutes,
   ...taskRoutes,
   ...moodleRoutes,

@@ -10,11 +10,6 @@ import { api, ApiError } from "@/lib/api-client";
 const gradeText = (g: number | null, max: number) =>
   g === null ? `sem nota (de ${max})` : `${String(g).replace(".", ",")} de ${max}`;
 
-/**
- * Liga as avaliações da matéria aos itens do livro de notas do Moodle. Ligada e sem nota sua, a
- * avaliação passa a seguir o Moodle (o worker traz as notas novas e avisa); nota lançada por você
- * continua sua.
- */
 export function MoodleLinks({
   subjectId,
   items,
@@ -49,7 +44,6 @@ export function MoodleLinks({
 
   async function save() {
     if (!data) return;
-    // Cada avaliação liga a um item só; a que ficar sem item é desligada.
     const byEvaluation = new Map<string, string | null>(
       items.filter((i) => i.externalGradeItemId).map((i) => [i.id, null]),
     );
@@ -145,7 +139,6 @@ export function MoodleLinks({
   );
 }
 
-/** Avaliações do Moodle como ponto de partida da regra (o aluno confere pesos e fórmula). */
 export async function moodleDraftItems(subjectId: string, scale: number) {
   const res = await api<MoodleGrades>(`/v1/subjects/${subjectId}/moodle-grades`);
   if (!res.available) return { reason: res.reason ?? "Moodle indisponível.", items: [] };

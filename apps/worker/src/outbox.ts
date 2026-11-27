@@ -1,7 +1,6 @@
 import type { Pool } from "pg";
 import { MAX_ATTEMPTS } from "./time";
 
-/** Uma linha de `notification_logs` reservada para envio. */
 export interface OutboxItem {
   id: string;
   userId: string;
@@ -14,14 +13,8 @@ export interface OutboxItem {
   payload: unknown;
 }
 
-/** Quanto tempo uma reserva vale. Se o worker cair no meio, outro pega de volta depois disso. */
 export const LEASE = "5 minutes";
 
-/**
- * Reserva até `limit` envios vencidos. `SKIP LOCKED` deixa vários workers dividirem a fila sem
- * pegar a mesma linha; o prazo (`scheduled_for` adiantado) devolve à fila o que ficou preso em
- * "sending" por um worker que morreu.
- */
 export async function claim(pool: Pool, limit: number): Promise<OutboxItem[]> {
   const { rows } = await pool.query<OutboxItem>(
     `with due as (
@@ -63,7 +56,6 @@ export async function markSkipped(pool: Pool, id: string, reason: string): Promi
   );
 }
 
-/** Falhou: tenta de novo mais tarde (ou desiste, se já esgotou as tentativas). */
 export async function markFailed(
   pool: Pool,
   id: string,
@@ -79,7 +71,6 @@ export async function markFailed(
   );
 }
 
-/** Adia sem gastar tentativa (horário silencioso do aluno). */
 export async function postpone(pool: Pool, id: string, until: Date): Promise<void> {
   await pool.query(
     `update app.notification_logs
@@ -89,10 +80,6 @@ export async function postpone(pool: Pool, id: string, until: Date): Promise<voi
   );
 }
 
-/**
- * Reservas vencidas que já gastaram todas as tentativas não voltariam nunca para a fila:
- * fecha como falha definitiva, para o histórico mostrar o que houve.
- */
 export async function closeExhausted(pool: Pool): Promise<number> {
   const { rowCount } = await pool.query(
     `update app.notification_logs

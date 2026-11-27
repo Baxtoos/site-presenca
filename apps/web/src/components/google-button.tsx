@@ -1,7 +1,3 @@
-/**
- * Entrar ou criar conta com o Google. Navegação de página inteira: o fluxo OAuth passa pelo Google
- * e volta pela API (/api/v1/auth/google/callback). Quem ainda não tem conta ganha uma na hora.
- */
 export function GoogleButton({ label }: { label: string }) {
   return (
     <a

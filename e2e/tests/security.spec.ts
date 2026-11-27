@@ -1,10 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { setupStudentWithClassToday } from "./setup-helpers";
 
-/**
- * Content-Security-Policy com nonce (apps/web/src/lib/csp.ts): sem 'unsafe-inline' em scripts,
- * um nonce novo a cada resposta e nenhum script do próprio app bloqueado pela política.
- */
 test("CSP com nonce: nada do app é bloqueado e o nonce muda a cada página", async ({
   page,
 }, testInfo) => {
@@ -30,7 +26,6 @@ test("CSP com nonce: nada do app é bloqueado e o nonce muda a cada página", as
   const nonceOf = (p: string) => /'nonce-([^']+)'/.exec(p)?.[1];
   expect(nonceOf(second?.headers()["content-security-policy"] ?? "")).not.toBe(nonceOf(policy));
 
-  // Uso normal: cadastro, semestre, matéria, calendário, tema e máscara da barra.
   await setupStudentWithClassToday(page, testInfo, {
     name: "Sofia Segura",
     slug: "csp",

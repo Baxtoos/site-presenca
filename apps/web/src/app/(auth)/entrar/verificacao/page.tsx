@@ -7,7 +7,6 @@ import { MfaForm } from "./mfa-form";
 
 export const metadata: Metadata = { title: "Verificação em duas etapas · Monitor de Presenças" };
 
-/** Segundo passo do login para quem ligou o segundo fator (o desafio está num cookie). */
 export default async function MfaPage({
   searchParams,
 }: {

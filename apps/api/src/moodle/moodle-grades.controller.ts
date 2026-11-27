@@ -9,7 +9,6 @@ import { ZodPipe } from "../common/zod.pipe";
 import { RateLimit } from "../rate-limit/rate-limit";
 import { MoodleService } from "./moodle.service";
 
-/** Notas do Moodle por matéria: cada chamada lê o livro de notas ao vivo (com limite). */
 @Controller("v1/subjects")
 export class MoodleGradesController {
   constructor(private readonly moodle: MoodleService) {}

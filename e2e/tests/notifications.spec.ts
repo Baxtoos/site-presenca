@@ -2,10 +2,6 @@ import { expect, test } from "@playwright/test";
 import { waitForEmail } from "./mailpit";
 import { setupStudentWithClassToday, uniqueEmail } from "./setup-helpers";
 
-/**
- * Alerta de faltas de ponta a ponta: a API grava o aviso junto com a falta, a central mostra na hora
- * e o worker (acordado pelo NOTIFY) entrega o e-mail no Mailpit.
- */
 test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
   page,
 }, testInfo) => {
@@ -18,8 +14,6 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
     email,
   });
 
-  // O cadastro confirmou o e-mail: os alertas vão por e-mail.
-  // Limite fixo de 4 tempos: uma falta (2 tempos) = 50%.
   await page.goto("/");
   await page
     .getByRole("region", { name: "Suas matérias" })
@@ -42,7 +36,6 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
   await expect(page.getByText("Falta registrada em Química.")).toBeVisible();
   await expect(sino).toHaveAttribute("aria-label", "Avisos, 1 não lido");
 
-  // Central de avisos.
   await sino.click();
   await expect(page.getByRole("heading", { name: "Avisos", exact: true })).toBeVisible();
   const aviso = page.getByTestId("aviso").first();
@@ -51,12 +44,10 @@ test("falta que cruza 50% do limite: sino, central de avisos e e-mail", async ({
     "Você tem 2 de 4 faltas. Ainda pode faltar 2 aulas (cerca de 1 dia).",
   );
 
-  // E-mail entregue pelo worker, com o mesmo texto.
   const alert = await waitForEmail(email, "Química: 50% do limite de faltas", startedAt);
   expect(alert.text).toContain("Ainda pode faltar 2 aulas");
   expect(alert.text).toContain("/materias/");
 
-  // Abrir o aviso marca como lido e leva à matéria.
   await aviso.click();
   await expect(page.getByRole("heading", { name: "Posso faltar?" })).toBeVisible();
   await expect(sino).toHaveAttribute("aria-label", "Avisos");
@@ -73,7 +64,6 @@ test("preferências de aviso: salvar e continuar salvas ao voltar", async ({ pag
   await page.getByRole("link", { name: "Conta" }).click();
   const form = page.getByRole("form", { name: "Avisos" });
   await expect(form).toBeVisible();
-  // O cadastro já confirmou o e-mail: nada de aviso de e-mail pendente.
   await expect(form).not.toContainText("Confirme seu e-mail");
 
   await form.getByRole("checkbox", { name: "50%" }).uncheck();

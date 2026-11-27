@@ -1,10 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
 
-/**
- * Roda contra o app já no ar (web + API + Postgres + Redis + Mailpit):
- *   pnpm infra:up && pnpm db:migrate && pnpm dev     (ou os builds de produção, como no CI)
- *   pnpm test:e2e
- */
 export default defineConfig({
   testDir: "./tests",
   globalSetup: "./global-setup.ts",

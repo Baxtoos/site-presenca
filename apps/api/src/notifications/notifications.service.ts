@@ -36,7 +36,6 @@ const DEFAULT_PREFS = {
 
 const hhmm = (t: string | null) => (t === null ? null : t.slice(0, 5));
 
-/** Avisos que aparecem na central: canal in-app já entregue. */
 const inInbox = and(eq(notificationLogs.channel, "in_app"), eq(notificationLogs.status, "sent"));
 
 function encodeCursor(createdAt: Date, id: string) {
@@ -56,8 +55,6 @@ export class NotificationsService {
     private readonly db: DbService,
     @Inject(ENV) private readonly env: Env,
   ) {}
-
-  // ---------------------------------------------------------------- central
 
   list(limit: number, cursor?: string): Promise<NotificationList> {
     return this.db.tx(async (tx) => {
@@ -135,7 +132,6 @@ export class NotificationsService {
     return row?.n ?? 0;
   }
 
-  /** Aviso de teste: confere de ponta a ponta se o push deste aparelho chega. */
   test(userId: string): Promise<UnreadCount> {
     return this.db.tx(async (tx) => {
       const [recent] = await tx
@@ -172,8 +168,6 @@ export class NotificationsService {
       return { unreadCount: await this.unread(tx) };
     });
   }
-
-  // ---------------------------------------------------------------- preferências
 
   getPreferences(): Promise<NotificationPreferences> {
     return this.db.tx((tx) => this.loadPreferences(tx));
@@ -224,8 +218,6 @@ export class NotificationsService {
     };
   }
 
-  // ---------------------------------------------------------------- push
-
   async subscribePush(
     userId: string,
     body: PushSubscriptionBody,
@@ -249,7 +241,6 @@ export class NotificationsService {
           .insert(pushSubscriptions)
           .values({ userId, endpoint: body.endpoint, ...values })
           .onConflictDoUpdate({ target: pushSubscriptions.endpoint, set: values });
-        // Registrar um aparelho liga o canal (é o que a pessoa quis ao tocar em "ativar").
         await tx
           .insert(notificationPreferences)
           .values({ userId, pushEnabled: true })
@@ -261,7 +252,6 @@ export class NotificationsService {
         return { pushDevices: devices?.n ?? 0 };
       });
     } catch (error) {
-      // O endereço existe, mas é de outra conta (o RLS esconde a linha e recusa o UPDATE).
       if (isRlsOrUniqueViolation(error)) {
         throw new ConflictException({
           code: NotificationErrorCode.pushEndpointInUse,
@@ -285,7 +275,6 @@ function isRlsOrUniqueViolation(error: unknown): boolean {
   let current: unknown = error;
   for (let depth = 0; current && depth < 3; depth++) {
     const code = (current as { code?: string }).code;
-    // 23505 = unique_violation; 42501 = insufficient_privilege (política de RLS).
     if (code === "23505" || code === "42501") return true;
     current = (current as { cause?: unknown }).cause;
   }

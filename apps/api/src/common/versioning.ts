@@ -9,11 +9,6 @@ import {
 import { AcademicErrorCode } from "@presenca/contracts";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-/**
- * Lê a versão esperada do cabeçalho If-Match ("3", W/"3" ou 3).
- * Sem o cabeçalho: 428. Edição sem versão poderia sobrescrever às cegas o que outro
- * dispositivo acabou de gravar.
- */
 export function parseIfMatch(header: string | undefined): number {
   if (header === undefined || header.trim() === "") {
     throw new HttpException(
@@ -31,7 +26,6 @@ export function parseIfMatch(header: string | undefined): number {
   return Number(match[1]);
 }
 
-/** Injeta a versão do If-Match no handler. */
 export const IfMatchVersion = createParamDecorator((_data: unknown, ctx: ExecutionContext) =>
   parseIfMatch(ctx.switchToHttp().getRequest<FastifyRequest>().headers["if-match"]),
 );
@@ -40,7 +34,6 @@ export function setEtag(reply: FastifyReply, version: number): void {
   void reply.header("etag", `"${version}"`);
 }
 
-/** Outro dispositivo alterou o recurso depois que ele foi lido. */
 export function versionMismatch(): HttpException {
   return new HttpException(
     {
@@ -51,10 +44,6 @@ export function versionMismatch(): HttpException {
   );
 }
 
-/**
- * Resolve o resultado de um UPDATE/DELETE condicional ("... WHERE id = $1 AND version = $2").
- * Nenhuma linha afetada pode ser versão velha (412) ou recurso inexistente/de outra pessoa (404).
- */
 export async function assertVersioned<T>(
   rows: T[],
   exists: () => Promise<boolean>,

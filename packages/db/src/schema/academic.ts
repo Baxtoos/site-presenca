@@ -34,7 +34,6 @@ export const semesters = app.table(
     updatedAt: updatedAt(),
   },
   (t) => [
-    // Alvo das FKs compostas: garante que filhos pertencem ao mesmo dono.
     unique("semesters_id_user_key").on(t.id, t.userId),
     unique("semesters_user_label_key").on(t.userId, t.label),
     uniqueIndex("semesters_one_current_idx")
@@ -61,14 +60,12 @@ export const subjects = app.table(
     workloadHours: numeric({ precision: 6, scale: 2 }),
     workloadHourMinutes: smallint(),
     unitMinutes: smallint(),
-    /** Presença mínima em centésimos de ponto percentual (7500 = 75%). */
     minAttendanceBp: smallint().notNull().default(7500),
     manualMaxUnits: smallint(),
     excusedPolicy: excusedPolicy().notNull().default("track_only"),
     /** Referência informativa ao modelo importado (FK criada na migration de segurança). */
     sourceTemplateId: uuid(),
     archivedAt: timestamp({ withTimezone: true }),
-    /** Notas oficiais do boletim do SUAP (favorito "Enviar para o Monitor") e quando vieram. */
     suapGrades: jsonb(),
     suapGradesAt: timestamp({ withTimezone: true }),
     version: version(),
@@ -90,7 +87,6 @@ export const subjects = app.table(
     check("subjects_name_chk", sql`char_length(${t.name}) between 1 and 120`),
     check("subjects_units_per_class_chk", sql`${t.unitsPerClass} between 1 and 6`),
     check("subjects_min_attendance_chk", sql`${t.minAttendanceBp} between 0 and 10000`),
-    // coalesce(…, false): com campo NULL a expressão daria NULL, e CHECK aceita NULL.
     check(
       "subjects_mode_fields_chk",
       sql`coalesce(case ${t.countingMode}
@@ -110,11 +106,9 @@ export const subjectSchedules = app.table(
     id: pk(),
     userId: ownerId(),
     subjectId: uuid().notNull(),
-    /** 1 = segunda … 7 = domingo (ISO 8601). */
     weekday: smallint().notNull(),
     startsAt: time().notNull(),
     endsAt: time().notNull(),
-    /** Tempos de chamada deste encontro (aulas geminadas). */
     units: smallint().notNull().default(1),
     room: text(),
     building: text(),

@@ -98,8 +98,6 @@ export class SemestersController {
     await this.semesters.remove(id, version);
   }
 
-  // ---- matérias do semestre ----
-
   @Get(":id/subjects")
   async listSubjects(@Param(idPipe) { id }: IdParams): Promise<SubjectsResponse> {
     return { subjects: await this.subjects.list(id) };
@@ -115,8 +113,6 @@ export class SemestersController {
     setEtag(reply, subject.version);
     return subject;
   }
-
-  // ---- feriados e exceções ----
 
   @Get(":id/exceptions")
   async listExceptions(@Param(idPipe) { id }: IdParams): Promise<ExceptionsResponse> {
@@ -138,8 +134,6 @@ export class SemestersController {
   ): Promise<void> {
     await this.exceptions.remove(params.id, params.exceptionId);
   }
-
-  // ---- exportação Excel (.xlsx) ----
 
   @Get(":id/export.xlsx")
   @RateLimit({ bucket: "export", by: "user", limit: 10, windowSeconds: 3600 })
@@ -188,8 +182,6 @@ export class SubjectsController {
   async remove(@Param(idPipe) { id }: IdParams, @IfMatchVersion() version: number): Promise<void> {
     await this.subjects.remove(id, version);
   }
-
-  // ---- grade ----
 
   @Post(":id/schedules")
   addSchedule(

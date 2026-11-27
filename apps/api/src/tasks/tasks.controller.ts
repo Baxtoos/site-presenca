@@ -30,7 +30,6 @@ import { TasksService } from "./tasks.service";
 
 const idPipe = new ZodPipe(taskParamsSchema);
 
-/** Tarefas e entregas do aluno logado (o RLS só deixa ver e mexer nas próprias). */
 @Controller("v1/tasks")
 export class TasksController {
   constructor(private readonly tasks: TasksService) {}
@@ -40,7 +39,6 @@ export class TasksController {
     return this.tasks.list(query);
   }
 
-  /** Exige Idempotency-Key: repetir a chamada devolve a mesma tarefa, sem criar outra. */
   @Post()
   @RateLimit({ bucket: "task-create", by: "user", limit: 60, windowSeconds: 3600 })
   async create(

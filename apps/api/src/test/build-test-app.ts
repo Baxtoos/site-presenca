@@ -12,14 +12,11 @@ import { type Env, loadEnv } from "../config/env";
 export const TEST_ORIGIN = "http://localhost:3000";
 
 interface Options {
-  /** Monta o AppModule completo (todas as rotas), em vez de só os controllers informados. */
   fullApp?: boolean;
   controllers?: Type[];
   providers?: Provider[];
   env?: Record<string, string>;
-  /** Troca providers do app completo (ex.: e-mail capturado, Google simulado). */
   override?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
-  /** Roda antes do init (ex.: registrar hooks que precisam ver as rotas sendo criadas). */
   beforeInit?: (fastify: FastifyInstance) => void;
 }
 
@@ -34,7 +31,6 @@ export function testEnv(extra: Record<string, string> = {}): Env {
   });
 }
 
-/** Monta a API com a mesma configuração HTTP da produção (configureApp). */
 export async function buildTestApp(options: Options = {}): Promise<NestFastifyApplication> {
   const env = testEnv(options.env);
   const logger = createLogger(env);

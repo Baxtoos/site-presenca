@@ -3,7 +3,6 @@ import { api } from "@/lib/api-client";
 import { clearOfflineData } from "@/lib/offline-cache";
 import { disablePushOnThisDevice } from "@/lib/push-client";
 
-/** Exclui a conta e limpa o que fica no aparelho (inscrição de push e cópia offline). */
 export async function deleteAccount(body: DeleteMeBody, userId: string): Promise<void> {
   await disablePushOnThisDevice().catch(() => undefined);
   await api("/v1/me", { method: "DELETE", body });

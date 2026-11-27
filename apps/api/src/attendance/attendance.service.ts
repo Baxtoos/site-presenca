@@ -50,14 +50,11 @@ export class AttendanceService {
     private readonly alerts: ThresholdAlerts,
   ) {}
 
-  /** Resumo recalculado e, na mesma transação, os alertas de marco que a mudança causou. */
   private async summarizeAndAlert(tx: Tx, subject: SubjectRow) {
     const summary = await loadSummary(tx, subject);
     await this.alerts.evaluate(tx, subject, summary);
     return summary;
   }
-
-  // ---------------------------------------------------------------- criar
 
   create(body: CreateAttendanceBody, key: string): Promise<IdempotentResult<AttendanceResult>> {
     return this.db.tx((tx) =>
@@ -134,7 +131,6 @@ export class AttendanceService {
       );
     }
 
-    // Já existe registro desta aula? Quem quer trocar o status edita o registro (PATCH).
     const scheduleFilter = body.scheduleId
       ? eq(attendanceLogs.scheduleId, body.scheduleId)
       : sql`${attendanceLogs.scheduleId} is null`;
@@ -186,8 +182,6 @@ export class AttendanceService {
     });
   }
 
-  // ---------------------------------------------------------------- editar
-
   update(
     id: string,
     expectedVersion: number,
@@ -203,7 +197,6 @@ export class AttendanceService {
       if (isExcused && !absence)
         throw fieldError("isExcused", "Só falta (total ou parcial) pode ser abonada.");
 
-      // Tempos perdidos: parcial usa o informado (ou o que já estava, se continua parcial).
       const partialMissed =
         body.unitsMissed ?? (current.status === "partial" ? current.unitsMissed : undefined);
       if (status === "partial") {
@@ -238,8 +231,6 @@ export class AttendanceService {
     });
   }
 
-  // ---------------------------------------------------------------- apagar
-
   remove(id: string, expectedVersion: number): Promise<AttendanceDeleted> {
     return this.db.tx(async (tx) => {
       const rows = await tx
@@ -262,8 +253,6 @@ export class AttendanceService {
     });
   }
 
-  // ---------------------------------------------------------------- histórico
-
   list(subjectId: string, query: AttendanceListQuery): Promise<AttendanceList> {
     return this.db.tx(async (tx) => {
       const [subject] = await tx
@@ -278,7 +267,6 @@ export class AttendanceService {
 
       const filters = [eq(attendanceLogs.subjectId, subjectId)];
       if (query.status) filters.push(eq(attendanceLogs.status, query.status));
-      // Comparação de tupla: tudo que vem DEPOIS do cursor na ordem (data desc, id desc).
       if (cursor) {
         filters.push(
           sql`(${attendanceLogs.classDate}, ${attendanceLogs.id}) < (${cursor.date}::date, ${cursor.id}::uuid)`,
@@ -302,16 +290,12 @@ export class AttendanceService {
     });
   }
 
-  // ---------------------------------------------------------------- internos
-
-  /** Hoje no fuso do aluno (o dia da aula é o dia local dele, não o do servidor). */
   private async todayFor(tx: Tx): Promise<string> {
     const [me] = await tx.select({ timezone: users.timezone }).from(users);
     return this.clock.todayIn(me?.timezone ?? "America/Sao_Paulo");
   }
 }
 
-// Cursor opaco: base64url de "AAAA-MM-DD|uuid". Opaco para o cliente, simples de validar aqui.
 const CURSOR =
   /^(\d{4}-\d{2}-\d{2})\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 

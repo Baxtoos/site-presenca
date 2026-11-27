@@ -20,7 +20,6 @@ const TABS = [
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Tarefas e entregas: pendentes agrupadas pelo prazo, com filtro por status e matéria. */
 export default async function TasksPage({
   searchParams,
 }: {
@@ -33,7 +32,6 @@ export default async function TasksPage({
   const query = new URLSearchParams({ limit: "100" });
   if (status !== "todas") query.set("status", status);
   if (materia) query.set("subjectId", materia);
-  // Resolvidas: as mais recentes primeiro; pendentes: o prazo mais perto primeiro.
   if (status === "completed" || status === "not_completed") query.set("order", "due_desc");
 
   const [{ tasks }, subjects] = await Promise.all([

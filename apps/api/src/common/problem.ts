@@ -2,7 +2,6 @@ import type { Problem } from "@presenca/contracts";
 
 export const PROBLEM_CONTENT_TYPE = "application/problem+json; charset=utf-8";
 
-/** Código estável e título em português para cada status HTTP usado pela API. */
 const BY_STATUS: Record<number, { code: string; title: string }> = {
   400: { code: "BAD_REQUEST", title: "Requisição malformada" },
   401: { code: "UNAUTHENTICATED", title: "Sessão ausente ou expirada" },

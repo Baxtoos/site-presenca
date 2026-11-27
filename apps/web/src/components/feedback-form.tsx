@@ -11,7 +11,6 @@ const KINDS = [
   { value: "outro", label: "Outro assunto" },
 ] as const;
 
-/** Sugestão ou problema: vai por e-mail para o responsável pelo app, que pode responder. */
 export function FeedbackForm() {
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);

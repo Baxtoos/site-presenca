@@ -3,10 +3,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
 
-/**
- * Erro ao montar uma página da área logada (ex.: a API fora do ar por um instante).
- * `retry()` busca os dados de novo e renderiza a página outra vez.
- */
 export default function AppError({ error, retry }: { error: unknown; retry: () => void }) {
   const [retrying, setRetrying] = useState(false);
   useEffect(() => {

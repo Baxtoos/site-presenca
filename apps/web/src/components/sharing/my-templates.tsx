@@ -14,7 +14,6 @@ const STATUS: Record<SharedTemplate["status"], { label: string; style: string }>
   exhausted: { label: "Esgotado", style: "bg-warn-soft text-warn" },
 };
 
-/** Códigos que você gerou: quantas pessoas importaram, validade, copiar e revogar. */
 export function MyTemplates({ templates }: { templates: SharedTemplate[] }) {
   const router = useRouter();
   const toast = useToast();

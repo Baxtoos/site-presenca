@@ -5,7 +5,6 @@ import { inArray } from "drizzle-orm";
 
 const { gradingSchemes, evaluationItems } = schema;
 
-/** Situação da nota de cada matéria que tem regra de cálculo (para os cards das matérias). */
 export async function gradeStatusesTx(
   tx: Tx,
   subjectIds: string[],
@@ -41,9 +40,7 @@ export async function gradeStatusesTx(
       }));
     try {
       out.set(s.subjectId, summarizeGrades(rules.data, engineItems).status);
-    } catch {
-      // Regra que o motor não consegue calcular: o card fica sem situação de nota.
-    }
+    } catch {}
   }
   return out;
 }

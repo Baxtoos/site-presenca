@@ -16,7 +16,6 @@ const KIND_STYLE: Record<NotificationItem["kind"], string> = {
   grade_posted: "bg-ok",
 };
 
-/** "há 5 min", "ontem, 21:00", "12/11, 19:30". */
 function when(iso: string): string {
   const date = new Date(iso);
   const diff = Date.now() - date.getTime();
@@ -31,7 +30,6 @@ function when(iso: string): string {
   return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}, ${time}`;
 }
 
-/** Central de avisos: lista, marcar como lido (ao abrir) e marcar todos. */
 export function Inbox({ initial }: { initial: NotificationList }) {
   const router = useRouter();
   const toast = useToast();
@@ -59,9 +57,7 @@ export function Inbox({ initial }: { initial: NotificationList }) {
       });
       setUnread(unreadCount);
       router.refresh();
-    } catch {
-      // Marcar como lido não é crítico; na próxima visita tenta de novo.
-    }
+    } catch {}
   }
 
   async function markAll() {

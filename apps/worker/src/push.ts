@@ -11,15 +11,12 @@ export interface PushMessage {
   title: string;
   body: string;
   url: string;
-  /** Avisos com a mesma tag se substituem na tela (ex.: o lembrete do dia). */
   tag: string;
-  /** Lembrete do dia: aulas para marcar pelos botões da notificação (service worker). */
   classes?: { subjectId: string; scheduleId: string; classDate: string; name: string }[];
 }
 
 export type PushOutcome =
   | { ok: true }
-  /** O aparelho cancelou a inscrição (404/410): apagar. */
   | { ok: false; gone: true; error: string }
   | { ok: false; gone: false; error: string };
 
@@ -28,7 +25,6 @@ export interface PushSender {
   send(target: PushTarget, message: PushMessage, urgent: boolean): Promise<PushOutcome>;
 }
 
-/** Web Push com VAPID (biblioteca web-push: criptografia do conteúdo e assinatura). */
 export class WebPushSender implements PushSender {
   readonly configured: boolean;
 
@@ -53,7 +49,6 @@ export class WebPushSender implements PushSender {
             publicKey: this.vapid.publicKey!,
             privateKey: this.vapid.privateKey!,
           },
-          // Um alerta de faltas que chega um dia depois ainda serve; uma semana depois, não.
           TTL: 24 * 60 * 60,
           urgency: urgent ? "high" : "normal",
           timeout: 10_000,

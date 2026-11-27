@@ -5,10 +5,6 @@ import { Alert, Button, Field } from "@/components/ui";
 import { api, ApiError } from "@/lib/api-client";
 import { formText } from "@/lib/form";
 
-/**
- * Pede um e-mail e chama uma rota que responde sempre igual (magic link, esqueci a senha).
- * A mensagem de sucesso não confirma se a conta existe.
- */
 export function EmailRequestForm({
   endpoint,
   submitLabel,
@@ -16,7 +12,6 @@ export function EmailRequestForm({
 }: {
   endpoint: "/v1/auth/magic-link" | "/v1/auth/password/forgot";
   submitLabel: string;
-  /** Texto de confirmação; "{email}" é trocado pelo endereço digitado. */
   sentMessage: string;
 }) {
   const [pending, setPending] = useState(false);

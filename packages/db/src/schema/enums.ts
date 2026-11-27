@@ -5,11 +5,8 @@ export const tokenPurpose = app.enum("token_purpose", [
   "verify_email",
   "reset_password",
   "magic_link",
-  /** Cadastro pendente: a conta só é criada quando a pessoa confirma o e-mail (migration 0009). */
   "register",
-  /** Exclusão de conta confirmada por e-mail, para quem não tem senha (migration 0009). */
   "delete_account",
-  /** Ligar o segundo fator em conta sem senha, confirmado por e-mail (migration 0010). */
   "mfa_enable",
 ]);
 
@@ -18,7 +15,6 @@ export const countingMode = app.enum("counting_mode", ["class_count", "workload"
 export const excusedPolicy = app.enum("excused_policy", ["track_only", "deduct"]);
 export const exceptionKind = app.enum("exception_kind", ["holiday", "no_classes", "exam_week"]);
 
-/** no_call: a aula aconteceu, mas o professor não fez chamada (conta como dada, sem falta). */
 export const attendanceStatus = app.enum("attendance_status", [
   "present",
   "absent",
@@ -54,9 +50,6 @@ export const notificationStatus = app.enum("notification_status", [
   "skipped",
 ]);
 
-/** Tarefas e entregas: pendente até o aluno marcar se concluiu ou não. */
 export const taskStatus = app.enum("task_status", ["pending", "completed", "not_completed"]);
-/** De onde veio a tarefa: digitada pelo aluno ou importada (Moodle). */
 export const taskSource = app.enum("task_source", ["manual", "moodle_ics", "moodle_api"]);
-/** Quem definiu o status: o aluno (sempre vence) ou a sincronização. */
 export const taskStatusSource = app.enum("task_status_source", ["user", "sync"]);

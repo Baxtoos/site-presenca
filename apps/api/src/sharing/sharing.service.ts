@@ -45,7 +45,6 @@ const {
   evaluationItems,
 } = schema;
 
-/** Códigos ativos por aluno: o bastante para compartilhar com várias turmas, pouco para abuso. */
 export const MAX_ACTIVE_TEMPLATES = 20;
 
 const notFound = () =>
@@ -55,7 +54,6 @@ const notFound = () =>
       "Código não encontrado. Ele pode ter expirado, sido revogado ou atingido o limite de usos.",
   });
 
-/** 8 caracteres Crockford base32. 256 é múltiplo de 32, então `byte % 32` não tem viés. */
 export function generateShareCode(): string {
   return Array.from(randomBytes(8), (b) => SHARE_CODE_ALPHABET[b % 32]).join("");
 }
@@ -64,8 +62,6 @@ type Payload =
   | { kind: "semester"; data: SemesterTemplatePayload }
   | { kind: "subject"; data: SubjectTemplatePayload };
 
-/** O payload guardado é revalidado sempre: um modelo antigo ou corrompido nunca vira dado do aluno. */
-/** Versão 2 = versão 1 + regra de cálculo da nota (os campos novos têm padrão vazio). */
 export const PAYLOAD_VERSION = 2;
 
 function parsePayload(kind: string, version: number, raw: unknown): Payload | null {
@@ -81,7 +77,6 @@ function parsePayload(kind: string, version: number, raw: unknown): Payload | nu
   return null;
 }
 
-/** Regra de cálculo de cada matéria, só regra e avaliações (sem notas, datas nem vínculos). */
 async function gradingsOf(tx: Tx, subjectIds: string[]): Promise<Map<string, TemplateGrading>> {
   const out = new Map<string, TemplateGrading>();
   if (subjectIds.length === 0) return out;
@@ -114,7 +109,6 @@ async function gradingsOf(tx: Tx, subjectIds: string[]): Promise<Map<string, Tem
   return out;
 }
 
-/** Aplica a regra do modelo na matéria importada (regra inválida para o motor é ignorada). */
 async function insertGrading(tx: Tx, subjectId: string, g: TemplateGrading): Promise<void> {
   if (validateGrading(g.rules, g.items).length > 0) return;
   await tx.insert(gradingSchemes).values({
@@ -147,8 +141,6 @@ export class SharingService {
     private readonly clock: ClockService,
   ) {}
 
-  // ---------------------------------------------------------------- criar, listar, revogar
-
   create(userId: string, body: CreateTemplateBody): Promise<SharedTemplate> {
     return this.db.tx(async (tx) => {
       const now = this.clock.now();
@@ -174,7 +166,6 @@ export class SharingService {
           : await this.subjectPayload(tx, body.source.subjectId);
 
       const expiresAt = new Date(now.getTime() + body.expiresInDays * 24 * 60 * 60 * 1000);
-      // Colisão de código é rara (32^8 ≈ 1 trilhão); se acontecer, tenta outro dentro de um savepoint.
       for (let attempt = 0; ; attempt++) {
         try {
           const [row] = await tx.transaction(async (sp) =>
@@ -237,7 +228,6 @@ export class SharingService {
         ),
       ),
       exceptions: exceptions
-        // Exceção de matéria arquivada (fora do modelo) não vai junto.
         .filter((e) => e.subjectId === null || index.has(e.subjectId))
         .map((e) => ({
           startsOn: e.startsOn,
@@ -272,7 +262,6 @@ export class SharingService {
     });
   }
 
-  /** Revogar é idempotente. Quem já importou continua com a cópia (ela é dele). */
   revoke(id: string): Promise<void> {
     return this.db.tx(async (tx) => {
       const [row] = await tx
@@ -288,8 +277,6 @@ export class SharingService {
       }
     });
   }
-
-  // ---------------------------------------------------------------- prévia (pública)
 
   async preview(code: string): Promise<TemplatePreview> {
     const { rows } = await this.db.unscoped.execute<{
@@ -323,8 +310,6 @@ export class SharingService {
     );
   }
 
-  // ---------------------------------------------------------------- importar
-
   import(
     userId: string,
     code: string,
@@ -345,8 +330,6 @@ export class SharingService {
     code: string,
     body: ImportTemplateBody,
   ): Promise<ImportTemplateResult> {
-    // Gasta um uso já na primeira linha. Tudo roda numa transação só: se qualquer passo abaixo
-    // falhar (semestre de destino errado, dado inválido), o uso volta e nada fica pela metade.
     const consumed = await tx.execute<{
       template_id: string;
       kind: string;
@@ -401,7 +384,6 @@ export class SharingService {
         label,
         startsOn: data.semester.startsOn,
         endsOn: data.semester.endsOn,
-        // Primeiro semestre do aluno já vira o atual; senão ele escolhe depois.
         isCurrent: !hasCurrent,
       })
       .returning({ id: semesters.id });

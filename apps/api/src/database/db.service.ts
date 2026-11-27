@@ -12,7 +12,6 @@ import { DB } from "./tokens";
 export class DbService {
   constructor(@Inject(DB) private readonly handle: DbHandle) {}
 
-  /** Transação como o usuário autenticado da requisição atual. */
   tx<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
     const ctx = requestContext.get();
     if (!ctx?.userId) {
@@ -21,7 +20,6 @@ export class DbService {
     return withUser(this.handle.db, { userId: ctx.userId, requestId: ctx.requestId }, fn);
   }
 
-  /** Transação como um usuário específico (ex.: no cadastro e no login, antes da sessão existir). */
   asUser<T>(userId: string, fn: (tx: Tx) => Promise<T>): Promise<T> {
     return withUser(this.handle.db, { userId, requestId: requestContext.get()?.requestId }, fn);
   }

@@ -90,7 +90,6 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
     const p2 = g.items.find((i) => i.key === "P2")!;
     expect(p2.task).toMatchObject({ title: "Prova 2", status: "pending" });
 
-    // A tarefa criada aparece no calendário, ligada à avaliação.
     const tasks = taskListSchema.parse((await ana.b.request("GET", "/v1/tasks")).json()).tasks;
     expect(tasks.map((t) => [t.title, t.dueLocal, t.evaluation?.name])).toEqual([
       ["Prova 2", { date: "2026-11-27", time: "23:59" }, "Prova 2"],
@@ -106,7 +105,6 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
     expect(scored.statusCode, scored.body).toBe(200);
     const after = subjectGradingSchema.parse(scored.json());
     expect(after.summary).toMatchObject({ guaranteed: 200, partial: 500, maxPossible: 800 });
-    // 0,4×5 + 0,6×x ≥ 6 → x ≥ 6,67 (sem arredondar para cima).
     expect(after.summary?.needed?.items).toEqual([
       { key: "P2", name: "Prova 2", needed: 667, maxScore: 1000 },
     ]);
@@ -148,7 +146,6 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
       evaluation: { score: 900 },
     });
 
-    // Sem completeTask a tarefa não muda (P1 não tem tarefa; apagar a nota da P2 não reabre).
     const cleared = await bia.b.request(
       "PATCH",
       `/v1/evaluation-items/${p2.id}`,
@@ -194,7 +191,6 @@ describe("Notas (/v1/subjects/:id/grading)", () => {
     ]);
     expect(overview.subjects[0]!.summary).toEqual(scored.summary);
     expect(overview.subjects[1]!.summary).toBeNull();
-    // Outra pessoa não vê as matérias desta.
     const other = await student();
     const theirs = gradesOverviewSchema.parse((await other.b.request("GET", "/v1/grades")).json());
     expect(theirs.subjects.every((s) => s.subjectId !== duda.calc.id)).toBe(true);
@@ -357,12 +353,10 @@ describe("Assistente de IA (/v1/subjects/:id/grading/assistant)", () => {
     expect(body).toMatchObject({ type: "scheme", remaining: 8 });
     expect(body.proposal.rules.passing).toBe(600);
     expect(body.proposal.items.map((i) => i.maxScore)).toEqual([1000, 1000]);
-    // Nada foi salvo: o aluno confere e salva pelo PUT.
     const g = subjectGradingSchema.parse(
       (await eva.b.request("GET", `/v1/subjects/${eva.calc.id}/grading`)).json(),
     );
     expect(g).toMatchObject({ scheme: null, assistantAvailable: true });
-    // A matéria e o limite de perguntas vão no pedido à IA.
     expect(env.ai.calls.at(-1)?.system).toContain("Matéria: Cálculo.");
     expect(env.ai.calls.at(-1)?.system).toContain(
       "Perguntas que ainda pode fazer nesta conversa: 8.",
@@ -411,10 +405,9 @@ describe("Assistente de IA (/v1/subjects/:id/grading/assistant)", () => {
     }
     let last: unknown;
     for (let i = 0; i < 10; i++) last = (await ask(gabi.b, gabi.calc.id, conv, ["Não sei"])).json();
-    // Na 10ª, sem perguntas restantes, a IA não pode mais perguntar: vai para o editor.
     expect(last).toMatchObject({ type: "fallback", reason: "limit" });
     const over = await ask(gabi.b, gabi.calc.id, conv, ["Não sei"]);
     expect(over.json()).toMatchObject({ type: "fallback", reason: "limit" });
-    expect(env.ai.queue).toHaveLength(0); // a 11ª nem chegou à IA
+    expect(env.ai.queue).toHaveLength(0);
   });
 });

@@ -12,11 +12,6 @@ import { requestContext } from "../common/request-context";
 import { IS_PUBLIC, REQUIRE_VERIFIED } from "./decorators";
 import { SESSION_COOKIE, SessionService } from "./session.service";
 
-/**
- * Guard global: toda rota exige sessão, a menos que seja marcada com @Public().
- * Resolve o cookie, preenche request.auth e o contexto da requisição (que identifica as
- * transações do banco) e renova a sessão quando necessário.
- */
 @Injectable()
 export class SessionGuard implements CanActivate {
   constructor(

@@ -13,7 +13,6 @@ export class BackgroundTasks {
   run(name: string, task: () => Promise<void>): void {
     const promise = task()
       .catch((error: unknown) => {
-        // Ex.: o envio do e-mail de recuperação falhou. A resposta já saiu; só o Sentry fica sabendo.
         reportError(error, { task: name });
         this.logger.error(
           `tarefa "${name}" falhou: ${error instanceof Error ? error.message : String(error)}`,
@@ -23,7 +22,6 @@ export class BackgroundTasks {
     this.pending.add(promise);
   }
 
-  /** Espera as tarefas em andamento (testes e desligamento gracioso). */
   async drain(): Promise<void> {
     while (this.pending.size > 0) await Promise.all([...this.pending]);
   }

@@ -30,7 +30,6 @@ const key = () => ({ "idempotency-key": randomUUID() });
 const ifMatch = (v: number) => ({ "if-match": `"${v}"` });
 const problem = (res: { json: () => unknown }) => problemSchema.parse(res.json());
 
-/** Aluno com uma matéria de limite fixo (10 tempos): 1 tempo = 10% do limite. */
 async function setup(opts: { verified?: boolean; maxUnits?: number } = {}) {
   const b = new Browser(env.app);
   const reg = await registerAndConfirm(env, b, {
@@ -40,8 +39,6 @@ async function setup(opts: { verified?: boolean; maxUnits?: number } = {}) {
   });
   expect(reg.statusCode).toBe(200);
   const userId = meResponseSchema.parse(reg.json()).id;
-  // A confirmação do cadastro já verifica o e-mail; "não verificado" só existe em contas
-  // antigas (criadas antes da confirmação obrigatória), simuladas aqui.
   if (opts.verified === false) {
     await env.db.admin.query("update app.users set email_verified_at = null where id = $1", [
       userId,
@@ -66,7 +63,6 @@ async function setup(opts: { verified?: boolean; maxUnits?: number } = {}) {
 }
 type Ctx = Awaited<ReturnType<typeof setup>>;
 
-/** Falta numa aula extra que vale `units` tempos (datas diferentes para não colidir). */
 let day = 0;
 async function miss(c: Ctx, units: number) {
   const classDate = `2026-09-${String((++day % 28) + 1).padStart(2, "0")}`;
@@ -105,7 +101,7 @@ describe("marcos de alerta", () => {
     const c = await setup();
     await miss(c, 4);
     expect(await logs(c.userId)).toEqual([]);
-    await miss(c, 1); // 5 de 10 = 50%
+    await miss(c, 1);
 
     expect(await logs(c.userId)).toEqual([
       expect.objectContaining({ channel: "email", status: "pending", threshold_pct: 50, cycle: 1 }),
@@ -126,7 +122,7 @@ describe("marcos de alerta", () => {
 
   it("apagar matéria ou semestre que já gerou alerta funciona e mantém o aviso no histórico", async () => {
     const c = await setup();
-    await miss(c, 5); // 50%
+    await miss(c, 5);
     const del = await c.b.request("DELETE", `/v1/subjects/${c.subject.id}`, undefined, {
       headers: { "if-match": `"${c.subject.version}"` },
     });
@@ -140,7 +136,6 @@ describe("marcos de alerta", () => {
       url: "/",
     });
 
-    // O mesmo pelo semestre (a matéria some em cascata).
     const d = await setup();
     await miss(d, 5);
     const sem = await d.b.request("DELETE", `/v1/semesters/${d.subject.semesterId}`, undefined, {
@@ -173,7 +168,7 @@ describe("marcos de alerta", () => {
 
   it("um salto que cruza vários marcos manda só o mais grave", async () => {
     const c = await setup({ maxUnits: 5 });
-    await miss(c, 4); // 0 → 80%
+    await miss(c, 4);
     const rows = await logs(c.userId);
     const sent = rows.filter((r) => r.status !== "skipped");
     expect(sent.map((r) => [r.channel, r.threshold_pct])).toEqual([
@@ -192,11 +187,10 @@ describe("marcos de alerta", () => {
 
   it("não repete o aviso enquanto continua acima; rearma ao apagar a falta e avisa de novo", async () => {
     const c = await setup();
-    const first = await miss(c, 6); // 60%
-    await miss(c, 1); // 70%: ainda abaixo de 75, 50 já avisado
+    const first = await miss(c, 6);
+    await miss(c, 1);
     expect((await inbox(c)).items).toHaveLength(1);
 
-    // Apaga a falta grande: volta a 10% e o 50% rearma.
     const del = await c.b.request("DELETE", `/v1/attendance/${first.record.id}`, undefined, {
       headers: ifMatch(first.record.version),
     });
@@ -207,7 +201,7 @@ describe("marcos de alerta", () => {
     );
     expect(state.rows[0]).toEqual({ armed: true, cycle: 1 });
 
-    await miss(c, 5); // 60% de novo → ciclo 2
+    await miss(c, 5);
     const titles = (await logs(c.userId))
       .filter((r) => r.channel === "in_app")
       .map((r) => r.dedupe_key);
@@ -234,7 +228,7 @@ describe("marcos de alerta", () => {
 
   it("mudar as regras da matéria (limite menor) cruza o marco sem falta nova", async () => {
     const c = await setup();
-    await miss(c, 4); // 40% de 10
+    await miss(c, 4);
     const put = await c.b.request(
       "PUT",
       `/v1/subjects/${c.subject.id}`,
@@ -242,13 +236,13 @@ describe("marcos de alerta", () => {
       { headers: ifMatch(c.subject.version) },
     );
     expect(put.statusCode, put.body).toBe(200);
-    expect((await inbox(c)).items[0]?.title).toBe("Física I: 75% do limite de faltas"); // 4/5 = 80%
+    expect((await inbox(c)).items[0]?.title).toBe("Física I: 75% do limite de faltas");
   });
 
   it("limite atingido e ultrapassado: texto próprio do 100%", async () => {
     const c = await setup();
-    await miss(c, 6); // 60%
-    await miss(c, 6); // 120% → cruza 75, 90 e 100 de uma vez
+    await miss(c, 6);
+    await miss(c, 6);
     const top = (await inbox(c)).items[0]!;
     expect(top.title).toBe("Física I: limite de faltas atingido");
     expect(top.body).toContain("passou do limite em 2 aulas (12 de 10)");
@@ -278,9 +272,9 @@ describe("marcos de alerta", () => {
       quietEnd: null,
     });
     expect(put.statusCode, put.body).toBe(200);
-    await miss(c, 5); // 50%: desligado
+    await miss(c, 5);
     expect(await logs(c.userId)).toEqual([]);
-    await miss(c, 3); // 80%: avisa o 75
+    await miss(c, 3);
     const rows = await logs(c.userId);
     expect(rows.map((r) => [r.channel, r.status, r.threshold_pct])).toEqual([
       ["email", "skipped", 75],
@@ -318,7 +312,7 @@ describe("central de avisos", () => {
   it("marca um como lido, depois todos; não lidos acompanham", async () => {
     const c = await setup();
     await miss(c, 5);
-    await miss(c, 3); // 50 e depois 75 → 2 avisos
+    await miss(c, 3);
     let list = await inbox(c);
     expect(list.unreadCount).toBe(2);
     const read = await c.b.request("POST", `/v1/notifications/${list.items[0]!.id}/read`);
@@ -332,7 +326,6 @@ describe("central de avisos", () => {
 
   it("pagina por cursor, do mais recente ao mais antigo", async () => {
     const c = await setup({ maxUnits: 4 });
-    // 4 avisos: 50 (2/4), 75 (3/4), 100 (4/4)... e um teste do sistema.
     await miss(c, 2);
     await miss(c, 1);
     await miss(c, 1);
@@ -465,7 +458,6 @@ describe("preferências e push", () => {
     const taken = await bia.b.request("POST", "/v1/push-subscriptions", sub);
     expect(taken.statusCode).toBe(409);
     expect(problem(taken).code).toBe("PUSH_ENDPOINT_IN_USE");
-    // E a Bia também não consegue apagar o da Ana.
     await bia.b.request("DELETE", "/v1/push-subscriptions", { endpoint: sub.endpoint });
     const owner = await env.db.admin.query(
       "select user_id from app.push_subscriptions where endpoint = $1",

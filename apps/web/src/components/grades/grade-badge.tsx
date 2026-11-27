@@ -1,7 +1,6 @@
 import { GRADE_STATUS_LABEL, type GradeStatusDto } from "@presenca/contracts";
 import { GRADE_STATUS_STYLE } from "@/lib/grades";
 
-/** Selo com a situação da nota (Aprovado por nota, Em curso, Vai para o exame…). */
 export function GradeBadge({ status }: { status: GradeStatusDto }) {
   return (
     <span

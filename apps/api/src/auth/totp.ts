@@ -1,19 +1,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-/**
- * TOTP (RFC 6238): o código de 6 dígitos dos apps autenticadores (Google Authenticator, Authy,
- * 1Password, Microsoft Authenticator). HMAC-SHA1, passos de 30 s, como todos esses apps esperam.
- */
 const STEP_SECONDS = 30;
 const DIGITS = 6;
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-/** Segredo novo: 160 bits, o tamanho recomendado para HMAC-SHA1. */
 export function generateTotpSecret(): Buffer {
   return randomBytes(20);
 }
 
-/** Base32 sem "=" (o formato que o usuário digita ou que vai no QR Code). */
 export function base32Encode(data: Buffer): string {
   let bits = 0;
   let value = 0;
@@ -50,7 +44,6 @@ export function base32Decode(text: string): Buffer {
 
 export const stepAt = (epochMs: number) => Math.floor(epochMs / 1000 / STEP_SECONDS);
 
-/** Código de um passo (HOTP com o contador = passo). */
 export function totpCode(secret: Buffer, step: number): string {
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(step));
@@ -60,11 +53,6 @@ export function totpCode(secret: Buffer, step: number): string {
   return binary.toString().padStart(DIGITS, "0");
 }
 
-/**
- * Confere o código aceitando um passo antes e um depois (relógio do celular adiantado ou
- * atrasado em até 30 s). Devolve o passo aceito, ou null. Passos até `lastUsedStep` são
- * recusados: o mesmo código não serve duas vezes.
- */
 export function verifyTotp(
   secret: Buffer,
   code: string,
@@ -80,7 +68,6 @@ export function verifyTotp(
   return null;
 }
 
-/** Endereço otpauth:// do QR Code. */
 export function otpauthUrl(secret: Buffer, accountEmail: string): string {
   const issuer = "Monitor de Presenças";
   const label = encodeURIComponent(`${issuer}:${accountEmail}`);

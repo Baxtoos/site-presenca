@@ -59,7 +59,6 @@ export class MeController {
         .update(schema.users)
         .set({
           ...body,
-          // Preencher o perfil conclui o onboarding.
           onboardedAt: sql`coalesce(${schema.users.onboardedAt}, now())`,
         })
         .where(eq(schema.users.id, sql`app.current_user_id()`))
@@ -220,7 +219,6 @@ export class MeController {
     return data;
   }
 
-  /** Conta sem senha: manda por e-mail o link que confirma a exclusão. */
   @Post("delete-request")
   @HttpCode(202)
   @RateLimit({ bucket: "account-delete-link", by: "user", limit: 3, windowSeconds: 900 })
@@ -238,10 +236,6 @@ export class MeController {
     return this.auth.requestAccountDeletion(auth.userId);
   }
 
-  /**
-   * Exclui a conta. Quem tem senha confirma com ela; quem entra sem senha (Google ou link)
-   * confirma pelo link enviado ao e-mail, que só vale para a conta logada.
-   */
   @Delete()
   @HttpCode(204)
   @RateLimit({ bucket: "account-delete", by: "user", limit: 5, windowSeconds: 900 })
@@ -317,7 +311,6 @@ export class MeController {
     @CurrentAuth() auth: AuthContext,
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
-    // O RLS garante que só sessões do próprio usuário podem ser encerradas; de outro, vira 404.
     const revoked = await this.sessions.revoke(auth.userId, params.id);
     if (!revoked) throw new NotFoundException({ detail: "Sessão não encontrada ou já encerrada." });
     if (params.id === auth.sessionId) this.sessions.clearCookie(reply);

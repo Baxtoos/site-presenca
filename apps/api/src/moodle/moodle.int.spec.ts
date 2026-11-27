@@ -27,7 +27,6 @@ let env: AuthTestEnv;
 let server: Server;
 let base: string;
 const WSTOKEN = "tokenmoodlefalso1234";
-/** Livro de notas que o Moodle falso devolve (muda entre os passos do teste). */
 let gradeItems: {
   id: number;
   itemname: string | null;
@@ -35,7 +34,6 @@ let gradeItems: {
   graderaw: number | null;
   grademax: number;
 }[] = [];
-/** Calendário que cada aluno "tem" no Moodle falso, por authtoken. */
 const feeds = new Map<string, string>();
 
 beforeAll(async () => {
@@ -99,7 +97,6 @@ const ics = (events: { uid: string; summary: string; due: string; course?: strin
     "END:VCALENDAR",
   ].join("\r\n");
 
-/** Aluno com um semestre atual e a matéria "Redes" (código RED1). */
 async function student() {
   const b = new Browser(env.app);
   const reg = await registerAndConfirm(env, b, {
@@ -131,7 +128,6 @@ async function student() {
   return { b, userId, subject };
 }
 
-// Relógio dos testes: quarta, 18/11/2026 12:00 em São Paulo.
 const FEED = ics([
   {
     uid: "1@moodle",
@@ -275,7 +271,6 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       .tasks.map((t) => t.title);
     expect(titles).toEqual(["Lista 3"]);
 
-    // A Bia não vê nem mexe nas turmas do Caio.
     const bia = await student();
     const foreign = await bia.b.request(
       "PATCH",
@@ -337,7 +332,6 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       source: "moodle_ics",
     });
 
-    // Link que deixou de valer: a falha fica registrada e aparece na tela.
     feeds.delete("SEGREDO-DUDA");
     const failed = await duda.b.request("POST", "/v1/moodle/sync", undefined, { headers: key() });
     expect(failed.statusCode).toBe(422);
@@ -386,17 +380,13 @@ describe("Conector do Moodle (/v1/moodle)", () => {
     const lia = await student();
     feeds.set("SEGREDO-LIA", FEED);
     await lia.b.request("PUT", "/v1/moodle", { icsUrl: icsLink("SEGREDO-LIA") });
-    // Sem token: explica o que falta.
     const noToken = moodleGradesSchema.parse(
       (await lia.b.request("GET", `/v1/subjects/${lia.subject.id}/moodle-grades`)).json(),
     );
     expect(noToken).toMatchObject({ available: false, items: [] });
     expect(noToken.reason).toMatch(/token/);
 
-    // Token (o endereço http do Moodle falso só entra direto no banco).
     const key = Buffer.from(TEST_INTEGRATION_KEY, "base64");
-    // O banco exige https no endereço; só neste banco de teste a regra sai para o update e volta
-    // (NOT VALID: continua valendo para o que for gravado depois).
     const admin = await env.db.admin.connect();
     try {
       await admin.query("begin");
@@ -444,7 +434,6 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       ["gi:901", "Seminário", sem!.id],
     ]);
 
-    // O aluno já lançou a nota do seminário à mão: ligar não muda a nota dele.
     await lia.b.request(
       "PATCH",
       `/v1/evaluation-items/${sem!.id}`,
@@ -469,14 +458,12 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       ["P1", 750, "moodle", "gi:900"],
       ["Seminario", 500, "user", "gi:901"],
     ]);
-    // Ligar pela tela não gera aviso de "nota nova".
     const notices = await env.db.admin.query(
       "select 1 from app.notification_logs where user_id = $1 and kind = 'grade_posted'",
       [lia.userId],
     );
     expect(notices.rowCount).toBe(0);
 
-    // Item de outra turma (ou inventado) e avaliação de outra matéria são recusados.
     const bad = await lia.b.request("PUT", `/v1/subjects/${lia.subject.id}/moodle-grades`, {
       links: [{ evaluationItemId: p1!.id, externalGradeItemId: "gi:12345" }],
     });
@@ -485,7 +472,6 @@ describe("Conector do Moodle (/v1/moodle)", () => {
     const stranger = await other.b.request("GET", `/v1/subjects/${lia.subject.id}/moodle-grades`);
     expect(stranger.statusCode).toBe(404);
 
-    // Desligar devolve a nota ao aluno.
     await lia.b.request("PUT", `/v1/subjects/${lia.subject.id}/moodle-grades`, {
       links: [{ evaluationItemId: p1!.id, externalGradeItemId: null }],
     });
@@ -498,7 +484,6 @@ describe("Conector do Moodle (/v1/moodle)", () => {
       externalGradeItemId: null,
     });
 
-    // LGPD: o export traz as notas e o Moodle, nunca o link do calendário nem a chave.
     const exp = await lia.b.request("GET", "/v1/me/export.json");
     expect(exp.statusCode).toBe(200);
     expect(exp.body).not.toContain("SEGREDO-LIA");

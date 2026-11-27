@@ -1,10 +1,6 @@
 import type { Instrumentation } from "next";
 import { scrubSentryEvent } from "@/lib/sentry-scrub";
 
-/**
- * Rastreamento de erros do servidor do site (Sentry), só com NEXT_PUBLIC_SENTRY_DSN configurada.
- * Só erros: sem rastreio de desempenho, sem dados pessoais (ver lib/sentry-scrub.ts).
- */
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 export async function register() {

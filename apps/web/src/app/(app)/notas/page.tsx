@@ -10,9 +10,7 @@ import { GRADE_STATUS_STYLE } from "@/lib/grades";
 
 export const metadata: Metadata = { title: "Notas · Monitor de Presenças" };
 
-/** Notas de todas as matérias do semestre atual: situação, média e quanto falta (contas do motor). */
 export default async function GradesPage() {
-  // Uma chamada só para todas as matérias do semestre atual.
   const overview = await apiGet("/v1/grades", gradesOverviewSchema).catch(() => null);
   const subjects = overview?.subjects ?? [];
 

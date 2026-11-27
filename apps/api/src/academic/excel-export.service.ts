@@ -34,7 +34,6 @@ const REASON_LABELS: Record<string, string> = {
   other: "Outro",
 };
 
-/** Tipado pelas cores do contrato: uma cor nova ou renomeada quebra a compilação aqui. */
 const SUBJECT_TINTS: Record<(typeof SUBJECT_COLORS)[number], string> = {
   blue: "FFE2ECF5",
   teal: "FFDDF2EE",
@@ -75,7 +74,6 @@ function autoFitColumns(sheet: ExcelJS.Worksheet, maxCol: number, minWidth = 11,
     const col = sheet.getColumn(colIdx);
     let longest = minWidth;
     col.eachCell({ includeEmpty: false }, (cell, rowNumber) => {
-      // Ignora títulos mesclados nas duas primeiras linhas.
       if (rowNumber <= 2 && sheet.name === "Resumo") return;
       const val = cell.value;
       let text = "";
@@ -161,7 +159,6 @@ export class ExcelExportService {
         )
         .orderBy(asc(schema.attendanceLogs.classDate), asc(schema.attendanceLogs.createdAt));
 
-      // Para a aba oculta "Dados" (reimportar a planilha): todos os registros e os feriados.
       const allLogs = await tx
         .select()
         .from(schema.attendanceLogs)
@@ -192,9 +189,6 @@ export class ExcelExportService {
     );
     const subjectById = new Map(data.subjects.map((s) => [s.id, s]));
 
-    // =========================================================================
-    // Aba 1: Resumo
-    // =========================================================================
     const resumo = workbook.addWorksheet("Resumo", {
       pageSetup: {
         orientation: "landscape",
@@ -408,7 +402,6 @@ export class ExcelExportService {
       });
     }
 
-    // Legenda de cores abaixo da tabela
     const legendRowIdx = lastSubjectRow + 2;
     resumo.mergeCells(`A${legendRowIdx}:L${legendRowIdx}`);
     const legendCell = resumo.getCell(`A${legendRowIdx}`);
@@ -418,9 +411,6 @@ export class ExcelExportService {
 
     autoFitColumns(resumo, 12);
 
-    // =========================================================================
-    // Aba 2: Historico (Histórico Detalhado)
-    // =========================================================================
     const historico = workbook.addWorksheet("Historico", {
       views: [{ state: "frozen", ySplit: 1 }],
     });
@@ -495,9 +485,6 @@ export class ExcelExportService {
 
     autoFitColumns(historico, 8);
 
-    // =========================================================================
-    // Aba 3: Grade Horária
-    // =========================================================================
     const grade = workbook.addWorksheet("Grade Horária", {
       pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 1 },
       views: [{ state: "frozen", ySplit: 1, xSplit: 1 }],
@@ -580,11 +567,6 @@ export class ExcelExportService {
     };
   }
 
-  /**
-   * Aba "muito oculta" com o semestre completo em JSON (o mesmo formato da importação), para o
-   * site reconstruir tudo ao receber a planilha de volta: regras, grade, feriados e registros.
-   * Não aparece no Excel; se o semestre passar dos limites da importação, a aba fica de fora.
-   */
   private addDataSheet(
     workbook: ExcelJS.Workbook,
     data: {
@@ -596,7 +578,6 @@ export class ExcelExportService {
     },
   ): void {
     const subjectIndex = new Map(data.subjects.map((s, i) => [s.id, i]));
-    // Mesma ordem dos horários que subjectToTemplate usa: o índice aponta o horário certo.
     const scheduleIndex = new Map<string, number>();
     for (const s of data.subjects) {
       data.schedules
@@ -628,7 +609,6 @@ export class ExcelExportService {
             label: e.label,
             subjectIndex: e.subjectId === null ? null : subjectIndex.get(e.subjectId)!,
           })),
-        // A planilha leva só presença; a regra de notas não vai.
         gradings: [],
         attendance: data.allLogs
           .filter((l) => subjectIndex.has(l.subjectId))

@@ -15,7 +15,6 @@ export class SafeFetchError extends Error {
   override name = "SafeFetchError";
   constructor(
     message: string,
-    /** Código estável para a tela e os logs (sem a URL, que pode ter token). */
     readonly code:
       | "invalid_url"
       | "blocked_address"
@@ -67,7 +66,6 @@ for (const [net, prefix] of [
   blocked.addSubnet(net, prefix, "ipv6");
 }
 
-/** IPv4 dentro de IPv6 (::ffff:1.2.3.4 ou ::ffff:0102:0304) vira IPv4 para a checagem. */
 function embeddedIpv4(address: string): string | null {
   const lower = address.toLowerCase();
   const dotted = /^(?:0{0,4}:){0,5}:?ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
@@ -81,7 +79,6 @@ function embeddedIpv4(address: string): string | null {
   return null;
 }
 
-/** true se o endereço não pode ser alvo de uma busca disparada por aluno. */
 export function isBlockedAddress(address: string): boolean {
   const family = isIP(address);
   if (family === 0) return true;
@@ -93,16 +90,12 @@ export function isBlockedAddress(address: string): boolean {
 
 export interface SafeFetchOptions {
   method?: "GET" | "POST";
-  /** Corpo application/x-www-form-urlencoded (POST). */
   form?: Record<string, string>;
   timeoutMs?: number;
   maxBytes?: number;
   maxRedirects?: number;
-  /** Só para testes com servidor local: aceita http. */
   allowHttp?: boolean;
-  /** Só para testes com servidor local: aceita endereços internos. */
   allowPrivate?: boolean;
-  /** Resolução de nomes (testes podem trocar). */
   resolve?: (host: string) => Promise<LookupAddress[]>;
 }
 
@@ -110,7 +103,6 @@ export interface SafeResponse {
   status: number;
   contentType: string;
   body: string;
-  /** URL final (depois de redirecionamentos), para resolver links relativos. */
   url: string;
 }
 
@@ -121,7 +113,6 @@ const defaultResolve = (host: string) =>
     );
   });
 
-/** Valida a URL e devolve o IP público a usar na conexão. */
 async function validate(
   raw: string,
   options: SafeFetchOptions,
@@ -156,7 +147,6 @@ async function validate(
   if (addresses.length === 0) {
     throw new SafeFetchError("Não foi possível encontrar esse endereço.", "dns_failed");
   }
-  // Todos precisam ser públicos: um nome que aponta para um IP interno é recusado inteiro.
   if (!options.allowPrivate && addresses.some((a) => isBlockedAddress(a.address))) {
     throw new SafeFetchError("Esse endereço não é permitido.", "blocked_address");
   }
@@ -189,7 +179,6 @@ function once(
               }
             : {}),
         },
-        // Conecta no IP validado; o TLS continua verificando o nome do site.
         lookup: (_host, opts, callback) => {
           if ((opts as { all?: boolean }).all) {
             (callback as unknown as (e: null, a: LookupAddress[]) => void)(null, [address]);
@@ -256,7 +245,6 @@ export async function safeFetch(
     if (res.location !== undefined) {
       if (!res.location) throw new SafeFetchError("Redirecionamento inválido.", "http_error");
       current = new URL(res.location, url).toString();
-      // Depois de um redirecionamento, o corpo não é reenviado (vira GET).
       options = { ...options, method: "GET", form: undefined };
       continue;
     }

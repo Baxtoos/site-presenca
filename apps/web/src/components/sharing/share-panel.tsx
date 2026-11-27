@@ -12,7 +12,6 @@ import { formText } from "@/lib/form";
 const selectClass =
   "min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm";
 
-/** Endereço público de importação do código. */
 export const importUrl = (code: string) =>
   `${typeof window === "undefined" ? "" : window.location.origin}/importar/${code}`;
 
@@ -25,7 +24,6 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-/** Código grande, link, QR Code e o botão de compartilhar do celular. */
 export function ShareResult({ template }: { template: SharedTemplate }) {
   const toast = useToast();
   const [qr, setQr] = useState<string>();
@@ -113,7 +111,6 @@ export function ShareResult({ template }: { template: SharedTemplate }) {
   );
 }
 
-/** Formulário de compartilhar um semestre ou uma matéria. */
 export function SharePanel({
   source,
   defaultTitle,

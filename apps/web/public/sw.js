@@ -10,13 +10,12 @@
  * Ao sair da conta, o app apaga o cache de páginas (ver lib/offline-cache.ts).
  */
 
-const VERSION = "v4"; // v4: avisos de tarefa (renotify); v3: ícones novos
+const VERSION = "v4";
 const STATIC_CACHE = `presenca-static-${VERSION}`;
 const PAGES_CACHE = "presenca-pages";
 const OFFLINE_URL = "/offline";
 const NAV_TIMEOUT_MS = 4000;
 
-/** Páginas que valem a pena abrir offline (todas da área logada). Login e cadastro, não. */
 const CACHEABLE_PAGES = [
   /^\/$/,
   /^\/hoje$/,
@@ -31,7 +30,6 @@ self.addEventListener("install", (event) => {
       const cache = await caches.open(STATIC_CACHE);
       const response = await fetch(OFFLINE_URL, { cache: "reload" });
       if (response.ok) {
-        // Guarda também o CSS/JS que a página offline usa.
         const html = await response.clone().text();
         const assets = [...html.matchAll(/(?:href|src)="(\/_next\/static\/[^"]+)"/g)].map(
           (m) => m[1],
@@ -59,7 +57,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-/** Rede com prazo: numa conexão que "pendura" (Wi-Fi sem internet), cai para o cache. */
 function fetchWithTimeout(request, ms) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("timeout")), ms);
@@ -81,8 +78,6 @@ async function handleNavigation(request) {
   const cacheable = CACHEABLE_PAGES.some((re) => re.test(url.pathname));
   try {
     const response = await fetchWithTimeout(request, NAV_TIMEOUT_MS);
-    // Só guarda página completa da própria URL: redirecionamento (sessão expirada → /entrar) não.
-    // Nem a apresentação pública, que o site mostra em "/" para quem está sem sessão.
     const publicPage = response.headers.get("x-presenca-publica") === "1";
     if (
       cacheable &&
@@ -98,7 +93,6 @@ async function handleNavigation(request) {
   } catch {
     if (cacheable) {
       const cache = await caches.open(PAGES_CACHE);
-      // URL exata: /hoje?data=X nunca mostra a cópia de outro dia.
       const cached = await cache.match(request);
       if (cached) return cached;
     }
@@ -132,22 +126,13 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
     event.respondWith(handleStatic(request));
   }
-  // O resto (dados RSC das navegações do Next, etc.) vai direto para a rede. Sem internet, o Next
-  // faz uma navegação completa, que cai no handleNavigation acima.
 });
-
-// ---------------------------------------------------------------------------------------------
-// Notificações (Web Push). O worker manda { title, body, url, tag } cifrado com VAPID (aviso de
-// tarefa: tag "task:<id>", url /tarefas); o lembrete
-// do dia pode trazer `classes` (aulas sem registro) para marcar pelos botões, sem abrir o app.
 
 self.addEventListener("push", (event) => {
   let data = { title: "Monitor de Presenças", body: "Você tem um aviso novo.", url: "/avisos" };
   try {
     data = { ...data, ...event.data.json() };
-  } catch {
-    // Conteúdo fora do formato: mostra o aviso genérico.
-  }
+  } catch {}
   const classes = Array.isArray(data.classes) ? data.classes : [];
   const actions =
     classes.length === 1
@@ -164,7 +149,6 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       tag: data.tag,
-      // Aviso novo da mesma tarefa (prazo mudou) substitui o anterior e toca de novo.
       renotify: typeof data.tag === "string" && data.tag.startsWith("task:"),
       lang: "pt-BR",
       actions,
@@ -173,11 +157,6 @@ self.addEventListener("push", (event) => {
   );
 });
 
-/**
- * Registra as aulas do lembrete com a sessão do navegador (o cookie vai junto, mesma origem).
- * Aula que já tinha registro (409) conta como feita. A chave de idempotência é fixa por aula:
- * tocar duas vezes não cria dois registros.
- */
 async function markFromNotification(classes, status) {
   let done = 0;
   let already = 0;
@@ -196,7 +175,6 @@ async function markFromNotification(classes, status) {
       }),
     });
     if (response.status === 401) return { ok: false, login: true };
-    // 409: a aula já tinha registro (talvez com outro status, feito no app). Não é trocado.
     if (response.status === 409) already++;
     else if (!response.ok) return { ok: false };
     else done++;
@@ -206,7 +184,6 @@ async function markFromNotification(classes, status) {
 
 async function openApp(path) {
   const target = new URL(path, self.location.origin);
-  // Só abre páginas do próprio app.
   if (target.origin !== self.location.origin) return;
   const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
   const open = windows.find((w) => new URL(w.url).origin === self.location.origin);

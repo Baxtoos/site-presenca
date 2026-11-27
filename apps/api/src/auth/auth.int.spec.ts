@@ -22,7 +22,6 @@ const PASSWORD = "senha-forte-do-teste-1";
 
 const browser = () => new Browser(env.app);
 
-/** Conta com senha, criada pelo fluxo completo (pedido + link do e-mail). */
 async function registered(email = uniqueEmail()) {
   const b = browser();
   const res = await registerAndConfirm(env, b, {
@@ -34,7 +33,6 @@ async function registered(email = uniqueEmail()) {
   return { b, email, me: meResponseSchema.parse(res.json()) };
 }
 
-/** Conta antiga com e-mail ainda não confirmado (de antes da confirmação no cadastro). */
 async function legacyUnverified() {
   const account = await registered();
   await env.db.admin.query("update app.users set email_verified_at = null where id = $1", [
@@ -43,7 +41,6 @@ async function legacyUnverified() {
   return account;
 }
 
-/** Conta sem senha, criada pelo link de acesso. */
 async function passwordless() {
   const email = uniqueEmail("semsenha");
   await browser().request("POST", "/v1/auth/magic-link", { email });
@@ -104,7 +101,6 @@ describe("cadastro com confirmação por e-mail", () => {
     expect(cookie).not.toHaveProperty("domain");
     expect((await b.request("GET", "/v1/me")).json()).toMatchObject({ id: me.id });
 
-    // A senha escolhida no formulário é a da conta.
     expect(
       (await browser().request("POST", "/v1/auth/login", { email, password: PASSWORD })).statusCode,
     ).toBe(200);
@@ -145,7 +141,6 @@ describe("cadastro com confirmação por e-mail", () => {
     expect(message?.subject).toBe("Você já tem uma conta no Monitor de Presenças");
     expect(() => tokenFromMail(env.mail, email)).toThrow();
 
-    // Ninguém trocou a senha nem o nome da conta.
     const login = await browser().request("POST", "/v1/auth/login", { email, password: PASSWORD });
     expect(login.json()).toMatchObject({ id: me.id, fullName: "Ana Teste" });
     expect(
@@ -434,10 +429,8 @@ describe("limite de tentativas (Redis)", () => {
     expect(problem(attempts[5]!).code).toBe("RATE_LIMITED");
     expect(Number(attempts[5]!.headers["retry-after"])).toBeGreaterThan(0);
 
-    // Mesmo com a senha certa, a conta fica travada para este IP até a janela acabar.
     const right = await attacker.request("POST", "/v1/auth/login", { email, password: PASSWORD });
     expect(right.statusCode).toBe(429);
-    // De outro IP, o dono continua entrando.
     expect(
       (await browser().request("POST", "/v1/auth/login", { email, password: PASSWORD })).statusCode,
     ).toBe(200);
@@ -539,7 +532,6 @@ describe("exclusão de conta sem senha (link por e-mail)", () => {
   it("exclui só depois de abrir o link enviado ao e-mail da conta", async () => {
     const { b, email, me } = await passwordless();
 
-    // Sem senha, digitar qualquer coisa não basta: precisa do link.
     const guess = await b.request("DELETE", "/v1/me", { password: "qualquer-coisa-123" });
     expect(guess.statusCode).toBe(400);
     expect(problem(guess).code).toBe("INVALID_TOKEN");

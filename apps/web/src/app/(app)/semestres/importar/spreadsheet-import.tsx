@@ -9,7 +9,6 @@ import { readSpreadsheet } from "@/lib/spreadsheet-import";
 import { OwnSpreadsheetImport } from "./own-spreadsheet-import";
 import { useImportSubmit } from "./use-import-submit";
 
-/** Planilhas de presença têm poucas centenas de KB; isto barra arquivo errado antes de ler. */
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 type Ready = {
@@ -29,7 +28,6 @@ function ruleText(s: Subject): string {
   return `limite manual de ${plural(s.manualMaxUnits ?? 0, "falta", "faltas")}`;
 }
 
-/** Planilha modelo para quem quer passar os registros a limpo antes de importar. */
 async function downloadTemplate() {
   const { Workbook } = await import("exceljs");
   const wb = new Workbook();
@@ -67,11 +65,6 @@ async function downloadTemplate() {
   setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-/**
- * O navegador lê a planilha (nada é enviado até o aluno confirmar), mostra o que vai ser criado e
- * manda tudo de uma vez para a API, que valida de novo e grava numa transação só. Planilha
- * exportada pelo app entra direto; qualquer outra vai para a leitura guiada (OwnSpreadsheetImport).
- */
 export function SpreadsheetImport() {
   const [reading, setReading] = useState(false);
   const [ready, setReady] = useState<Ready>();

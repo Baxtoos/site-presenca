@@ -60,10 +60,6 @@ const STEPS = [
   },
 ];
 
-/**
- * Apresentação pública do app. O site mostra esta página em "/" para quem não está logado
- * (ver src/proxy.ts); quem está logado vê o Início.
- */
 export default function LandingPage() {
   return (
     <div className="min-h-dvh">
@@ -75,7 +71,7 @@ export default function LandingPage() {
           </span>
           <span className="flex-1" />
           <InstallApp variant="header" />
-          {/* Celular: "Entrar" fica no "Já tenho conta" logo abaixo, para o topo caber numa linha. */}
+          {}
           <span className="hidden sm:block">
             <ButtonLink href="/entrar" variant="ghost">
               Entrar

@@ -1,22 +1,3 @@
-/**
- * Máscara da barra de endereço: o navegador mostra sempre só o domínio (`/`), em qualquer tela.
- *
- * Roda como script inline no <head>, ANTES do Next hidratar, para que o roteador capture estas
- * versões de pushState/replaceState como as "originais":
- * - toda escrita no histórico guarda a URL real em `state.__presencaUrl` (e em sessionStorage) e
- *   grava `/` na barra; o estado interno do Next (`__NA`, árvore) segue intacto;
- * - Voltar/Avançar: antes do Next tratar o popstate, a URL real volta por um instante (o Next
- *   restaura a tela a partir de `location.href`) e a próxima escrita dele mascara de novo;
- * - recarregar a página (F5, puxar para atualizar) carrega `/`; o script leva de volta à última
- *   tela visitada nesta aba.
- *
- * A URL inicial não é mascarada aqui: o Next lê `window.location` para montar o estado do
- * roteador e, logo na hidratação, ele mesmo chama replaceState, que já passa por aqui.
- * Consequência: código do app não deve ler `window.location.pathname/search` (vira `/`); use
- * usePathname/useSearchParams.
- *
- * É só cosmético: links (<a href>) e as chamadas à API continuam com os caminhos reais.
- */
 export const URL_MASK_SCRIPT = `(function () {
   // Retrato do SUAP vindo do favorito (#suap=...): guardado antes de a URL ser mascarada, e
   // sobrevive ao login se a pessoa ainda não estava logada (lib/suap-collector.ts).

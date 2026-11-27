@@ -55,8 +55,8 @@ describe("summarize", () => {
 
 describe("calendário", () => {
   it("dia da semana ISO", () => {
-    expect(isoWeekday("2026-11-16")).toBe(1); // segunda
-    expect(isoWeekday("2026-11-22")).toBe(7); // domingo
+    expect(isoWeekday("2026-11-16")).toBe(1);
+    expect(isoWeekday("2026-11-22")).toBe(7);
   });
 
   it("anda de dia em dia atravessando meses e anos bissextos", () => {
@@ -76,7 +76,7 @@ describe("calendário", () => {
         { id: "qua", weekday: 3, units: 2 },
       ],
       exceptions: [
-        { startsOn: "2026-11-02", endsOn: "2026-11-02", kind: "holiday" }, // Finados (segunda)
+        { startsOn: "2026-11-02", endsOn: "2026-11-02", kind: "holiday" },
         { startsOn: "2026-11-09", endsOn: "2026-11-13", kind: "exam_week" },
       ],
       from: "2026-11-01",

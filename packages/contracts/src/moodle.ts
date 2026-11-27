@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-/**
- * Conector do Moodle. O aluno cola o link "Exportar calendário → Obter URL do calendário" (.ics) e,
- * se quiser, o endereço do Moodle e a chave de segurança (wstoken). A API nunca devolve o link
- * nem a chave: só o domínio e se há chave.
- */
-
 const httpsUrl = (what: string, max = 2000) =>
   z
     .string()
@@ -36,9 +30,7 @@ export const moodleConnectBodySchema = z
         }),
       )
       .optional(),
-    /** Endereço do Moodle (necessário com a chave). null tira. */
     baseUrl: httpsUrl("endereço do Moodle", 300).nullable().optional(),
-    /** Chave de segurança (Moodle mobile web service). null tira. */
     wstoken: z
       .string()
       .trim()
@@ -54,12 +46,10 @@ export type MoodleConnectBody = z.infer<typeof moodleConnectBodySchema>;
 
 export const moodleCourseSchema = z.object({
   id: z.uuid(),
-  /** Código da turma como veio do Moodle (ex.: "SI.TESD5 - 2026-2"). */
   courseKey: z.string(),
   subjectId: z.uuid().nullable(),
   subjectName: z.string().nullable(),
   ignored: z.boolean(),
-  /** Tarefas importadas desta turma. */
   taskCount: z.number().int(),
   version: z.number().int(),
 });
@@ -80,7 +70,6 @@ export const moodleConnectionSchema = z.object({
 export type MoodleConnection = z.infer<typeof moodleConnectionSchema>;
 
 export const moodleStatusSchema = z.object({
-  /** false: o servidor está sem a chave de cifragem (a integração fica desligada). */
   available: z.boolean(),
   connection: moodleConnectionSchema.nullable(),
 });
@@ -91,7 +80,6 @@ export const moodleSyncResultSchema = z.object({
   updated: z.number().int(),
   completed: z.number().int(),
   courses: z.number().int(),
-  /** Sincronização parcial (o .ics veio, a consulta com a chave falhou). */
   warning: z.string().nullable(),
   status: moodleStatusSchema,
 });
@@ -109,7 +97,6 @@ export const moodleCourseBodySchema = z
 export type MoodleCourseBody = z.infer<typeof moodleCourseBodySchema>;
 
 export const moodleDisconnectQuerySchema = z.object({
-  /** true: as tarefas importadas viram manuais. false: apaga as futuras pendentes. */
   keepTasks: z.enum(["true", "false"]).default("true"),
 });
 

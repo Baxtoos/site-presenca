@@ -8,18 +8,6 @@ import {
 import { isoWeekday } from "@presenca/engine";
 import type { Worksheet } from "exceljs";
 
-/**
- * Planilha que o aluno montou sozinho (não exportada pelo app): lê as abas, descobre como estão
- * organizadas, traduz as marcações ("P", "F", "atestado"...) e monta o semestre para a mesma rota
- * da importação (POST /v1/imports/semester). Tudo no navegador; a API valida de novo.
- *
- * Formatos entendidos, em .xlsx ou .csv:
- * - "lista": uma linha por aula (Data, Matéria, Situação, Tempos, Motivo, Observação). Sem coluna de
- *   matéria, a aba é a matéria; sem coluna de situação, cada linha é uma falta.
- * - "datas nas colunas": uma linha por matéria e uma coluna por data (a chamada clássica).
- * - "datas nas linhas": uma linha por data e uma coluna por matéria.
- */
-
 export type Cell = string | number | Date | null;
 export interface Table {
   name: string;
@@ -28,8 +16,6 @@ export interface Table {
 
 const MAX_ROWS = 5_000;
 const MAX_COLS = 400;
-
-// ---------------------------------------------------------------- leitura do arquivo
 
 export async function readTables(file: ArrayBuffer, fileName: string): Promise<Table[]> {
   if (/\.(csv|txt)$/i.test(fileName)) {
@@ -71,14 +57,12 @@ function toCell(v: unknown): Cell {
   return null;
 }
 
-/** UTF-8; se aparecer caractere inválido, é o Excel salvando em Windows-1252. */
 function decodeText(file: ArrayBuffer): string {
   const utf8 = new TextDecoder("utf-8").decode(file);
   const text = utf8.includes("\uFFFD") ? new TextDecoder("windows-1252").decode(file) : utf8;
   return text.replace(/^\uFEFF/, "");
 }
 
-/** CSV com separador ";" (Excel em português), "," (Google Planilhas) ou tabulação. */
 export function parseCsv(text: string): Cell[][] {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
   const delimiter = [";", ",", "\t"].reduce((best, d) =>
@@ -117,9 +101,6 @@ export function parseCsv(text: string): Cell[][] {
   return rows;
 }
 
-// ---------------------------------------------------------------- textos, datas e números
-
-/** Minúsculas, sem acento e com espaços simples: "Falta  Justificada" → "falta justificada". */
 export const normalize = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -161,10 +142,6 @@ function validDate(y: number, m: number, d: number): string | null {
   return `${y}-${pad(m)}-${pad(d)}`;
 }
 
-/**
- * Data da célula em AAAA-MM-DD. Sem ano ("12/03", "12 mar"), usa o ano de hoje, ou o anterior se
- * a data ainda não chegou.
- */
 export function parseDate(cell: Cell | undefined, today: string): string | null {
   if (cell instanceof Date) {
     if (Number.isNaN(cell.getTime())) return null;
@@ -195,8 +172,6 @@ const positiveInt = (c: Cell | undefined): number | null => {
   return Number.isInteger(n) && n > 0 && n <= 6 ? n : null;
 };
 
-// ---------------------------------------------------------------- como a aba está organizada
-
 export interface ListColumns {
   date: number;
   subject: number | null;
@@ -221,19 +196,16 @@ const HEADER_WORDS: Record<keyof Omit<ListColumns, "date">, RegExp> & { date: Re
   note: /^(obs|observac|nota|comentario|anotac|detalhe)/,
 };
 
-/** Descobre o formato da aba. Devolve "none" se não achar datas. */
 export function detectLayout(table: Table, today: string): Layout {
   const rows = table.rows;
   const isDate = (c: Cell | undefined) => parseDate(c, today) !== null;
 
-  // 1) Uma linha com várias datas: datas nas colunas.
   for (let r = 0; r < Math.min(rows.length, 15); r++) {
     const dates = (rows[r] ?? [])
       .map((cell, col) => ({ col, date: parseDate(cell, today) }))
       .filter((d): d is { col: number; date: string } => d.date !== null);
     if (dates.length >= 2) {
       const firstDateCol = dates[0]!.col;
-      // A coluna dos nomes: a com mais texto à esquerda das datas.
       let name = 0;
       let best = -1;
       for (let c = 0; c < Math.max(firstDateCol, 1); c++) {
@@ -247,7 +219,6 @@ export function detectLayout(table: Table, today: string): Layout {
     }
   }
 
-  // 2) Uma coluna com várias datas: lista ou datas nas linhas.
   for (let c = 0; c < Math.min(MAX_COLS, 12); c++) {
     const dateRows = rows.map((row, i) => (isDate(row[c]) ? i : -1)).filter((i) => i >= 0);
     if (dateRows.length < 2) continue;
@@ -269,7 +240,6 @@ export function detectLayout(table: Table, today: string): Layout {
       if (col === c || !h) return;
       for (const key of ["subject", "status", "reason", "note", "units"] as const) {
         if (columns[key] === null && HEADER_WORDS[key].test(h)) {
-          // "Faltas" com texto é a situação; com números, os tempos.
           if (key === "units" && /^faltas?\b/.test(h)) {
             const numeric = data.filter((row) => positiveInt(row[col]) !== null).length;
             const text = data.filter((row) => cellText(row[col]) !== "").length;
@@ -285,7 +255,6 @@ export function detectLayout(table: Table, today: string): Layout {
     });
     const named = Object.entries(columns).some(([k, v]) => k !== "date" && v !== null);
     if (named) {
-      // Coluna sem nome conhecido ("P/F", "?") cujo conteúdo é só marcação: é a situação.
       const used = new Set(Object.values(columns));
       for (let col = 0; col < width; col++) {
         if (used.has(col)) continue;
@@ -300,14 +269,12 @@ export function detectLayout(table: Table, today: string): Layout {
       return { kind: "list", header, columns };
     }
 
-    // Cabeçalho sem nomes conhecidos: as outras colunas são matérias (datas nas linhas)...
     const subjects = headerRow
       .map((h, col) => ({ col, name: cellText(h) }))
       .filter((s) => s.col !== c && s.name !== "" && !isDate(s.name));
     if (subjects.length >= 1 && header >= 0) {
       return { kind: "dates-down", header, date: c, subjects };
     }
-    // ...ou não há cabeçalho: adivinha pelo conteúdo (texto curto e repetido é a situação).
     for (let col = 0; col < width; col++) {
       if (col === c) continue;
       const values = data.map((row) => normalize(cellText(row[col]))).filter(Boolean);
@@ -328,16 +295,12 @@ export function detectLayout(table: Table, today: string): Layout {
   return { kind: "none" };
 }
 
-// ---------------------------------------------------------------- registros brutos
-
-/** Marcação quando a lista não tem coluna de situação: cada linha é uma falta. */
 export const NO_STATUS = "__sem_situacao__";
 
 export interface RawRecord {
   sheet: string;
   subject: string;
   date: string;
-  /** Marcação normalizada (chave do mapa de significados). */
   token: string;
   units: number | null;
   reasonText: string;
@@ -387,8 +350,6 @@ export function extractRecords(table: Table, layout: Layout, today: string): Raw
   return out;
 }
 
-// ---------------------------------------------------------------- o que cada marcação significa
-
 export type Choice = "present" | "absent" | "excused" | "cancelled" | "ignore";
 
 const PRESENT = /^(p|pr|presente|presenca|presente ok|fui|ok|sim|s|v|c|compareceu|✓|✔|☑|√)$/;
@@ -399,10 +360,6 @@ const CANCELLED =
   /^(cancelada|cancelado|aula cancelada|sem aula|nao houve|nao teve|feriado|recesso|greve|sa|nh)$/;
 const IGNORE = /^(-|—|–|\.|\?|_)$/;
 
-/**
- * Palpite para uma marcação. Números: 0 = presença, 1 a 6 = falta de tantos tempos.
- * `null` = ambíguo ("x", "1" numa lista...): o aluno escolhe.
- */
 export function guessChoice(token: string): { choice: Choice | null; units: number | null } {
   if (token === NO_STATUS) return { choice: "absent", units: null };
   if (token === "") return { choice: "ignore", units: null };
@@ -437,7 +394,6 @@ export function guessReason(text: string): ImportAttendance["reason"] {
 
 export interface TokenInfo {
   token: string;
-  /** Como aparece na planilha (primeira ocorrência). */
   label: string;
   count: number;
 }
@@ -457,14 +413,11 @@ export function tokensOf(records: RawRecord[]): TokenInfo[] {
   return [...map.values()].sort((a, b) => b.count - a.count);
 }
 
-// ---------------------------------------------------------------- matérias e semestre
-
 export interface SubjectConfig {
   key: string;
   name: string;
   include: boolean;
   countingMode: "workload" | "class_count" | "manual";
-  /** Carga horária (h), número de aulas ou limite de faltas, conforme o modo. */
   amount: number;
   minPercent: number;
   unitsPerClass: number;
@@ -475,7 +428,6 @@ export interface SubjectConfig {
 
 export const subjectKey = (name: string) => normalize(name);
 
-/** Configuração inicial de cada matéria: dias da semana em que aparecem registros, tempos etc. */
 export function defaultSubjects(
   records: RawRecord[],
   choices: Record<string, Choice | null>,
@@ -497,7 +449,6 @@ export function defaultSubjects(
       const w = isoWeekday(r.date);
       perWeekday.set(w, (perWeekday.get(w) ?? 0) + 1);
     }
-    // Dia que aparece uma vez só costuma ser reposição: fica como aula avulsa.
     const minimum = counted.length <= 3 ? 1 : 2;
     const weekdays = [...perWeekday.entries()]
       .filter(([, n]) => n >= minimum)
@@ -522,16 +473,11 @@ export function defaultSubjects(
   });
 }
 
-/**
- * Tempos por aula a partir dos tempos de falta anotados: o maior deles (uma falta menor é parcial),
- * no mínimo 2, o mais comum. Só "1" várias vezes indica matéria de 1 tempo.
- */
 function unitsPerClassFrom(units: number[]): number {
   if (units.length >= 3 && units.every((u) => u === 1)) return 1;
   return Math.min(6, Math.max(2, ...units));
 }
 
-/** Nome e datas do semestre pelas datas dos registros (1º semestre: fev–jul; 2º: ago–dez). */
 export function defaultSemester(records: RawRecord[], today: string) {
   const dates = records.map((r) => r.date).sort();
   const first = dates[0] ?? today;
@@ -545,8 +491,6 @@ export function defaultSemester(records: RawRecord[], today: string) {
     endsOn: last > end ? last : end,
   };
 }
-
-// ---------------------------------------------------------------- montar o corpo da importação
 
 export interface BuildInput {
   records: RawRecord[];
@@ -594,7 +538,6 @@ export function buildImport(input: BuildInput): BuildResult {
   let future = 0;
   let outside = 0;
 
-  // Uma entrada por aula: horário da grade (se o dia da semana bate) ou aula avulsa do dia.
   interface Slot {
     subjectIndex: number;
     scheduleIndex: number | null;
@@ -605,7 +548,6 @@ export function buildImport(input: BuildInput): BuildResult {
     excused: boolean;
     reasons: string[];
     notes: string[];
-    /** Motivo deduzido da própria marcação ("atestado" → saúde). */
     tokenReason: ImportAttendance["reason"];
   }
   const slots = new Map<string, Slot>();
@@ -640,7 +582,6 @@ export function buildImport(input: BuildInput): BuildResult {
         subjectIndex,
         scheduleIndex,
         date: r.date,
-        // Aula avulsa com mais tempos de falta que o normal: a aula tinha esses tempos.
         scheduled: scheduleIndex === null ? Math.max(units, missed) : units,
         missed,
         cancelled: choice === "cancelled",
@@ -650,7 +591,6 @@ export function buildImport(input: BuildInput): BuildResult {
         tokenReason: choice === "excused" ? guessReason(r.token) : null,
       });
     } else {
-      // Duas linhas da mesma aula avulsa no mesmo dia (o banco guarda uma): soma os tempos.
       slot.scheduled = Math.min(6, slot.scheduled + (scheduleIndex === null ? units : 0));
       slot.missed = Math.min(slot.scheduled, slot.missed + missed);
       slot.cancelled = slot.cancelled && choice === "cancelled";

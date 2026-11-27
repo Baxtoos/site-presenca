@@ -1,13 +1,9 @@
-// Confere se os papéis do banco têm só as permissões previstas no planejamento.
-// Uso: pnpm --filter @presenca/db verify:roles   (lê DATABASE_URL e WORKER_DATABASE_URL do .env)
 import { resolve } from "node:path";
 import pg from "pg";
 
 try {
   process.loadEnvFile(resolve(import.meta.dirname, "../../../.env"));
-} catch {
-  // sem .env: usa o ambiente
-}
+} catch {}
 
 const checks = [];
 const check = (name, ok, detail = "") => checks.push({ name, ok, detail });

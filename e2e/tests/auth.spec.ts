@@ -6,7 +6,6 @@ import { totp } from "./totp";
 const uniqueEmail = (testInfo: { project: { name: string } }) =>
   `e2e.${testInfo.project.name}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@presenca.local`;
 
-/** Sai pela página Conta (no celular o botão do cabeçalho fica escondido). */
 async function logout(page: Page) {
   await page.goto("/conta");
   await page.getByRole("region", { name: "Sair" }).getByRole("button", { name: "Sair" }).click();
@@ -19,7 +18,6 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
   const password = "uma-senha-bem-forte-do-e2e-1";
   const newPassword = "outra-senha-bem-forte-do-e2e-2";
 
-  // Sem sessão, a página inicial é a apresentação do app (a barra continua em "/").
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Saiba quanto você ainda pode faltar." }),
@@ -29,25 +27,20 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
     "/entrar",
   );
 
-  // Cadastro: a conta só nasce no link do e-mail, que já entra e confirma o e-mail.
   await page.getByRole("link", { name: "Criar conta grátis" }).first().click();
   await expect(page.getByRole("heading", { name: "Criar conta" })).toBeVisible();
-  // Também dá para criar a conta com o Google direto do cadastro.
   await expect(page.getByRole("link", { name: "Criar conta com Google" })).toHaveAttribute(
     "href",
     "/api/v1/auth/google",
   );
   await signUp(page, { name: "Ana E2E", email, password });
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
-  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
   await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
-  // As sessões ficam na página Conta.
   await page.getByRole("link", { name: "Conta" }).click();
   await expect(page.getByText("este dispositivo")).toBeVisible();
   await page.getByRole("link", { name: "Início" }).first().click();
 
-  // Sair e entrar de novo; senha errada mostra a mensagem genérica.
   await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await expectPath(page, /^\/entrar$/);
@@ -59,7 +52,6 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
 
-  // Esqueci a senha (pedido feito deslogado).
   await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Esqueci a senha" }).click();
@@ -71,14 +63,12 @@ test("cadastro pelo link do e-mail → sair → entrar → esqueci a senha → n
 
   await openEmailLink(page, await waitForLink(email, "Redefinir sua senha", resetRequestedAt));
   await expect(page.getByRole("heading", { name: "Escolher nova senha" })).toBeVisible();
-  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
   await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   await page.getByLabel("Nova senha", { exact: true }).fill(newPassword);
   await page.getByLabel("Repita a nova senha").fill(newPassword);
   await page.getByRole("button", { name: "Salvar e entrar" }).click();
   await expect(page.getByRole("heading", { name: "Olá, Ana" })).toBeVisible();
 
-  // A senha antiga não funciona mais.
   await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
@@ -100,7 +90,6 @@ test("link de acesso por e-mail cria a conta sem senha", async ({ page }, testIn
 
   await openEmailLink(page, await waitForLink(email, "Crie sua conta", startedAt));
   await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
-  // Conta criada pelo link já nasce com e-mail confirmado.
   await expect(page.getByText("Confirme seu e-mail.")).toBeHidden();
 });
 
@@ -140,7 +129,6 @@ test("cadastro com e-mail que já tem conta não revela nada na tela", async ({
   await signUp(owner, { name: "Dona da Conta", email, password: "senha-forte-da-dona-e2e" });
   await expect(owner.getByRole("heading", { name: "Olá, Dona" })).toBeVisible();
 
-  // Outra pessoa tenta cadastrar o mesmo e-mail: a tela é a mesma de um e-mail novo.
   const other = await (await browser.newContext()).newPage();
   const triedAt = new Date(Date.now() - 1_000);
   await other.goto("/cadastro");
@@ -150,7 +138,6 @@ test("cadastro com e-mail que já tem conta não revela nada na tela", async ({
   await other.getByRole("button", { name: "Criar conta" }).click();
   await expect(other.getByText("Confira seu e-mail.")).toBeVisible();
 
-  // Quem recebe é a dona, com um aviso (sem link que crie ou altere conta).
   const notice = await waitForEmail(email, "Você já tem uma conta", triedAt);
   expect(notice.text).not.toMatch(/token=/);
 });
@@ -172,15 +159,12 @@ test("conta sem senha exclui a conta pelo link enviado ao e-mail", async ({ page
   await lgpd.getByRole("button", { name: "Enviar link de exclusão" }).click();
   await expect(lgpd.getByText("Enviamos um link para")).toBeVisible();
 
-  // Abrir o link não exclui sozinho: pede a confirmação.
   await openEmailLink(page, await waitForLink(email, "Confirme a exclusão da sua conta", askedAt));
   await expect(page.getByRole("heading", { name: "Excluir conta" })).toBeVisible();
-  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
   await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   await page.getByRole("button", { name: "Excluir minha conta" }).click();
   await expectPath(page, /^\/entrar$/);
 
-  // A conta não existe mais: o mesmo e-mail recebe o convite de criar conta de novo.
   const againAt = new Date(Date.now() - 1_000);
   await page.goto("/entrar/link");
   await page.getByLabel("E-mail").fill(email);
@@ -200,7 +184,6 @@ test("conta com senha exclui a conta confirmando a senha", async ({ page }, test
   await lgpd.getByRole("button", { name: "Excluir minha conta" }).click();
   const confirm = lgpd.getByLabel("Confirme sua senha atual para excluir a conta");
 
-  // Senha errada: avisa e não exclui.
   await confirm.fill("senha-errada-123");
   await lgpd.getByRole("button", { name: "Confirmar exclusão definitiva" }).click();
   await expect(lgpd.getByRole("alert")).toBeVisible();
@@ -210,7 +193,6 @@ test("conta com senha exclui a conta confirmando a senha", async ({ page }, test
   await lgpd.getByRole("button", { name: "Confirmar exclusão definitiva" }).click();
   await expectPath(page, /^\/entrar$/);
 
-  // A conta não existe mais: entrar com a senha antiga não funciona.
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
@@ -226,7 +208,6 @@ test("verificação em duas etapas: ligar, entrar com o código e com um código
   await signUp(page, { name: "Duda Dois Fatores", email, password });
   await expect(page.getByRole("heading", { name: "Olá, Duda" })).toBeVisible();
 
-  // Ligar na página Conta: QR Code, chave para digitar, código do app e senha.
   await page.goto("/conta");
   const mfa = page.getByRole("region", { name: "Verificação em duas etapas" });
   await mfa.getByRole("button", { name: "Ligar verificação em duas etapas" }).click();
@@ -246,7 +227,6 @@ test("verificação em duas etapas: ligar, entrar com o código e com um código
   await expect(mfa).toContainText("Ligada");
   await expect(mfa).toContainText("Restam 10 códigos de recuperação.");
 
-  // Login: a senha certa leva à tela do código.
   await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
@@ -256,12 +236,10 @@ test("verificação em duas etapas: ligar, entrar com o código e com um código
   await page.getByLabel("Código do app").fill("000000");
   await page.getByRole("button", { name: "Verificar e entrar" }).click();
   await expect(page.locator("main").getByRole("alert")).toContainText("Código incorreto");
-  // O código de agora já foi usado para ligar: o app mostra o próximo.
   await page.getByLabel("Código do app").fill(totp(secret, 1));
   await page.getByRole("button", { name: "Verificar e entrar" }).click();
   await expect(page.getByRole("heading", { name: "Olá, Duda" })).toBeVisible();
 
-  // Sem o celular: código de recuperação.
   await logout(page);
   await expect(page.getByRole("heading", { name: "Entrar", exact: true })).toBeVisible();
   await page.getByLabel("E-mail").fill(email);
@@ -272,7 +250,6 @@ test("verificação em duas etapas: ligar, entrar com o código e com um código
   await page.getByRole("button", { name: "Verificar e entrar" }).click();
   await expect(page.getByRole("heading", { name: "Olá, Duda" })).toBeVisible();
 
-  // Desligar pede um código (aqui, outro de recuperação).
   await page.goto("/conta");
   await expect(mfa).toContainText("Restam 9 códigos de recuperação.");
   await mfa.getByRole("button", { name: "Desligar" }).click();
@@ -303,12 +280,10 @@ test("conta sem senha liga a verificação em duas etapas pelo link do e-mail", 
     page,
     await waitForLink(email, "Ligar a verificação em duas etapas", askedAt),
   );
-  // A página tira o token da URL logo depois de carregar: espera em vez de ler uma vez só.
   await expect.poll(() => realPath(page)).not.toMatch(/token=/);
   const panel = page.getByRole("region", { name: "Verificação em duas etapas" });
   await panel.getByRole("button", { name: "Continuar" }).click();
   const secret = (await panel.getByTestId("mfa-chave").textContent())!.replace(/\s/g, "");
-  // Sem senha para confirmar: o link do e-mail já fez esse papel.
   await expect(panel.getByLabel("Senha atual")).toHaveCount(0);
   await panel.getByLabel("Código do app").fill(totp(secret));
   await panel.getByRole("button", { name: "Ligar", exact: true }).click();

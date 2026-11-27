@@ -15,10 +15,6 @@ const RISK_TEXT: Record<Summary["risk"], string> = {
   failed: "font-medium text-fail",
 };
 
-/**
- * O aviso de risco em forma de frase (no lugar do antigo selo "Seguro/Atenção/..."): só ganha cor
- * e ícone quando importa. `short` é a versão curta da tela Hoje.
- */
 export function RiskLine({
   summary: s,
   unitsPerClass,
@@ -62,7 +58,6 @@ export function RiskLine({
   );
 }
 
-/** Card da matéria: quanto já faltou, a barra do limite e quanto ainda pode faltar. */
 export function SubjectCard({ subject, hint }: { subject: Subject; hint?: string }) {
   const s = subject.summary;
   const width = Math.min(100, s.consumptionPct);

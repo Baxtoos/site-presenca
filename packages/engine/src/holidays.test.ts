@@ -42,7 +42,6 @@ describe("feriados nacionais", () => {
       "2026-12-25",
       "2027-01-01",
     ]);
-    // Carnaval de dois dias entra se um dos dias cair no período.
     expect(brazilHolidaysBetween("2026-02-17", "2026-03-01").map((h) => h.label)).toEqual([
       "Carnaval",
     ]);

@@ -2,7 +2,6 @@ import { CHECKIN_ACTION_LIMIT, type CheckinPayload, type PendingClass } from "@p
 import type { Pool } from "pg";
 import { addDaysIso, localParts, toMinutes } from "./time";
 
-/** Depois do horário escolhido, o lembrete ainda sai por 3 h (worker parado, deploy...). */
 const WINDOW_MINUTES = 180;
 
 interface Candidate {
@@ -15,10 +14,6 @@ interface Candidate {
   pushEnabled: boolean;
 }
 
-/**
- * Aulas da grade sem registro nos dias informados (feriados e matérias arquivadas não contam).
- * O worker só enxerga quais aulas têm registro, nunca o conteúdo deles.
- */
 export async function pendingClasses(
   pool: Pool,
   userId: string,
@@ -51,11 +46,6 @@ export async function pendingClasses(
   return rows;
 }
 
-/**
- * Gera os lembretes de chamada que venceram ("Já marcou as aulas de hoje?"). Um por aluno por dia
- * (dedupe_key), mesmo com vários workers ou ciclos seguidos. Sem aula pendente, grava um marcador
- * pulado: o dia fica resolvido e não é recontado a cada ciclo.
- */
 export async function enqueueReminders(pool: Pool, now: Date): Promise<number> {
   const { rows: candidates } = await pool.query<Candidate>(
     `select p.user_id as "userId", p.checkin_reminder as mode,
@@ -102,11 +92,9 @@ export async function enqueueReminders(pool: Pool, now: Date): Promise<number> {
     const payload: CheckinPayload = {
       count,
       scope: c.mode === "daily" ? "today" : "week",
-      // Poucas aulas no dia: a notificação traz os botões para marcar sem abrir o app.
       ...(c.mode === "daily" && count <= CHECKIN_ACTION_LIMIT ? { classes: pending } : {}),
     };
     await insertLog(pool, { ...base, channel: "in_app", status: "sent", payload });
-    // Lembrete vale pelo celular; sem push, vai por e-mail (se a pessoa recebe e-mails).
     if (c.pushEnabled) {
       await insertLog(pool, { ...base, channel: "push", status: "pending", payload });
     } else if (c.emailOk) {

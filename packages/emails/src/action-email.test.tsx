@@ -29,7 +29,6 @@ describe("e-mails de autenticação", () => {
     const links = msg.html.match(
       /<a [^>]*href="https:\/\/app\.exemplo\/cadastro\/confirmar\?token=t"/g,
     );
-    // Botão + endereço de reserva clicável.
     expect(links).toHaveLength(2);
     expect(msg.html).toMatch(/<td[^>]*bgcolor="#0B6BCB"[^>]*>\s*<a /);
     expect(msg.html).toContain('target="_blank"');
@@ -73,7 +72,6 @@ describe("visual dos e-mails", () => {
     expect(msg.html).toContain("background-color:#0B6BCB");
     expect(msg.html).toContain("color:#37352F");
     expect(msg.html).not.toMatch(/<img/i);
-    // Prévia na caixa de entrada: a primeira frase que não é a saudação.
     expect(msg.html).toContain("Recebemos um pedido para trocar a senha da sua conta.");
   });
 

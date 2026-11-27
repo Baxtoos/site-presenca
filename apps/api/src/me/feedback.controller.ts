@@ -18,10 +18,6 @@ import { DbService } from "../database/db.service";
 import { MAILER, type Mailer } from "../mail/mailer";
 import { RateLimit } from "../rate-limit/rate-limit";
 
-/**
- * "Enviar sugestão ou problema" (página Conta): vira um e-mail para o responsável pelo app
- * (FEEDBACK_TO), com "responder" apontando para o aluno. Nada fica guardado no banco.
- */
 @Controller("v1/feedback")
 export class FeedbackController {
   constructor(

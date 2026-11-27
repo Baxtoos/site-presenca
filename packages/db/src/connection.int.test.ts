@@ -21,7 +21,6 @@ describe("conexão encerrada pelo servidor (Neon reiniciando ou dormindo)", () =
     let attempts = 0;
     const result = await withUser(handle.db, { userId }, async (tx) => {
       attempts++;
-      // Na primeira tentativa, o servidor encerra a própria conexão no meio da transação.
       if (attempts === 1) await tx.execute(sql`select pg_terminate_backend(pg_backend_pid())`);
       const rows = await tx.execute<{ id: string }>(sql`select id from app.users`);
       return rows.rows.map((r) => r.id);

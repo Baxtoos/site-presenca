@@ -21,7 +21,6 @@ type Mode =
 
 const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "Algo deu errado.");
 
-/** Verificação em duas etapas (app autenticador) na página Conta. */
 export function MfaPanel({
   initial,
   hasPassword,
@@ -31,7 +30,6 @@ export function MfaPanel({
   initial: MfaStatusResponse;
   hasPassword: boolean;
   email: string;
-  /** Conta sem senha: token do link do e-mail (página /conta/duas-etapas). */
   confirmToken?: string;
 }) {
   const toast = useToast();
@@ -61,7 +59,6 @@ export function MfaPanel({
     }
   }
 
-  /** Conta sem senha: o link do e-mail confirma que é o dono antes de ligar. */
   async function requestLink() {
     setPending(true);
     setError(undefined);

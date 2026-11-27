@@ -7,13 +7,8 @@ import { ZodPipe } from "../common/zod.pipe";
 import { RateLimit } from "../rate-limit/rate-limit";
 import { SuapSyncService } from "./suap-sync.service";
 
-/** Caminho com limite de corpo maior (o retrato do SUAP com todas as aulas): ver common/http.ts. */
 export const SUAP_SYNC_PATH = "/v1/imports/suap";
 
-/**
- * Retrato do SUAP montado no navegador do aluno (favorito "Enviar para o Monitor"). A API cria ou
- * atualiza o semestre numa transação só.
- */
 @Controller("v1/imports")
 export class SuapSyncController {
   constructor(private readonly suap: SuapSyncService) {}

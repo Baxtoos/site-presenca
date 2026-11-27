@@ -8,11 +8,6 @@ import type { EditorDraft } from "./grading-editor";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
-/**
- * Assistente de IA: só COLETA a regra. O aluno conta como o professor calcula (ou cola o plano de
- * ensino), a IA pergunta o que faltar (no máximo 10 vezes) e preenche o editor logo abaixo, via
- * `onDraft`. As contas são do motor; nada é salvo sem o aluno conferir e clicar em salvar.
- */
 export function GradingAssistant({
   subjectId,
   onDraft,
@@ -25,9 +20,7 @@ export function GradingAssistant({
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [remaining, setRemaining] = useState(GRADING_AI_MAX_TURNS);
-  // Limite ou assistente desligado: a conversa para e o editor segue sozinho.
   const [stopped, setStopped] = useState(false);
-  // Falha passageira (IA lotada, rede): a mensagem do aluno fica e dá para tentar de novo.
   const [failed, setFailed] = useState<string | null>(null);
 
   async function send(event: FormEvent<HTMLFormElement>) {

@@ -19,8 +19,7 @@ describe("propriedades do limite de faltas", () => {
           unitsPerClass: upc,
           minAttendanceBp: minBp,
         });
-        const exact = classes * upc * (FULL_BP - minBp); // T × (1 − p) × 10000, inteiro
-        // F × 10000 ≤ exato < (F + 1) × 10000  ⇔  F = ⌊exato / 10000⌋
+        const exact = classes * upc * (FULL_BP - minBp);
         expect(F * FULL_BP).toBeLessThanOrEqual(exact);
         expect((F + 1) * FULL_BP).toBeGreaterThan(exact);
       }),
@@ -31,7 +30,7 @@ describe("propriedades do limite de faltas", () => {
   it("por carga horária: F é o piso dos minutos permitidos ÷ minutos por tempo", () => {
     fc.assert(
       fc.property(
-        fc.integer({ min: 1, max: 40_000 }).map((centi) => centi / 100), // até 400 h, 2 casas
+        fc.integer({ min: 1, max: 40_000 }).map((centi) => centi / 100),
         fc.constantFrom(45, 50, 60),
         fc.integer({ min: 10, max: 240 }),
         bp,

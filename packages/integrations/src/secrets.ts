@@ -14,7 +14,6 @@ export class SecretError extends Error {
   override name = "SecretError";
 }
 
-/** Chave de 32 bytes em base64 (INTEGRATION_ENCRYPTION_KEY). Gere com `openssl rand -base64 32`. */
 export function parseIntegrationKey(value: string | undefined): Buffer | null {
   if (!value) return null;
   const key = Buffer.from(value.trim(), "base64");
@@ -51,11 +50,9 @@ export function openSecret(sealed: string, key: Buffer, aad: string): string {
   }
 }
 
-/** AAD padrão: "moodle:{userId}:{campo}". */
 export const secretAad = (userId: string, field: "ics_url" | "wstoken") =>
   `moodle:${userId}:${field}`;
 
-/** "https://moodle.exemplo.edu.br/…?authtoken=abc" → "moodle.exemplo.edu.br" (para mostrar). */
 export function maskUrl(url: string): string {
   try {
     return new URL(url).host;

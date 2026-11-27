@@ -7,7 +7,6 @@ import {
   timeSchema,
 } from "./academic";
 
-/** no_call: a aula aconteceu sem chamada (conta como dada, sem falta). */
 export const attendanceStatusSchema = z.enum([
   "present",
   "absent",
@@ -27,7 +26,6 @@ export const noteSchema = z
   .transform((v) => (v === "" ? null : v))
   .nullable();
 
-/** O que foi passado na aula (opcional). Vazio vira null. */
 export const contentSchema = z
   .string()
   .trim()
@@ -35,15 +33,12 @@ export const contentSchema = z
   .transform((v) => (v === "" ? null : v))
   .nullable();
 
-// ---------------------------------------------------------------- registro
-
 export const unitsMissedSchema = z
   .number()
   .int()
   .min(1, { error: "Informe quantas aulas você perdeu." })
   .max(5, { error: "No máximo 5 aulas perdidas numa falta parcial." });
 
-/** Regras que dependem só do corpo; as que dependem do banco (tempos da aula) ficam na API. */
 export function refineAttendance(
   body: { status?: AttendanceStatus; unitsMissed?: number; isExcused?: boolean },
   ctx: z.RefinementCtx,
@@ -75,10 +70,8 @@ export const createAttendanceBodySchema = z
   .object({
     subjectId: z.uuid({ error: "Matéria inválida." }),
     classDate: isoDateSchema,
-    /** Horário da grade a que o registro se refere. Ausente = aula extra ou reposição. */
     scheduleId: z.uuid().nullable().optional(),
     status: attendanceStatusSchema,
-    /** Só para aula extra (sem scheduleId): quantos tempos de chamada ela vale. Padrão: o da matéria. */
     unitsScheduled: z
       .number()
       .int()
@@ -125,7 +118,6 @@ export const attendanceRecordSchema = z.object({
 });
 export type AttendanceRecord = z.output<typeof attendanceRecordSchema>;
 
-/** Resposta de criar/editar: o registro e o resumo da matéria já recalculado pelo motor. */
 export const attendanceResultSchema = z.object({
   record: attendanceRecordSchema,
   summary: subjectSummarySchema,
@@ -139,11 +131,8 @@ export const attendanceParamsSchema = z.object({
   id: z.uuid({ error: "Identificador inválido." }),
 });
 
-// ---------------------------------------------------------------- histórico
-
 export const attendanceListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30),
-  /** Cursor opaco devolvido em `nextCursor`. */
   cursor: z.string().max(200).optional(),
   status: attendanceStatusSchema.optional(),
 });
@@ -155,10 +144,7 @@ export const attendanceListSchema = z.object({
 });
 export type AttendanceList = z.infer<typeof attendanceListSchema>;
 
-// ---------------------------------------------------------------- aulas de hoje
-
 export const todayQuerySchema = z.object({
-  /** Dia a consultar (no máximo hoje). Padrão: hoje no fuso do aluno. */
   date: isoDateSchema.optional(),
 });
 
@@ -170,13 +156,11 @@ export const todayClassSchema = z.object({
     professor: z.string().nullable(),
     unitsPerClass: z.number().int(),
   }),
-  /** Null = aula extra registrada fora da grade. */
   scheduleId: z.uuid().nullable(),
   startsAt: timeSchema.nullable(),
   endsAt: timeSchema.nullable(),
   units: z.number().int(),
   room: z.string().nullable(),
-  /** Preenchido quando um feriado ou dia sem aula cancela esta aula. */
   blocked: z.object({ kind: z.enum(["holiday", "no_classes"]), label: z.string() }).nullable(),
   record: attendanceRecordSchema.nullable(),
   summary: subjectSummarySchema,
@@ -192,26 +176,20 @@ export const todayResponseSchema = z.object({
 });
 export type TodayResponse = z.infer<typeof todayResponseSchema>;
 
-// ---------------------------------------------------------------- calendário da matéria
-
 export const monthSchema = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Use o formato AAAA-MM." });
 
 export const subjectCalendarQuerySchema = z.object({
-  /** Mês a mostrar (AAAA-MM). Padrão: o mês de hoje, ou o mais próximo dentro do semestre. */
   month: monthSchema.optional(),
 });
 
-/** Uma aula num dia do calendário: da grade (scheduleId) ou extra, registrada fora dela. */
 export const calendarClassSchema = z.object({
-  /** Null = aula extra registrada fora da grade. */
   scheduleId: z.uuid().nullable(),
   startsAt: timeSchema.nullable(),
   endsAt: timeSchema.nullable(),
   units: z.number().int(),
   room: z.string().nullable(),
-  /** Feriado ou dia sem aula que cancela esta aula. */
   blocked: todayClassSchema.shape.blocked,
   record: attendanceRecordSchema.nullable(),
 });
@@ -219,28 +197,21 @@ export type CalendarClass = z.infer<typeof calendarClassSchema>;
 
 export const subjectCalendarSchema = z.object({
   month: monthSchema,
-  /** Hoje, no fuso do aluno: dias depois de hoje não podem ser marcados. */
   today: isoDateSchema,
   semester: z.object({ startsOn: isoDateSchema, endsOn: isoDateSchema }),
-  /** Mês anterior e seguinte que ainda têm dias do semestre (null = fora do semestre). */
   prevMonth: monthSchema.nullable(),
   nextMonth: monthSchema.nullable(),
-  /** Só os dias com aula (ou com registro) dentro do semestre, em ordem. */
   days: z.array(z.object({ date: isoDateSchema, classes: z.array(calendarClassSchema) })),
   summary: subjectSummarySchema,
 });
 export type SubjectCalendar = z.infer<typeof subjectCalendarSchema>;
 
-// ---------------------------------------------------------------- "Posso faltar?"
-
 export const simulateResponseSchema = z.object({
-  /** Hoje, no fuso do aluno. */
   asOf: isoDateSchema,
   summary: subjectSummarySchema,
   nextClass: z
     .object({ date: isoDateSchema, units: z.number().int(), scheduleId: z.uuid().nullable() })
     .nullable(),
-  /** O que acontece se faltar à próxima aula. Null se não há aula futura. */
   ifSkipNext: z
     .object({
       absentUnits: z.number().int(),
@@ -248,11 +219,9 @@ export const simulateResponseSchema = z.object({
       remainingClasses: z.number().int(),
       risk: subjectSummarySchema.shape.risk,
       projectedPresencePct: z.number().nullable(),
-      /** true = ainda dentro do limite depois dessa falta. */
       allowed: z.boolean(),
     })
     .nullable(),
-  /** Quantas aulas seguidas dá para faltar sem passar do limite, no calendário real. */
   plan: z.object({
     classes: z.number().int(),
     units: z.number().int(),
@@ -263,7 +232,6 @@ export const simulateResponseSchema = z.object({
 });
 export type SimulateResponse = z.infer<typeof simulateResponseSchema>;
 
-/** Códigos de erro das rotas de presença. */
 export const AttendanceErrorCode = {
   conflict: "ATTENDANCE_CONFLICT",
   futureDate: "FUTURE_DATE",
@@ -273,25 +241,17 @@ export const AttendanceErrorCode = {
   idempotencyKeyReused: "IDEMPOTENCY_KEY_REUSED",
 } as const;
 
-// ---------------------------------------------------------------- evolução no semestre
-
-/** Faltas acumuladas e nota ao longo do semestre (gráficos da matéria). */
 export const subjectEvolutionSchema = z.object({
   semester: z.object({ startsOn: isoDateSchema, endsOn: isoDateSchema }),
   today: isoDateSchema,
   absences: z.object({
-    /** Limite de faltas da matéria (em aulas). */
     limit: z.number().int(),
-    /** Total que conta no limite, depois de cada dia com falta (ordem de data). */
     points: z.array(z.object({ date: isoDateSchema, total: z.number().int() })),
   }),
-  /** null: matéria sem regra de cálculo da nota. */
   grades: z
     .object({
       scale: z.number().int(),
-      /** Nota para passar, em centésimos. */
       passing: z.number().int(),
-      /** Nota garantida e média parcial depois de cada dia em que saiu nota (centésimos). */
       points: z.array(
         z.object({
           date: isoDateSchema,

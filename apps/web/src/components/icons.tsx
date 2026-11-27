@@ -1,6 +1,5 @@
 import type { SVGProps } from "react";
 
-/** Ícones de traço (24×24, 1.75 px), no estilo dos ícones finos do Notion. Sempre decorativos. */
 type IconProps = SVGProps<SVGSVGElement> & { size?: number };
 
 function Svg({ size = 18, children, ...props }: IconProps) {

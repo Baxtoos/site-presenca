@@ -8,17 +8,13 @@ import { configureApp, createFastifyAdapter } from "./common/http";
 import { createLogger, PinoNestLogger } from "./common/logger";
 import { loadEnv } from "./config/env";
 
-// Em desenvolvimento lê o .env da raiz do monorepo; em produção as variáveis vêm do ambiente.
 if (process.env.NODE_ENV !== "production") {
   try {
     process.loadEnvFile(resolve(__dirname, "../../../.env"));
-  } catch {
-    // sem .env: segue com o ambiente atual e deixa a validação apontar o que falta
-  }
+  } catch {}
 }
 
 async function bootstrap(): Promise<void> {
-  // Valida antes de criar o app: adaptador HTTP e logger também dependem do ambiente.
   const env = loadEnv();
   const logger = createLogger(env);
   initErrorReporting({

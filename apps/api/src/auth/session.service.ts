@@ -10,13 +10,9 @@ import { generateToken, hashToken, TOKEN_FORMAT } from "./tokens";
 export const SESSION_COOKIE = "__Host-sid";
 
 const DAY = 86_400_000;
-/** Validade renovada a cada uso. */
 const SLIDING_MS = 30 * DAY;
-/** Sessão parada há mais tempo que isso deixa de valer, mesmo antes de expirar. */
 const IDLE_MS = 14 * DAY;
-/** Teto absoluto: depois disso, login de novo, mesmo com uso contínuo. */
 const ABSOLUTE_MS = 90 * DAY;
-/** Só grava last_seen_at se a última atualização tiver mais de 1 h (evita escrita a cada requisição). */
 const TOUCH_MS = 60 * 60 * 1000;
 
 @Injectable()
@@ -26,7 +22,6 @@ export class SessionService {
     private readonly repo: AuthRepository,
   ) {}
 
-  /** Cria a sessão dentro de uma transação já aberta como o usuário. Devolve o token do cookie. */
   async createInTx(tx: Tx, userId: string, request: FastifyRequest): Promise<string> {
     const token = generateToken();
     const now = Date.now();
@@ -49,7 +44,6 @@ export class SessionService {
     if (current) await this.revoke(current.userId, current.sessionId);
   }
 
-  /** Resolve o token do cookie numa sessão válida (não revogada, não expirada, não ociosa). */
   async resolve(token: string | undefined): Promise<ResolvedSession | undefined> {
     if (!token || !TOKEN_FORMAT.test(token)) return undefined;
     const session = await this.repo.resolveSession(hashToken(token));
@@ -60,7 +54,6 @@ export class SessionService {
     return session;
   }
 
-  /** Renova a validade (deslizante, com teto absoluto) e o cookie, no máximo uma vez por hora. */
   async touch(session: ResolvedSession, reply: FastifyReply, token: string): Promise<void> {
     if (Date.now() - session.lastSeenAt.getTime() < TOUCH_MS) return;
     const absoluteEnd = session.createdAt.getTime() + ABSOLUTE_MS;
@@ -85,7 +78,6 @@ export class SessionService {
     return rows.length > 0;
   }
 
-  /** Encerra todas as sessões do usuário (troca de senha). */
   async revokeAllInTx(tx: Tx, userId: string): Promise<void> {
     await tx
       .update(schema.sessions)

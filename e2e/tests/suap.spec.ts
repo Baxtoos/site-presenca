@@ -3,14 +3,9 @@ import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { expectPath, setupStudentWithClassToday } from "./setup-helpers";
 
-/** Páginas do SUAP (reais anonimizadas + uma turma sintética): ver e2e/fixtures/suap/README.md. */
 const fixture = (name: string) =>
   readFileSync(join(__dirname, "..", "fixtures", "suap", name), "utf8");
 
-/**
- * Finge ser o suap.ifsp.edu.br. `absentOn` marca falta (4 tempos) numa aula de Engenharia de
- * Software 1 que antes era presença, para testar a atualização.
- */
 async function fakeSuap(page: Page, state: { absentOn?: string }) {
   await page.context().route("https://suap.ifsp.edu.br/**", (route) => {
     const url = new URL(route.request().url());
@@ -41,10 +36,7 @@ async function fakeSuap(page: Page, state: { absentOn?: string }) {
   });
 }
 
-/** Abre o SUAP falso, roda o favorito e devolve a aba do Monitor que ele abre. */
 async function runBookmarklet(page: Page, code: string): Promise<Page> {
-  // O favorito carrega /suap.js do Monitor. Em produção os dois endereços são públicos; aqui o
-  // Monitor é localhost e o Chrome bloqueia site público lendo localhost, então o teste entrega.
   const script = await (await page.request.get("/suap.js")).text();
   await page.context().route(
     (url) => url.pathname === "/suap.js",
@@ -55,7 +47,6 @@ async function runBookmarklet(page: Page, code: string): Promise<Page> {
   const opened = page.context().waitForEvent("page");
   await suap.evaluate(code);
   const monitor = await opened;
-  // O favorito só carrega /suap.js e volta na hora: espera a leitura terminar e o Monitor abrir.
   await monitor.waitForURL(/\/semestres\/importar/);
   await suap.close();
   return monitor;
@@ -73,11 +64,9 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   const state: { absentOn?: string } = {};
   await fakeSuap(page, state);
 
-  // Instala o favorito pela página do Monitor.
   await page.goto("/semestres");
   await page.getByRole("link", { name: "Conectar ao SUAP" }).click();
   await expect(page.getByRole("heading", { name: "Conectar ao SUAP" })).toBeVisible();
-  // No celular (sem barra de favoritos), o passo a passo do navegador da pessoa.
   if (testInfo.project.name === "celular") {
     await expect(page.getByRole("tab", { name: "Chrome (Android)" })).toHaveAttribute(
       "aria-selected",
@@ -97,11 +86,9 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   const favorite = page.getByTestId("suap-favorito");
   await expect(favorite).toHaveAttribute("href", /^javascript:/);
   const href = (await favorite.getAttribute("href"))!;
-  // Curto para caber no favorito do celular: só carrega /suap.js.
   expect(href.length).toBeLessThan(600);
   const code = decodeURIComponent(href.slice("javascript:".length));
 
-  // 1ª vez: cria o semestre.
   let monitor = await runBookmarklet(page, code);
   await expect(monitor.getByRole("heading", { name: "Período 2026/2" })).toBeVisible();
   await expect(monitor.getByTestId("suap-resumo")).toContainText(
@@ -119,14 +106,12 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   await expect(eso).toContainText("Ter");
   await expect(bd).toContainText("6 de 20 faltas");
   await expect(bd).toContainText("Qui");
-  // Notas do boletim: a nota oficial do SUAP aparece na seção Notas da matéria.
   await eso.click();
   const official = monitor.getByTestId("nota-suap");
   await expect(official).toContainText("Nota oficial do SUAP");
   await expect(official).toContainText("Etapa 17,5");
   await expect(official).toContainText("Média7,5");
   await expect(official).toContainText("Situação: Cursando");
-  // Avaliações do "Detalhar": a A1 com 9,1; a regra vem do SUAP e a nota entra ao salvar.
   await expect(official.getByRole("list", { name: "Avaliações no SUAP" })).toContainText("A1");
   await expect(official.getByRole("list", { name: "Avaliações no SUAP" })).toContainText("9,1");
   await monitor.getByRole("button", { name: "Trazer avaliações do SUAP" }).click();
@@ -138,7 +123,6 @@ test("traz do SUAP as disciplinas, o horário e as faltas, e atualiza depois", a
   await expect(a1.getByRole("textbox").first()).toHaveValue("9,1");
   await monitor.close();
 
-  // 2ª vez: o professor lançou uma falta em 25/08; atualiza o mesmo semestre.
   state.absentOn = "25/08/2026";
   monitor = await runBookmarklet(page, code);
   await expect(monitor.getByLabel("Onde colocar")).not.toHaveValue("new");

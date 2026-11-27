@@ -1,15 +1,9 @@
-/** Horas e datas no fuso de cada aluno, sem biblioteca (Intl). Usado pela API e pelo worker. */
-
 const FALLBACK_TZ = "America/Sao_Paulo";
 
 export interface LocalParts {
-  /** "AAAA-MM-DD" */
   date: string;
-  /** "HH:MM" (24 h) */
   time: string;
-  /** Minutos desde a meia-noite local. */
   minutes: number;
-  /** ISO: 1 = segunda … 7 = domingo. */
   weekday: number;
 }
 
@@ -31,7 +25,6 @@ function formatter(tz: string): Intl.DateTimeFormat {
         weekday: "short",
       });
     } catch {
-      // Fuso inválido no cadastro: usa o padrão do app em vez de derrubar o worker.
       return formatter(FALLBACK_TZ);
     }
     formatters.set(tz, f);
@@ -62,7 +55,6 @@ export function localParts(instant: Date, tz: string): LocalParts {
   };
 }
 
-/** Diferença entre o relógio local e o UTC num instante (ms). */
 function offsetMs(instant: Date, tz: string): number {
   const p = parts(instant, tz);
   const asUtc = Date.UTC(
@@ -76,12 +68,10 @@ function offsetMs(instant: Date, tz: string): number {
   return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
 }
 
-/** Instante em que o relógio do fuso marca `date` `time` (ex.: 2026-11-18 07:00 em São Paulo). */
 export function zonedTimeToUtc(date: string, time: string, tz: string): Date {
   const [y, m, d] = date.split("-").map(Number) as [number, number, number];
   const [hh, mm] = time.split(":").map(Number) as [number, number];
   const wall = Date.UTC(y, m - 1, d, hh, mm);
-  // Duas passadas acertam também os dias de mudança de horário de verão.
   let guess = wall - offsetMs(new Date(wall), tz);
   guess = wall - offsetMs(new Date(guess), tz);
   return new Date(guess);
@@ -89,7 +79,6 @@ export function zonedTimeToUtc(date: string, time: string, tz: string): Date {
 
 const WEEKDAY_SHORT_BR = ["", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb.", "dom."];
 
-/** "sex., 28/11 às 23:59": um instante como o aluno lê no fuso dele (avisos, e-mails, push). */
 export function formatLocalDateTimeBR(instant: Date, tz: string): string {
   const p = localParts(instant, tz);
   const [, month, day] = p.date.split("-");

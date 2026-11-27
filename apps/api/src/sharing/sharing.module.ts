@@ -9,10 +9,6 @@ import { SpreadsheetImportService } from "./spreadsheet-import.service";
 import { SuapSyncController } from "./suap-sync.controller";
 import { SuapSyncService } from "./suap-sync.service";
 
-/**
- * Compartilhamento de grades (códigos, prévia pública e importação), importação de planilha e
- * sincronização com o SUAP.
- */
 @Module({
   imports: [NotificationsModule],
   controllers: [SharingController, SpreadsheetImportController, SuapSyncController],

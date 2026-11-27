@@ -2,10 +2,6 @@ import type { Task } from "@presenca/contracts";
 import { formatGrade } from "@presenca/engine";
 import Link from "next/link";
 
-/**
- * Tarefa ligada a uma avaliação: depois de entregue mostra "aguardando nota" com o atalho para
- * lançar (na seção Notas da matéria), ou a nota já lançada.
- */
 export function GradeHint({ task }: { task: Task }) {
   const ev = task.evaluation;
   if (!ev || !task.subjectId) return null;

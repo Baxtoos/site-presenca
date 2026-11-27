@@ -4,8 +4,6 @@ import { AlertIcon, CheckCircleIcon, ChevronLeftIcon, InfoIcon } from "./icons";
 
 export { Button } from "./button";
 
-/** Campo com rótulo, dica e erro ligados ao input por aria (leitores de tela anunciam o erro). */
-/** Visual comum de input, select e textarea. */
 export const INPUT_CLASS =
   "min-h-11 w-full min-w-0 rounded-md border border-line-strong bg-surface px-3 text-base outline-none transition-[border-color,box-shadow] placeholder:text-muted/80 hover:border-muted/60 focus:border-accent focus:ring-[3px] focus:ring-accent/20 sm:min-h-10 sm:text-sm";
 
@@ -20,7 +18,6 @@ export function Field({
   label: string;
   error?: string;
   hint?: string;
-  /** O Field já cria o <input>: passar um input dentro dele quebraria a tela (ver Conta → Excluir). */
   children?: never;
 }) {
   const describedBy = [error ? `${id}-erro` : null, hint ? `${id}-dica` : null]
@@ -53,7 +50,6 @@ export function Field({
   );
 }
 
-/** Aviso no estilo "callout": ícone à esquerda, fundo suave, sem borda pesada. */
 export function Alert({
   tone = "info",
   children,
@@ -78,10 +74,6 @@ export function Alert({
   );
 }
 
-/**
- * Cabeçalho de página no estilo Notion: ícone grande, título forte, descrição curta e ações.
- * `back` mostra o caminho de volta acima (texto do link inalterado, para leitores de tela).
- */
 export function PageHeader({
   icon,
   iconTile = true,
@@ -92,9 +84,7 @@ export function PageHeader({
   back,
   children,
 }: {
-  /** Ícone da página (um dos de components/icons). Vai numa peça quadrada, como no Notion. */
   icon?: ReactNode;
-  /** false: o ícone já vem com a própria moldura (ex.: a cor da matéria). */
   iconTile?: boolean;
   eyebrow?: ReactNode;
   title: ReactNode;
@@ -142,7 +132,6 @@ export function PageHeader({
   );
 }
 
-/** Título de seção dentro da página (como um "heading 2" do Notion), com ação opcional à direita. */
 export function SectionTitle({
   id,
   children,
@@ -162,7 +151,6 @@ export function SectionTitle({
   );
 }
 
-/** Link com cara de botão (para navegação: Criar, Adicionar...). */
 export function ButtonLink({
   href,
   children,
@@ -197,7 +185,6 @@ export function TextLink({ href, children }: { href: string; children: ReactNode
   );
 }
 
-/** Divisor "ou" entre formas de entrar. */
 export function OrDivider() {
   return (
     <div

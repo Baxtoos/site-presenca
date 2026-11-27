@@ -1,4 +1,3 @@
-/** Prévia ilustrativa de um card de matéria (telas de entrada e apresentação). Decorativa. */
 export function SubjectPreviewCard({ className = "" }: { className?: string }) {
   return (
     <div

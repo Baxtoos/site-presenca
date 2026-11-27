@@ -51,7 +51,6 @@ function Toggle({
   );
 }
 
-/** Preferências de aviso: canais, marcos, lembrete de chamada, horário silencioso e push do aparelho. */
 export function NotificationSettings({ initial }: { initial: NotificationPreferences }) {
   const toast = useToast();
   const [prefs, setPrefs] = useState(initial);
@@ -64,7 +63,6 @@ export function NotificationSettings({ initial }: { initial: NotificationPrefere
   );
   const [pushBusy, setPushBusy] = useState(false);
 
-  // Estado do push NESTE aparelho (só o navegador sabe).
   useEffect(() => {
     const support = pushSupport();
     if (support !== "ok") {
@@ -160,7 +158,6 @@ export function NotificationSettings({ initial }: { initial: NotificationPrefere
         message: prefs.pushEnabled
           ? "Aviso de teste enviado. Já está nos Avisos; no aparelho pode levar alguns minutos."
           : "Aviso de teste enviado para a central.",
-        // Mais tempo na tela: a pessoa precisa ler que o push não é imediato.
         duration: prefs.pushEnabled ? 9_000 : undefined,
       });
     } catch (e) {

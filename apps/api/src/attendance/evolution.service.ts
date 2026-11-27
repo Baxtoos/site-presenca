@@ -10,11 +10,6 @@ import { DbService } from "../database/db.service";
 
 const { subjects, semesters, users, attendanceLogs, gradingSchemes, evaluationItems } = schema;
 
-/**
- * Pontos dos gráficos da matéria: faltas que contam no limite, acumuladas por dia (mesma regra da
- * view subject_totals), e a nota garantida/média parcial depois de cada dia em que saiu nota
- * (recalculada pelo motor só com as notas lançadas até aquele dia).
- */
 @Injectable()
 export class EvolutionService {
   constructor(
@@ -102,7 +97,7 @@ export class EvolutionService {
         const s = summarizeGrades(rules.data, items);
         points.push({ date, guaranteed: s.final ?? s.guaranteed, partial: s.partial });
       } catch {
-        return null; // regra que o motor não consegue calcular: sem gráfico de nota
+        return null;
       }
     }
     return { scale: rules.data.scale, passing: rules.data.passing, points };

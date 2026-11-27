@@ -33,7 +33,6 @@ export function toProblem(error: unknown, requestId: string): Problem {
     });
   }
 
-  // Erros do próprio Fastify (JSON inválido, corpo grande demais, content-type não suportado).
   const fastifyError = error as FastifyLikeError;
   if (
     typeof fastifyError?.statusCode === "number" &&

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { BellIcon } from "@/components/icons";
 
-/** Sino do cabeçalho: leva à central e mostra quantos avisos não foram lidos. */
 export function NotificationBell({ unread }: { unread: number }) {
   const label =
     unread === 0 ? "Avisos" : `Avisos, ${unread} não ${unread === 1 ? "lido" : "lidos"}`;

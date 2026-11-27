@@ -51,7 +51,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     expect(sem.statusCode).toBe(201);
     const semesterId = sem.json<{ id: string }>().id;
 
-    // Matéria 1: carga horária (60h, tempo 50min, 75% → 72 tempos, limite 18)
     const calc = subjectSchema.parse(
       (
         await ana.b.request("POST", `/v1/semesters/${semesterId}/subjects`, {
@@ -79,7 +78,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       ).json(),
     );
 
-    // Matéria 2: limite manual (4 tempos), com atestado que desconta do limite
     const lab = subjectSchema.parse(
       (
         await ana.b.request("POST", `/v1/semesters/${semesterId}/subjects`, {
@@ -96,7 +94,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       ).json(),
     );
 
-    // Registros de falta
     const att1 = await ana.b.request(
       "POST",
       "/v1/attendance",
@@ -149,12 +146,10 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     );
     expect(res.headers["content-disposition"]).toContain('filename="presenca_2026-1.xlsx"');
 
-    // Reabre com ExcelJS e confere abas, fórmulas e resultados pré-calculados
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(res.rawPayload as unknown as ExcelJS.Buffer);
 
     const sheetNames = wb.worksheets.map((w) => w.name);
-    // "Dados" fica muito oculta: guarda tudo para a importação (o aluno não vê nem reexibe no Excel).
     expect(sheetNames).toEqual(["Resumo", "Historico", "Grade Horária", "Dados"]);
     expect(wb.getWorksheet("Dados")!.state).toBe("veryHidden");
 
@@ -162,7 +157,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     expect(resumo.getCell("A1").value).toBe("Relatório de Frequência · 2026.1");
     expect(resumo.getCell("A2").text).toContain("Ana Ribeiro · Engenharia de Computação");
 
-    // Linha 5: Cálculo II (ordem alfabética)
     expect(resumo.getCell("A5").value).toBe("Cálculo II");
     expect(resumo.getCell("D5").value).toBe(72);
     expect(resumo.getCell("F5").value).toEqual({
@@ -184,7 +178,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       result: "Seguro",
     });
 
-    // Linha 6: Laboratório de Redes (limite manual vira valor fixo com nota; falta abonada em G6 = 2)
     expect(resumo.getCell("A6").value).toBe("Laboratório de Redes");
     expect(resumo.getCell("H6").value).toBe(4);
     expect(resumo.getCell("G6").value).toEqual({
@@ -192,7 +185,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       result: 2,
     });
 
-    // Aba 2: Historico
     const historico = wb.getWorksheet("Historico")!;
     expect(historico.getCell("A2").value).toBeInstanceOf(Date);
     expect(historico.getCell("A2").numFmt).toBe("dd/mm/yyyy");
@@ -200,12 +192,10 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     expect(historico.getCell("F3").value).toBe("Abonada");
     expect(historico.getCell("F4").value).toBe("Contabilizada · atestado");
 
-    // Aba 3: Grade Horária
     const grade = wb.getWorksheet("Grade Horária")!;
     expect(grade.getCell("A2").value).toBe("19:00 – 20:40");
     expect(grade.getCell("B2").text).toContain("Cálculo II");
 
-    // Isolamento: outro usuário recebe 404
     const outro = await student("Outro Aluno");
     const forbidden = await outro.b.request("GET", `/v1/semesters/${semesterId}/export.xlsx`);
     expect(forbidden.statusCode).toBe(404);
@@ -248,7 +238,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       key(),
     );
 
-    // Tarefa ligada a uma avaliação e regra de notas: também saem no export e somem na exclusão.
     const grading = await dono.b.request("PUT", `/v1/subjects/${subj.id}/grading`, {
       rules: { scale: 10, passing: 600, formula: "P1" },
       items: [
@@ -258,7 +247,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     });
     expect(grading.statusCode, grading.body).toBe(200);
 
-    // Compartilha a grade e o colega importa (testa cascata de FK entre usuários ao excluir o dono)
     const tpl = await dono.b.request("POST", "/v1/templates", {
       source: { kind: "semester", semesterId },
       title: "Grade 2026.1",
@@ -274,7 +262,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     );
     expect(imp.statusCode).toBe(201);
 
-    // 1. Exportação JSON (LGPD)
     const exp = await dono.b.request("GET", "/v1/me/export.json");
     expect(exp.statusCode).toBe(200);
     expect(exp.headers["content-disposition"]).toContain('filename="meus-dados-presenca.json"');
@@ -297,7 +284,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       exp.json<{ grades: { schemes: unknown[]; evaluations: unknown[] } }>().grades,
     ).toMatchObject({ schemes: [expect.anything()], evaluations: [expect.anything()] });
 
-    // Acesso e segurança: sessões (com IP e navegador) sim; segredos nunca.
     const raw = JSON.stringify(exp.json());
     const { security } = exp.json<{ security: { sessions: unknown[]; twoFactor: unknown } }>();
     expect(security.sessions.length).toBeGreaterThanOrEqual(1);
@@ -313,23 +299,19 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       expect(raw).not.toContain(secret);
     }
 
-    // 2. Tentativa de exclusão com senha errada falha com 401
     const badDel = await dono.b.request("DELETE", "/v1/me", {
       password: "senha-errada-12345",
     });
     expect(badDel.statusCode).toBe(401);
 
-    // 3. Exclusão com senha certa apaga tudo do usuário (inclusive trilha de auditoria)
     const okDel = await dono.b.request("DELETE", "/v1/me", {
       password: dono.password,
     });
     expect(okDel.statusCode).toBe(204);
 
-    // Sessão encerrada
     const afterMe = await dono.b.request("GET", "/v1/me");
     expect(afterMe.statusCode).toBe(401);
 
-    // Nada restou no banco para o usuário excluído (nem eventos de auditoria)
     const counts = await env.db.admin.query<{
       users: string;
       logs: string;
@@ -342,7 +324,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
       [dono.userId],
     );
     expect(counts.rows[0]).toEqual({ users: "0", logs: "0", events: "0" });
-    // Varre toda tabela com user_id (inclusive as que vierem depois): nenhuma linha pode sobrar.
     const tables = await env.db.admin.query<{ table_name: string }>(
       `select table_name from information_schema.columns
         where table_schema = 'app' and column_name = 'user_id'
@@ -360,7 +341,6 @@ describe("Fase 8: exportação Excel (.xlsx) e direitos LGPD (export.json e excl
     }
     expect(left).toEqual([]);
 
-    // O colega que importou a grade continua com o semestre e a matéria intactos
     const colegaSems = await colega.b.request("GET", "/v1/semesters");
     expect(colegaSems.statusCode).toBe(200);
     expect(colegaSems.json<{ semesters: unknown[] }>().semesters).toHaveLength(1);

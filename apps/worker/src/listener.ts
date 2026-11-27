@@ -3,10 +3,6 @@ import { withVerifiedTls } from "@presenca/db";
 
 export const OUTBOX_CHANNEL = "presenca_outbox";
 
-/**
- * Conexão dedicada que escuta o NOTIFY do outbox e chama `onWake`. Reconecta sozinha se cair;
- * enquanto estiver fora, a varredura periódica do worker garante que nada fica parado.
- */
 export class OutboxListener {
   private client: pg.Client | null = null;
   private stopped = false;
@@ -47,7 +43,6 @@ export class OutboxListener {
       await client.query(`LISTEN ${OUTBOX_CHANNEL}`);
       this.client = client;
       this.log("info", "escutando o outbox");
-      // Pode ter chegado algo enquanto estava desconectado.
       this.onWake();
     } catch (error) {
       client.removeAllListeners();

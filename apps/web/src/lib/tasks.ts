@@ -3,7 +3,6 @@ import { safeNext } from "./next-path";
 
 const WEEKDAY_SHORT = ["dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb."];
 
-/** "sex., 28/11 às 23:59" a partir do prazo local que a API devolve. */
 export function dueLabel(task: Pick<Task, "dueLocal">): string {
   const { date, time } = task.dueLocal;
   const weekday = WEEKDAY_SHORT[new Date(`${date}T12:00:00Z`).getUTCDay()];
@@ -11,7 +10,6 @@ export function dueLabel(task: Pick<Task, "dueLocal">): string {
   return `${weekday}, ${day}/${month} às ${time}`;
 }
 
-/** "vence em 2 dias", "vence em 3 h", "venceu há 1 dia". */
 export function dueRelative(task: Pick<Task, "dueAt">, now: Date): string {
   const diff = new Date(task.dueAt).getTime() - now.getTime();
   const abs = Math.abs(diff);
@@ -35,7 +33,6 @@ export const TASK_GROUPS: { id: TaskGroupId; label: string }[] = [
   { id: "later", label: "Depois" },
 ];
 
-/** Agrupa as pendentes pela proximidade do prazo. */
 export function groupOf(task: Task, now: Date): TaskGroupId {
   if (task.overdue) return "overdue";
   const left = new Date(task.dueAt).getTime() - now.getTime();
@@ -65,7 +62,6 @@ export function taskReturnPath(value: string | string[] | undefined): string {
   return "/calendario";
 }
 
-/** "2026-11-30" válido (data inicial do formulário vinda do calendário). */
 export function isoDateParam(value: string | string[] | undefined): string | undefined {
   return typeof value === "string" &&
     /^\d{4}-\d{2}-\d{2}$/.test(value) &&
@@ -74,7 +70,6 @@ export function isoDateParam(value: string | string[] | undefined): string | und
     : undefined;
 }
 
-/** Link "voltar" do cabeçalho conforme a origem. */
 export function backLink(returnTo: string): { href: string; label: string } {
   return returnTo.startsWith("/tarefas")
     ? { href: returnTo, label: "Tarefas" }

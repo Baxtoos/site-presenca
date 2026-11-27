@@ -7,7 +7,6 @@ const base = {
   REDIS_URL: "redis://localhost:6379",
 };
 
-/** Mínimo válido em produção: HTTPS e um transporte de e-mail real. */
 const production = {
   ...base,
   NODE_ENV: "production",

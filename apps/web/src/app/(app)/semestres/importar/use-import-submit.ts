@@ -5,11 +5,6 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api-client";
 
-/**
- * Envio da importação, comum às duas telas (planilha do app e planilha própria).
- * A Idempotency-Key acompanha o conteúdo: repetir o mesmo envio (rede caiu, clique duplo) reusa a
- * chave e não duplica; mudar qualquer coisa gera outra (a API recusaria a chave com outro corpo).
- */
 export function useImportSubmit() {
   const router = useRouter();
   const [pending, setPending] = useState(false);

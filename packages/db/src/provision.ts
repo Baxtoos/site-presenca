@@ -4,27 +4,19 @@ import pg from "pg";
 export type AppRole = "app_owner" | "app_api" | "app_worker";
 
 export interface ProvisionOptions {
-  /**
-   * Conexão de administração do banco JÁ EXISTENTE (ex.: o `neondb_owner` do Neon). Não precisa
-   * ser superusuário: basta poder criar papéis (CREATEROLE) e ser dono do banco.
-   */
   adminUrl: string;
-  /** Senhas já escolhidas. As que faltarem são geradas (48 caracteres hexadecimais). */
   passwords?: Partial<Record<AppRole, string>>;
 }
 
 export interface ProvisionResult {
   database: string;
   passwords: Record<AppRole, string>;
-  /** Papéis cuja senha foi gerada agora (as outras vieram de `passwords`). */
   generated: AppRole[];
-  /** URLs de conexão de cada papel, no mesmo servidor e banco da conexão de administração. */
   urls: Record<AppRole, string>;
 }
 
 const LOGIN_ROLES: AppRole[] = ["app_owner", "app_api", "app_worker"];
 
-/** Mesma conexão, outro usuário. Mantém host, porta, banco e parâmetros (ex.: sslmode). */
 export function urlForRole(adminUrl: string, role: string, password: string): string {
   const url = new URL(adminUrl);
   url.username = role;
@@ -32,18 +24,6 @@ export function urlForRole(adminUrl: string, role: string, password: string): st
   return url.toString();
 }
 
-/**
- * Cria (ou atualiza) os papéis e o schema do app num banco gerenciado, onde o script de
- * `infra/postgres/init` não roda. É o equivalente em produção ao que o Docker faz no
- * desenvolvimento, e pode rodar de novo sem estragar nada (também serve para trocar as senhas).
- *
- * - app_owner: dono do schema `app`; só as migrations usam.
- * - app_api / app_worker: os papéis que a API e o worker usam; sem DDL e sem BYPASSRLS.
- * - app_auth: SEM login; dono das funções SECURITY DEFINER de autenticação (migration 0003).
- * - app_backup: criado SEM login aqui (as migrations precisam dele); o login e a senha vêm de
- *   `infra/prod/backup-role.sh`, que não mexe nas senhas dos outros papéis.
- * As permissões por tabela vêm das migrations.
- */
 export async function provisionRoles(options: ProvisionOptions): Promise<ProvisionResult> {
   const passwords = {} as Record<AppRole, string>;
   const generated: AppRole[] = [];
@@ -104,7 +84,6 @@ export async function provisionRoles(options: ProvisionOptions): Promise<Provisi
       if (!authExists) {
         await q("create role app_auth nologin nosuperuser nocreatedb nocreaterole nobypassrls");
       }
-      // As migrations (app_owner) passam a propriedade das funções de auth para app_auth.
       await q("grant app_auth to app_owner");
       const { rowCount: backupExists } = await client.query(
         "select 1 from pg_roles where rolname = 'app_backup'",
@@ -123,24 +102,18 @@ export async function provisionRoles(options: ProvisionOptions): Promise<Provisi
         );
       }
 
-      // 3. Schema do app, só do app_owner.
       await q("create schema if not exists app authorization app_owner");
       await q("alter schema app owner to app_owner");
       await q("grant usage on schema app to app_api, app_worker, app_auth");
       await q(`grant connect on database ${id(db)} to app_owner, app_api, app_worker`);
-      // As migrations guardam o histórico no schema "migrations", que o app_owner cria.
       await q(`grant create on database ${id(db)} to app_owner`);
 
-      // 4. Nada de objetos soltos no schema public.
       await q("revoke create on schema public from public");
 
-      // 5. Os papéis enxergam o schema app sem prefixo (as migrations e a API contam com isso).
       for (const role of LOGIN_ROLES) {
         await q(`alter role ${id(role)} in database ${id(db)} set search_path = app`);
       }
 
-      // 6. Tabelas criadas pelo app_owner nas migrations já nascem com DML liberado para a API.
-      //    O RLS (forçado em cada tabela) decide quais linhas ela enxerga.
       await q(
         `alter default privileges for role app_owner in schema app
            grant select, insert, update, delete on tables to app_api`,
@@ -170,10 +143,6 @@ export async function provisionRoles(options: ProvisionOptions): Promise<Provisi
   }
 }
 
-/**
- * Dá login e senha ao papel de backup (só leitura, migration 0008) sem tocar nos outros papéis.
- * Pode rodar de novo para trocar a senha. Retorna a URL de conexão do app_backup.
- */
 export async function provisionBackupRole(options: {
   adminUrl: string;
   password?: string;

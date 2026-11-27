@@ -27,7 +27,6 @@ afterAll(async () => {
   await env?.stop();
 });
 
-// "Hoje" nos testes: quarta-feira, 18/11/2026, 12:00 em São Paulo.
 const TODAY = "2026-11-18";
 const MONDAY = "2026-11-16";
 
@@ -42,7 +41,7 @@ const CALCULO = {
   countingMode: "workload",
   workloadHours: 60,
   workloadHourMinutes: 60,
-  unitMinutes: 50, // T = 72 tempos, F = 18 tempos (75%)
+  unitMinutes: 50,
   minAttendanceBp: 7500,
   schedules: [
     { weekday: 3, startsAt: "19:00", endsAt: "20:40", units: 2, room: "B-204" },
@@ -50,7 +49,6 @@ const CALCULO = {
   ],
 };
 
-/** Aluna com semestre 2026.2 e Cálculo II (segunda e quarta, 2 tempos). */
 async function setup(subjectOverrides: Record<string, unknown> = {}) {
   const b = new Browser(env.app);
   const reg = await registerAndConfirm(env, b, {
@@ -79,7 +77,6 @@ async function setup(subjectOverrides: Record<string, unknown> = {}) {
 }
 type Ctx = Awaited<ReturnType<typeof setup>>;
 
-/** Registra uma aula (padrão: aula extra, para poder usar qualquer data do semestre). */
 function register(c: Ctx, body: Record<string, unknown>, headers: Record<string, string> = key()) {
   return c.b.request(
     "POST",
@@ -199,11 +196,10 @@ describe("aulas de hoje", () => {
   it("usa o dia do fuso do aluno: às 00:30 de Tóquio já é quinta", async () => {
     const c = await setup();
     await c.b.request("PATCH", "/v1/me", { timezone: "Asia/Tokyo" });
-    env.clock.instant = new Date("2026-11-18T15:30:00Z"); // 19/11 00:30 em Tóquio
+    env.clock.instant = new Date("2026-11-18T15:30:00Z");
     try {
       const today = todayResponseSchema.parse((await c.b.request("GET", "/v1/today")).json());
       expect(today).toMatchObject({ date: "2026-11-19", weekday: 4 });
-      // Registrar em 19/11 não é "futuro" para quem está em Tóquio.
       expect((await register(c, { classDate: "2026-11-19" })).statusCode).toBe(201);
     } finally {
       env.clock.instant = new Date("2026-11-18T15:00:00Z");
@@ -240,7 +236,6 @@ describe("registrar presença", () => {
       heldUnits: 2,
       risk: "safe",
     });
-    // A rota da matéria enxerga a mesma conta: nada é guardado, tudo é derivado.
     const direct = subjectSchema.parse(
       (await c.b.request("GET", `/v1/subjects/${c.subject.id}`)).json(),
     );
@@ -290,7 +285,7 @@ describe("registrar presença", () => {
     expect(evo.absences.points.map((p) => p.date)).toEqual(["2026-09-02", "2026-09-16"]);
     expect(evo.absences.points.at(-1)!.total).toBe(last.summary.absentUnits);
     expect(evo.absences.limit).toBe(last.summary.maxAbsenceUnits);
-    expect(evo.grades).toBeNull(); // sem regra de nota
+    expect(evo.grades).toBeNull();
     const other = await setup();
     expect(
       (await other.b.request("GET", `/v1/subjects/${c.subject.id}/evolution`)).statusCode,
@@ -317,7 +312,7 @@ describe("registrar presença", () => {
       scheduleId: c.wed.id,
       status: "cancelled",
     });
-    expect(summary).toMatchObject({ absentUnits: 0, heldUnits: 2 }); // só a segunda conta como dada
+    expect(summary).toMatchObject({ absentUnits: 0, heldUnits: 2 });
   });
 
   it("sem chamada: a aula conta como dada, mas sem falta; não aceita tempos perdidos nem atestado", async () => {
@@ -329,7 +324,7 @@ describe("registrar presença", () => {
       status: "no_call",
     });
     expect(record).toMatchObject({ status: "no_call", unitsMissed: 0, isExcused: false });
-    expect(summary).toMatchObject({ absentUnits: 0, heldUnits: 4 }); // as duas contam como dadas
+    expect(summary).toMatchObject({ absentUnits: 0, heldUnits: 4 });
 
     const withMissed = await register(c, { classDate: MONDAY, status: "no_call", unitsMissed: 1 });
     expect(withMissed.statusCode).toBe(422);
@@ -427,7 +422,6 @@ describe("registrar presença", () => {
     expect(again.statusCode).toBe(409);
     expect(problem(again).code).toBe("ATTENDANCE_CONFLICT");
     expect(await countLogs(c.subject.id)).toBe(1);
-    // A aula extra do mesmo dia é outra ocorrência.
     expect((await register(c, { classDate: TODAY })).statusCode).toBe(201);
     expect((await register(c, { classDate: TODAY })).statusCode).toBe(409);
   });
@@ -503,7 +497,6 @@ describe("Idempotency-Key", () => {
     const headers = key();
     const conflict = await register(c, { classDate: TODAY, scheduleId: c.wed.id }, headers);
     expect(conflict.statusCode).toBe(409);
-    // Apaga o registro que causava o conflito e repete a MESMA chave e o MESMO corpo.
     const existing = (await c.b.request("GET", `/v1/subjects/${c.subject.id}/attendance`)).json<{
       records: { id: string; version: number }[];
     }>();
@@ -523,7 +516,7 @@ describe("Idempotency-Key", () => {
       "update app.idempotency_keys set created_at = now() - interval '25 hours' where key = $1",
       [headers["idempotency-key"]],
     );
-    const res = await register(c, { classDate: "2026-09-02" }, headers); // corpo diferente, mas a chave expirou
+    const res = await register(c, { classDate: "2026-09-02" }, headers);
     expect(res.statusCode).toBe(201);
     expect(await countLogs(c.subject.id)).toBe(2);
   });
@@ -685,7 +678,6 @@ describe("corrigir e apagar registros", () => {
         })
       ).statusCode,
     ).toBe(404);
-    // Depois de desfeito, a aula pode ser registrada de novo.
     expect((await register(c, { classDate: TODAY, scheduleId: c.wed.id })).statusCode).toBe(201);
   });
 
@@ -746,7 +738,6 @@ describe("histórico paginado", () => {
 
   it("duas aulas no mesmo dia (horário + aula extra) não se perdem nem se repetem entre páginas", async () => {
     const c = await setup();
-    // 09/09/2026 é quarta: o horário da grade e uma aula extra são ocorrências diferentes do mesmo dia.
     const scheduled = await registered(c, { classDate: "2026-09-09", scheduleId: c.wed.id });
     const extra = await registered(c, { classDate: "2026-09-09" });
     await registered(c, { classDate: "2026-09-08" });
@@ -799,7 +790,6 @@ describe("calendário da matéria", () => {
       `/v1/subjects/${c.subject.id}/calendar${month ? `?month=${month}` : ""}`,
     );
     expect(res.statusCode, res.body).toBe(200);
-    // Dados do aluno nunca ficam em cache de navegador ou proxy.
     expect(res.headers["cache-control"]).toBe("no-store");
     return subjectCalendarSchema.parse(res.json());
   };
@@ -817,7 +807,7 @@ describe("calendário da matéria", () => {
       scheduleId: c.mon.id,
       status: "present",
     });
-    const extra = await registered(c, { classDate: "2026-11-07", status: "absent" }); // sábado
+    const extra = await registered(c, { classDate: "2026-11-07", status: "absent" });
 
     const cal = await calendar(c);
     expect(cal).toMatchObject({
@@ -827,7 +817,6 @@ describe("calendário da matéria", () => {
       prevMonth: "2026-10",
       nextMonth: "2026-12",
     });
-    // Segundas (2, 9, 16, 23, 30) e quartas (4, 11, 18, 25) + a aula extra do sábado 7.
     expect(cal.days.map((d) => d.date)).toEqual([
       "2026-11-02",
       "2026-11-04",
@@ -901,17 +890,16 @@ describe("Posso faltar?", () => {
       remainingUnits: 16,
       remainingClasses: 8,
       risk: "safe",
-      projectedPresencePct: 97.2, // (72 − 2) ÷ 72, truncado
+      projectedPresencePct: 97.2,
       allowed: true,
     });
-    // Segundas e quartas de 18/11 a 16/12: 4 + 5 = 9 aulas × 2 tempos = 18 = o saldo todo.
     expect(sim.upcomingClasses).toBe(9);
     expect(sim.plan).toEqual({ classes: 9, units: 18, untilDate: "2026-12-16", firstUnsafe: null });
   });
 
   it("perto do limite: só cabem 2 aulas e a terceira já reprova", async () => {
     const c = await setup();
-    for (let day = 1; day <= 7; day++) await registered(c, { classDate: `2026-09-0${day}` }); // 7 × 2 = 14 tempos
+    for (let day = 1; day <= 7; day++) await registered(c, { classDate: `2026-09-0${day}` });
     const sim = simulateResponseSchema.parse(
       (await c.b.request("GET", `/v1/subjects/${c.subject.id}/simulate`)).json(),
     );
@@ -932,7 +920,7 @@ describe("Posso faltar?", () => {
 
   it("no limite exato: a próxima falta reprova", async () => {
     const c = await setup();
-    for (let day = 1; day <= 9; day++) await registered(c, { classDate: `2026-09-0${day}` }); // 18 tempos
+    for (let day = 1; day <= 9; day++) await registered(c, { classDate: `2026-09-0${day}` });
     const sim = simulateResponseSchema.parse(
       (await c.b.request("GET", `/v1/subjects/${c.subject.id}/simulate`)).json(),
     );
@@ -954,12 +942,12 @@ describe("Posso faltar?", () => {
       kind: "holiday",
       label: "Feriado",
     });
-    await registered(c, { classDate: TODAY, scheduleId: c.wed.id }); // hoje já registrado
+    await registered(c, { classDate: TODAY, scheduleId: c.wed.id });
     const sim = simulateResponseSchema.parse(
       (await c.b.request("GET", `/v1/subjects/${c.subject.id}/simulate`)).json(),
     );
-    expect(sim.nextClass?.date).toBe("2026-11-25"); // pulou hoje (registrado) e segunda (feriado)
-    expect(sim.upcomingClasses).toBe(7); // 9 − hoje − feriado
+    expect(sim.nextClass?.date).toBe("2026-11-25");
+    expect(sim.upcomingClasses).toBe(7);
     expect(sim.summary.absentUnits).toBe(2);
   });
 
@@ -1013,11 +1001,9 @@ describe("isolamento entre alunos", () => {
       { headers: key() },
     );
     expect(intruder.statusCode).toBe(404);
-    // Em "hoje", o Bob só vê a própria matéria; nada da Alice aparece, nem o registro dela.
     const bobToday = todayResponseSchema.parse((await bob.b.request("GET", "/v1/today")).json());
     expect(bobToday.classes.map((x) => x.subject.id)).toEqual([bob.subject.id]);
     expect(bobToday.classes[0]!.record).toBeNull();
-    // E a Alice continua com o registro intacto.
     expect(await countLogs(alice.subject.id)).toBe(1);
   });
 });

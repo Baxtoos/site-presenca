@@ -53,13 +53,8 @@ const columnName = (i: number) => {
   return s;
 };
 
-/** Hoje no fuso do aparelho, em AAAA-MM-DD. */
 const localToday = () => new Date().toLocaleDateString("en-CA");
 
-/**
- * Planilha que o aluno fez sozinho: mostra como ela foi entendida e deixa corrigir cada passo
- * (colunas, significado das marcações, regras e horários das matérias, datas do semestre).
- */
 export function OwnSpreadsheetImport({ fileName, tables }: { fileName: string; tables: Table[] }) {
   const [today] = useState(localToday);
   const [layouts, setLayouts] = useState<Layout[]>(() => tables.map((t) => detectLayout(t, today)));

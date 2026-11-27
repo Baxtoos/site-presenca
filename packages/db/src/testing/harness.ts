@@ -4,7 +4,6 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testconta
 import pg from "pg";
 import { runMigrations } from "../migrate";
 
-/** O mesmo script de papéis do desenvolvimento local: o teste valida o provisionamento real. */
 const INIT_SQL = resolve(__dirname, "../../../../infra/postgres/init/01-roles.sql");
 
 export type Role = "app_owner" | "app_api" | "app_worker" | "app_backup";
@@ -18,14 +17,11 @@ const PASSWORDS: Record<Role, string> = {
 export interface TestDb {
   container: StartedPostgreSqlContainer;
   pools: Record<Role, pg.Pool>;
-  /** URLs de conexão de cada papel (para subir a API ou o worker contra este banco). */
   urls: Record<Role, string>;
-  /** Superusuário, SÓ para preparar cenários de teste (ex.: envelhecer um token). */
   admin: pg.Pool;
   stop(): Promise<void>;
 }
 
-/** Sobe Postgres 17, cria os papéis e aplica as migrations como app_owner. */
 export async function startTestDb(): Promise<TestDb> {
   const container = await new PostgreSqlContainer("postgres:17-alpine")
     .withUsername("postgres")
@@ -74,10 +70,6 @@ export interface Context {
   requestId?: string;
 }
 
-/**
- * Executa numa transação identificada, como a API faz (set_config local à transação).
- * Faz rollback em caso de erro e repassa o erro.
- */
 export async function inTx<T>(
   pool: pg.Pool,
   ctx: Context,
@@ -101,7 +93,6 @@ export async function inTx<T>(
   }
 }
 
-/** Código de compartilhamento válido (Crockford base32, 8 caracteres). */
 function templateCode(): string {
   const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
   return Array.from(randomBytes(8), (b) => alphabet[b % 32]).join("");
@@ -117,7 +108,6 @@ export interface SeededUser {
   taskId: string;
 }
 
-/** Cria um usuário com pelo menos uma linha em cada tabela, agindo como a API (papel app_api). */
 export async function seedUser(api: pg.Pool, email: string): Promise<SeededUser> {
   const userId = randomUUID();
   return inTx(api, { userId, requestId: `seed-${email}` }, async (c) => {
@@ -234,7 +224,6 @@ export async function seedUser(api: pg.Pool, email: string): Promise<SeededUser>
   });
 }
 
-/** Todas as tabelas de dados do aluno e a coluna de dono de cada uma. */
 export const OWNED_TABLES: ReadonlyArray<readonly [table: string, ownerColumn: string]> = [
   ["users", "id"],
   ["auth_accounts", "user_id"],

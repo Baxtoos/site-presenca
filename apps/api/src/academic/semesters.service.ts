@@ -79,7 +79,6 @@ export class SemestersService {
           });
         }
 
-        // Arquivado não pode ser o atual; marcar como atual desarquiva.
         const patch: Partial<typeof semesters.$inferInsert> = { ...body };
         if (body.status === "archived") patch.isCurrent = false;
         if (body.isCurrent === true) {
@@ -111,7 +110,6 @@ export class SemestersService {
     });
   }
 
-  /** Carrega o semestre (o RLS já restringe ao dono; de outra pessoa vira 404). */
   async load(tx: Tx, id: string): Promise<Semester> {
     const [row] = await tx
       .select({ semester: semesters, subjectsCount: count(subjects.id) })
@@ -128,7 +126,6 @@ export class SemestersService {
     return row !== undefined;
   }
 
-  /** Só um semestre atual por aluno (índice único parcial): desmarca os outros antes. */
   private async unsetCurrent(tx: Tx, exceptId?: string): Promise<void> {
     await tx
       .update(semesters)

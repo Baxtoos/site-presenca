@@ -16,7 +16,6 @@ async function newTaskFromCalendar(
   await page.getByLabel("Hora do prazo").fill(task.time);
   await page.getByRole("button", { name: "Criar tarefa" }).click();
   await expect(page.getByText("Tarefa criada.").last()).toBeVisible();
-  // Volta para o calendário, não para a lista.
   await expect(page.getByRole("heading", { name: "Calendário", exact: true })).toBeVisible();
 }
 
@@ -52,7 +51,6 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
     time: "18:00",
   });
 
-  // Padrão: próximos 7 dias, pendentes. A vencida não aparece, mas o alerta leva até ela.
   const rows = timeline.getByTestId("linha-tarefa");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Prova parcial");
@@ -67,7 +65,6 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await timeline.getByRole("link", { name: "Próximos 30 dias" }).click();
   await expect(rows).toHaveCount(2);
 
-  // Busca e agrupamento, sem recarregar.
   await timeline.getByLabel("Buscar").fill("semin");
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText("Seminário");
@@ -76,7 +73,6 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await expect(timeline.getByRole("heading", { name: "Banco de Dados" })).toBeVisible();
   await expect(timeline.getByRole("heading", { name: "Sem matéria" })).toBeVisible();
 
-  // Marcar pela linha do tempo.
   await rows
     .filter({ hasText: "Prova parcial" })
     .getByRole("button", { name: "Concluída", exact: true })
@@ -89,11 +85,9 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await expect(rows.first().getByRole("button", { name: "Reabrir" })).toBeVisible();
   await expectPath(page, /^\/calendario\?janela=30&status=concluidas$/);
 
-  // Calendário: vai até o mês do seminário e escolhe o dia.
   const month = page.getByTestId("calendario-mes");
   if (inTen.slice(0, 7) !== today.slice(0, 7)) {
     await page.getByRole("link", { name: "Próximo mês" }).click();
-    // A grade de novembro já mostra o começo de dezembro: espera trocar de mês antes de clicar.
     await expectPath(page, new RegExp(`mes=${inTen.slice(0, 7)}`));
     const nextMonth = new Intl.DateTimeFormat("pt-BR", { month: "long", timeZone: "UTC" }).format(
       new Date(`${inTen}T12:00:00Z`),
@@ -113,16 +107,13 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await expect(page.getByText("Tarefa marcada como não concluída.")).toBeVisible();
   await expect(seminar).toHaveAttribute("data-status", "not_completed");
 
-  // Filtro de status do calendário: só pendentes some com o seminário.
   await page.getByLabel("Status das tarefas").selectOption({ label: "Pendentes" });
   await expectPath(page, /situacao=pendentes/);
   await expect(month.locator(`button[data-date="${inTen}"]`)).not.toHaveAccessibleName(/tarefa/);
 
-  // "Hoje" volta ao mês atual; "Nova tarefa neste dia" já vem com a data.
   await page.getByRole("link", { name: "Voltar para o mês de hoje" }).click();
   const todayButton = month.locator(`button[data-date="${today}"]`);
   await expect(todayButton).toHaveAttribute("aria-current", "date");
-  // As aulas da grade aparecem no dia (o aluno de teste tem aula hoje).
   await expect(todayButton).toHaveAccessibleName(/1 aula/);
   await todayButton.click();
   const todayClass = panel.getByTestId("aula-do-dia");
@@ -132,7 +123,6 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
     "href",
     `/hoje?data=${today}`,
   );
-  // Esconder as aulas tira da grade (o painel do dia continua mostrando).
   await page.getByLabel("Mostrar aulas").uncheck();
   await expect(todayButton).not.toHaveAccessibleName(/aula/);
   await page.getByLabel("Mostrar aulas").check();
@@ -143,7 +133,6 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
   await expect(page.getByRole("heading", { name: "Calendário", exact: true })).toBeVisible();
   await expectPath(page, /^\/calendario\?/);
 
-  // Celular: as 5 abas (Início, Hoje, Calendário, Tarefas, Notas) cabem numa linha só.
   if (testInfo.project.name === "celular") {
     const tabs = page.getByRole("navigation", { name: "Principal" }).getByRole("link");
     await expect(tabs).toHaveCount(5);
@@ -153,7 +142,6 @@ test("calendário: linha do tempo com filtros, troca de mês e marcar tarefa pel
     expect(new Set(tops).size).toBe(1);
   }
 
-  // Acessibilidade com conteúdo na tela.
   await page.waitForLoadState("networkidle");
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

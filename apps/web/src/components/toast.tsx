@@ -16,10 +16,8 @@ type Tone = "success" | "error" | "info";
 export interface ToastInput {
   message: string;
   tone?: Tone;
-  /** Botão de ação (ex.: "Desfazer"). Fecha o aviso ao clicar. */
   actionLabel?: string;
   onAction?: () => void;
-  /** Quanto tempo fica na tela, em ms. Padrão: 5 s. Erros ficam 8 s. */
   duration?: number;
 }
 
@@ -77,7 +75,7 @@ function ToastView({ toast, onClose }: { toast: ToastItem; onClose: () => void }
           ×
         </button>
       </div>
-      {/* Barra que mostra quanto tempo falta para o aviso sumir (e para o desfazer expirar). */}
+      {}
       <div
         className="h-0.5 origin-left bg-accent"
         style={{ animation: `toast-countdown ${toast.duration}ms linear forwards` }}
@@ -87,7 +85,6 @@ function ToastView({ toast, onClose }: { toast: ToastItem; onClose: () => void }
   );
 }
 
-/** Avisos curtos no rodapé, com ação opcional. Fica acima da área segura do celular. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
@@ -104,7 +101,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       duration: input.duration ?? (tone === "error" ? 8_000 : 5_000),
       id: nextId.current++,
     };
-    // No máximo 3 avisos empilhados: marcar várias aulas seguidas não cobre a tela.
     setToasts((all) => [...all.slice(-2), toast]);
   }, []);
   const value = useMemo(() => ({ push }), [push]);
@@ -112,7 +108,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {/* No celular fica acima da barra de abas; no computador, no canto como no Notion. */}
+      {}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-50 mx-auto grid max-w-md gap-2 px-4 lg:bottom-6 lg:left-auto lg:right-6 lg:mx-0 lg:w-96 lg:px-0">
         {toasts.map((toast) => (
           <ToastView key={toast.id} toast={toast} onClose={() => dismiss(toast.id)} />

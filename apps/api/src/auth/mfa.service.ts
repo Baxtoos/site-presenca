@@ -22,19 +22,12 @@ import { decryptSecret, encryptSecret } from "./mfa-crypto";
 import { generateToken, hashToken, TOKEN_FORMAT } from "./tokens";
 import { base32Encode, generateTotpSecret, otpauthUrl, verifyTotp } from "./totp";
 
-/** Desafio do login com segundo fator: cookie próprio, separado da sessão. */
 export const MFA_COOKIE = "__Host-mfa";
 const CHALLENGE_SECONDS = 5 * 60;
-/** Tentativas de código por desafio; depois, login de novo. */
 const CHALLENGE_ATTEMPTS = 5;
-/**
- * Códigos errados por CONTA (somando todos os desafios) antes de travar o segundo passo por uma
- * hora. Sem isso, quem tem a senha abriria desafios novos sem parar, trocando de IP.
- */
 const ACCOUNT_FAILURES = 10;
 const ACCOUNT_LOCK_SECONDS = 60 * 60;
 const RECOVERY_CODES = 10;
-/** Sem 0/O e 1/I/L: fácil de ler e digitar. */
 const RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
 const invalidCode = () =>
@@ -60,7 +53,6 @@ const challengeExpired = () =>
 
 export interface ChallengeValue {
   userId: string;
-  /** Nova senha (hash Argon2) pedida pelo link do e-mail, aplicada só depois do código. */
   pendingPasswordHash?: string;
 }
 
@@ -74,11 +66,6 @@ function parseChallenge(raw: string | null): ChallengeValue | null {
   }
 }
 
-/**
- * Segundo fator opcional (TOTP). O segredo fica cifrado no banco; no login, quem tem o segundo
- * fator ligado recebe um desafio (cookie de 5 minutos) em vez da sessão, e a sessão só abre com
- * um código do app ou um código de recuperação.
- */
 @Injectable()
 export class MfaService {
   private readonly logger = new Logger(MfaService.name);
@@ -119,9 +106,6 @@ export class MfaService {
     });
   }
 
-  // ---------------------------------------------------------------- ativação
-
-  /** Gera um segredo novo (pendente até ser confirmado com um código). */
   async setup(userId: string, email: string): Promise<MfaSetupResponse> {
     const key = this.requireKey();
     const secret = generateTotpSecret();
@@ -145,7 +129,6 @@ export class MfaService {
     return { secret: base32Encode(secret), otpauthUrl: otpauthUrl(secret, email) };
   }
 
-  /** Confirma com o primeiro código do app: liga e devolve os códigos de recuperação. */
   async enable(userId: string, code: string): Promise<string[]> {
     const key = this.requireKey();
     return this.db.asUser(userId, async (tx) => {
@@ -167,7 +150,6 @@ export class MfaService {
     });
   }
 
-  /** Desliga (pede um código do app ou de recuperação). */
   async disable(userId: string, code: string): Promise<void> {
     await this.db.asUser(userId, async (tx) => {
       if (!(await this.checkFactor(tx, userId, code))) throw invalidCode();
@@ -184,12 +166,6 @@ export class MfaService {
     });
   }
 
-  // ---------------------------------------------------------------- login
-
-  /**
-   * Login com segundo fator: guarda o desafio no Redis e manda o cookie (em vez da sessão).
-   * `pendingPasswordHash`: nova senha pedida pelo link do e-mail, aplicada só depois do código.
-   */
   async startChallenge(
     userId: string,
     reply: FastifyReply,
@@ -211,11 +187,6 @@ export class MfaService {
     });
   }
 
-  /**
-   * Confere o código do desafio. Devolve o usuário (a sessão é aberta por quem chamou) e a nova
-   * senha pendente, se houver. Cinco erros encerram o desafio; dez erros na conta, somando os
-   * desafios, travam o segundo passo por uma hora. Um acerto zera tudo (uso único).
-   */
   async completeChallenge(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -260,9 +231,6 @@ export class MfaService {
     return challenge;
   }
 
-  // ---------------------------------------------------------------- internos
-
-  /** Código do app (6 dígitos, uma vez só) ou de recuperação (uso único). */
   private async checkFactor(tx: Tx, userId: string, raw: string): Promise<boolean> {
     const row = await tx.query.userMfa.findFirst();
     if (!row?.enabledAt) return false;
@@ -277,7 +245,6 @@ export class MfaService {
         row.lastUsedStep,
       );
       if (step === null) return false;
-      // Condição no UPDATE: dois pedidos com o mesmo código ao mesmo tempo, só um passa.
       const updated = await tx
         .update(schema.userMfa)
         .set({ lastUsedStep: step })

@@ -3,7 +3,6 @@ import { check, index, jsonb, primaryKey, smallint, text, uuid } from "drizzle-o
 import { app, bytea, createdAt } from "./_shared";
 import { users } from "./identity";
 
-/** Respostas guardadas por 24 h para repetir chamadas (Idempotency-Key) sem efeito duplicado. */
 export const idempotencyKeys = app.table(
   "idempotency_keys",
   {
@@ -11,7 +10,6 @@ export const idempotencyKeys = app.table(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     key: text().notNull(),
-    /** SHA-256 do corpo: a mesma chave com outro corpo é recusada. */
     requestHash: bytea().notNull(),
     statusCode: smallint().notNull(),
     responseBody: jsonb(),

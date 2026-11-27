@@ -22,10 +22,6 @@ export class CalendarService {
     private readonly clock: ClockService,
   ) {}
 
-  /**
-   * O mês de uma matéria para marcar presença no calendário: cada dia de aula da grade (já com
-   * feriados e dias sem aula indicados), o registro feito e as aulas extras registradas.
-   */
   get(subjectId: string, requestedMonth?: string): Promise<SubjectCalendar> {
     return this.db.tx(async (tx) => {
       const [found] = await tx
@@ -39,7 +35,6 @@ export class CalendarService {
       const [me] = await tx.select({ timezone: users.timezone }).from(users);
       const today = this.clock.todayIn(me?.timezone ?? "America/Sao_Paulo");
 
-      // Padrão: o mês de hoje, ou o mês do semestre mais próximo de hoje.
       const clampedToday =
         today < semester.startsOn
           ? semester.startsOn
@@ -118,7 +113,6 @@ export class CalendarService {
             record: log ? toRecord(log) : null,
           });
         }
-        // Aulas extras ou de horários que saíram da grade: aparecem para poderem ser corrigidas.
         for (const log of logs.filter((l) => l.classDate === date && !used.has(l.id))) {
           used.add(log.id);
           classes.push({

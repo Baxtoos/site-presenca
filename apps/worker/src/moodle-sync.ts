@@ -10,14 +10,10 @@ import {
 } from "@presenca/integrations";
 import type { Pool } from "pg";
 
-/** De quanto em quanto tempo cada conexão é sincronizada (mais uma folga aleatória). */
 const SYNC_EVERY_MIN = 45;
 const JITTER_MIN = 10;
-/** Depois de uma falha, espera mais antes de tentar de novo (Moodle fora do ar, link vencido). */
 const RETRY_AFTER_FAIL_MIN = 90;
-/** Reserva: se o worker morrer no meio, a conexão volta para a fila depois disso. */
 const LEASE_MIN = 10;
-/** Conexões por ciclo (cada uma faz poucas requisições ao Moodle, com tempo limite de 8 s). */
 const BATCH = 10;
 
 export interface MoodleSyncDeps {
@@ -81,7 +77,6 @@ export async function syncMoodleConnections(deps: MoodleSyncDeps): Promise<numbe
       if (result.created + result.updated + result.completed > 0) {
         deps.log?.("info", "moodle sincronizado", { connection: conn.id, ...result });
       }
-      // Notas (só com wstoken): turmas ligadas a matérias → avaliações ligadas a itens do Moodle.
       if (conn.wstokenEnc && conn.baseUrl) {
         try {
           const courses = await deps.db.transaction((tx) => mappedCourses(tx, conn.userId));

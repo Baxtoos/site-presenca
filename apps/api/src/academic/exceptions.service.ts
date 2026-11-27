@@ -12,7 +12,6 @@ import { SemestersService } from "./semesters.service";
 
 const { calendarExceptions, subjects } = schema;
 
-/** "2026-08-03" → "03/08/2026" */
 const brDate = (iso: string) => iso.split("-").reverse().join("/");
 
 @Injectable()
@@ -37,8 +36,6 @@ export class ExceptionsService {
   create(semesterId: string, body: ExceptionBody): Promise<CalendarExceptionDto> {
     return this.db.tx(async (tx) => {
       const semester = await this.semesters.load(tx, semesterId);
-      // O erro vai no campo que o aluno preencheu errado: a data inicial, se ela já está fora;
-      // senão a final. (Num dia só, a final é igual à inicial e o campo "até" fica em branco.)
       const startOutside = body.startsOn < semester.startsOn || body.startsOn > semester.endsOn;
       if (startOutside || body.endsOn > semester.endsOn) {
         throw new UnprocessableEntityException({

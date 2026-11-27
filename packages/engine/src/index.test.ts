@@ -53,7 +53,7 @@ describe("maxAbsenceUnits", () => {
   });
 
   it("40 aulas, 80% → 8 (em ponto flutuante daria 7)", () => {
-    expect(Math.floor(40 * (1 - 0.8))).toBe(7); // o bug que o motor evita
+    expect(Math.floor(40 * (1 - 0.8))).toBe(7);
     expect(
       maxAbsenceUnits({
         mode: "class_count",
@@ -65,7 +65,7 @@ describe("maxAbsenceUnits", () => {
   });
 
   it("carga com fração não perde minuto por ponto flutuante (33,3 h = 1998 min)", () => {
-    expect(Math.floor(33.3 * 60)).toBe(1997); // o bug que o motor evita
+    expect(Math.floor(33.3 * 60)).toBe(1997);
     const rules = {
       mode: "workload",
       workloadHours: 33.3,
@@ -101,7 +101,7 @@ describe("riskLevel", () => {
     [0, 18, 2, "safe"],
     [9, 18, 2, "warning"],
     [14, 18, 2, "critical"],
-    [3, 6, 2, "critical"], // só 50% consumido, mas restam 3 tempos = 1 encontro
+    [3, 6, 2, "critical"],
     [18, 18, 2, "limit"],
     [19, 18, 2, "failed"],
   ] as const)("A=%i, F=%i, %i tempos/encontro → %s", (a, f, upc, expected) => {

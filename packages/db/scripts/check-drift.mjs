@@ -1,7 +1,3 @@
-// Falha se o schema (src/schema) mudou sem migration correspondente.
-// Roda o gerador do drizzle-kit e compara a pasta de migrations antes e depois; se algo foi gerado,
-// desfaz (para não deixar lixo) e sai com erro. Não depende do git: funciona com migrations ainda
-// não commitadas.  Uso: pnpm db:check
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";

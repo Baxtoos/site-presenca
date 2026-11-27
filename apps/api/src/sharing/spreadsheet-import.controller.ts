@@ -11,13 +11,8 @@ import { ZodPipe } from "../common/zod.pipe";
 import { RateLimit } from "../rate-limit/rate-limit";
 import { SpreadsheetImportService } from "./spreadsheet-import.service";
 
-/** Caminho com limite de corpo maior (uma planilha de semestre inteiro): ver common/http.ts. */
 export const SPREADSHEET_IMPORT_PATH = "/v1/imports/semester";
 
-/**
- * Importação da planilha exportada pelo app. O site lê o arquivo no navegador e manda os dados já
- * estruturados; a API valida tudo e cria o semestre numa transação só.
- */
 @Controller("v1/imports")
 export class SpreadsheetImportController {
   constructor(private readonly imports: SpreadsheetImportService) {}

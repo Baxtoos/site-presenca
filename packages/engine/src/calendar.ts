@@ -1,11 +1,3 @@
-/**
- * Calendário de aulas: quais dias a matéria tem aula, descontando feriados, e o simulador
- * "posso faltar?" sobre as próximas aulas reais.
- *
- * Datas são strings ISO "AAAA-MM-DD" (data local do aluno, sem hora nem fuso): a conta é feita
- * em UTC só para andar de dia em dia, sem risco de horário de verão pular ou repetir um dia.
- */
-
 export type IsoDate = string;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -25,7 +17,6 @@ export function addDays(date: IsoDate, days: number): IsoDate {
   return d.toISOString().slice(0, 10);
 }
 
-/** Dia da semana ISO: 1 = segunda … 7 = domingo. */
 export function isoWeekday(date: IsoDate): number {
   const day = toUtc(date).getUTCDay();
   return day === 0 ? 7 : day;
@@ -42,7 +33,6 @@ export interface ScheduleSlot {
 export interface CalendarException {
   startsOn: IsoDate;
   endsOn: IsoDate;
-  /** holiday e no_classes cancelam aula; exam_week é só informativo. */
   kind: "holiday" | "no_classes" | "exam_week";
 }
 
@@ -52,10 +42,6 @@ export interface ClassOccurrence {
   scheduleId?: string;
 }
 
-/**
- * Todas as aulas da grade entre `from` e `to` (inclusive), em ordem, sem as que caem em
- * feriado ou dia sem aula. Limite de 400 dias por chamada (um semestre tem ~140).
- */
 export function classOccurrences(params: {
   schedules: readonly ScheduleSlot[];
   exceptions: readonly CalendarException[];
@@ -83,20 +69,12 @@ export function classOccurrences(params: {
 }
 
 export interface SkipPlan {
-  /** Quantas das próximas aulas dá para faltar seguidas sem passar do limite. */
   classes: number;
-  /** Tempos que essas faltas consomem. */
   units: number;
-  /** Data da última aula que dá para faltar (null se nenhuma). */
   untilDate: IsoDate | null;
-  /** Primeira aula que já faria passar do limite (null se o semestre acaba antes). */
   firstUnsafe: ClassOccurrence | null;
 }
 
-/**
- * "Posso faltar?" sobre as aulas reais: soma os tempos das próximas aulas, em ordem, enquanto
- * couberem no saldo. Aulas geminadas pesam mais; feriados já vieram descontados.
- */
 export function planSkips(remainingUnits: number, upcoming: readonly ClassOccurrence[]): SkipPlan {
   let used = 0;
   let classes = 0;
@@ -112,7 +90,6 @@ export function planSkips(remainingUnits: number, upcoming: readonly ClassOccurr
   return { classes, units: used, untilDate, firstUnsafe: null };
 }
 
-/** Primeiro e último dia do mês "AAAA-MM". */
 export function monthRange(month: string): { first: IsoDate; last: IsoDate } {
   const first = `${month}-01`;
   const d = toUtc(first);
@@ -120,7 +97,6 @@ export function monthRange(month: string): { first: IsoDate; last: IsoDate } {
   return { first, last: last.toISOString().slice(0, 10) };
 }
 
-/** "2026-11" + 1 = "2026-12"; aceita deslocamentos negativos e vira o ano. */
 export function shiftMonth(month: string, delta: number): string {
   const d = toUtc(`${month}-01`);
   const shifted = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + delta, 1));
@@ -131,15 +107,11 @@ export interface MonthGrid {
   month: string;
   first: IsoDate;
   last: IsoDate;
-  /** Segunda-feira da primeira semana mostrada (pode ser do mês anterior). */
   gridFrom: IsoDate;
-  /** Domingo da última semana mostrada (pode ser do mês seguinte). */
   gridTo: IsoDate;
-  /** Semanas de segunda a domingo (ISO 8601), 4 a 6 linhas de 7 dias. */
   weeks: IsoDate[][];
 }
 
-/** A grade de um mês para o calendário: semanas completas de segunda a domingo. */
 export function monthGrid(month: string): MonthGrid {
   const { first, last } = monthRange(month);
   const gridFrom = addDays(first, 1 - isoWeekday(first));

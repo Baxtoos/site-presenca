@@ -31,12 +31,6 @@ const { semesters, subjects, subjectSchedules, attendanceLogs, users } = schema;
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
-/**
- * Sincroniza um semestre com o retrato do SUAP: cria o que falta (semestre, matérias com regras e
- * grade) e põe em dia os registros das aulas já lançadas. Nas aulas que o professor lançou, vale o
- * SUAP (é o registro oficial); o que o aluno marcou em dias que o SUAP ainda não tem fica como está.
- * Pode ser repetida quantas vezes quiser: só muda o que mudou.
- */
 @Injectable()
 export class SuapSyncService {
   private readonly logger = new Logger(SuapSyncService.name);
@@ -67,7 +61,6 @@ export class SuapSyncService {
     const pastDates = allDates.filter((d) => d <= today);
     const future = allDates.length - pastDates.length;
 
-    // ---- semestre: o escolhido ou um novo
     let semester: { id: string; label: string; startsOn: string; endsOn: string };
     let createdSemester = false;
     if (body.semesterId) {
@@ -82,7 +75,6 @@ export class SuapSyncService {
         .where(eq(semesters.id, body.semesterId));
       if (!row) throw new NotFoundException({ detail: "Semestre não encontrado." });
       semester = row;
-      // Aula lançada fora das datas do semestre: o semestre cresce para caber.
       const sorted = [...allDates].sort();
       const startsOn = sorted[0] && sorted[0] < row.startsOn ? sorted[0] : row.startsOn;
       const endsOn = sorted.at(-1) && sorted.at(-1)! > row.endsOn ? sorted.at(-1)! : row.endsOn;
@@ -112,7 +104,6 @@ export class SuapSyncService {
       createdSemester = true;
     }
 
-    // ---- matérias: acha pela sigla do SUAP (guardada no código) ou pelo nome; senão cria
     const existing = await tx
       .select({
         id: subjects.id,
@@ -183,7 +174,6 @@ export class SuapSyncService {
       linked.push({ subjectId: row!.id, lessons });
     }
 
-    // ---- registros das aulas já lançadas
     const ids = linked.map((l) => l.subjectId);
     const schedules =
       ids.length > 0
@@ -266,7 +256,6 @@ export class SuapSyncService {
       await tx.insert(attendanceLogs).values(inserts.slice(i, i + 500));
     }
 
-    // ---- marcos de aviso: semestre novo fica em dia em silêncio; atualização avisa o que mudou
     for (const subjectId of touched) {
       const [row] = await tx.select().from(subjects).where(eq(subjects.id, subjectId));
       const summary = await loadSummary(tx, row!);

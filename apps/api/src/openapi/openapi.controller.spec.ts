@@ -7,10 +7,8 @@ import { HealthController } from "../health/health.controller";
 import { buildTestApp } from "../test/build-test-app";
 import { OpenApiController } from "./openapi.controller";
 
-/** Rotas de infraestrutura que não fazem parte do contrato público. */
 const INFRA_ROUTES = new Set(["GET /openapi.json"]);
 
-/** Os mesmos controllers que o AppModule registra. */
 const CONTROLLERS = [HealthController, OpenApiController];
 const PROVIDERS = [
   { provide: DB, useValue: { ping: async () => 1 } },

@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-/**
- * Formato padrão de erro da API (RFC 9457, application/problem+json).
- * `code` é estável e pode ser usado pelo front para decidir a mensagem.
- */
 export const problemSchema = z.object({
   type: z.string().default("about:blank"),
   title: z.string(),

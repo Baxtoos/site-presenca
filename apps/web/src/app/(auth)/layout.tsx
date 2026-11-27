@@ -3,10 +3,6 @@ import type { ReactNode } from "react";
 import { SubjectPreviewCard } from "@/components/app-preview";
 import { BellIcon, BookIcon, TodayIcon, UsersIcon } from "@/components/icons";
 
-/**
- * Telas de entrada: formulário limpo à esquerda e, no computador, uma apresentação do app à
- * direita (o que ele faz, com uma prévia do card de matéria).
- */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">

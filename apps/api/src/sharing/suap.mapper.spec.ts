@@ -79,7 +79,6 @@ describe("suap.mapper", () => {
       status: "partial",
       unitsMissed: 2,
     });
-    // Mais de 6 tempos num dia: o app guarda até 6.
     expect(attendanceFrom({ ...base, units: 8, absences: 8, excused: false })).toMatchObject({
       status: "absent",
       unitsScheduled: 6,
@@ -114,7 +113,6 @@ describe("suap.mapper", () => {
       totalClasses: 19,
       minAttendanceBp: 7500,
     });
-    // 80 não divide por 3: 80 aulas de 1 tempo (o total é o mesmo).
     expect(rulesFor(subject(80, [3, 3]), [])).toMatchObject({ unitsPerClass: 1, totalClasses: 80 });
     expect(rulesFor(subject(null, []), [])).toMatchObject({ countingMode: "manual" });
   });

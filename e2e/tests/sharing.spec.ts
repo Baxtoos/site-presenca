@@ -1,15 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { expectPath, setupStudentWithClassToday, signUp, uniqueEmail } from "./setup-helpers";
 
-/**
- * Compartilhamento de ponta a ponta: a Ana gera um código; um colega SEM conta abre o link, vê a
- * prévia, cria a conta, volta direto para a importação e importa. A Ana vê a importação contada.
- */
 test("gera código, colega sem conta abre o link, cria a conta e importa a grade", async ({
   page,
   browser,
 }, testInfo) => {
-  // Fluxo longo (várias páginas); no `next dev`, cada página nova compila na primeira visita.
   test.slow();
   const email = uniqueEmail(testInfo, "compartilha");
   await setupStudentWithClassToday(page, testInfo, {
@@ -18,7 +13,6 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
     subject: "Estatística",
     email,
   });
-  // Compartilhar exige e-mail confirmado (o cadastro já confirmou).
 
   await page.goto("/");
   await page.getByRole("link", { name: "Gerenciar semestre" }).click();
@@ -33,10 +27,8 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
   const code = url.split("/importar/")[1]!;
   expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{8}$/);
 
-  // Colega, em outro navegador, sem conta.
   const colleague = await browser.newContext();
   const other = await colleague.newPage();
-  // Digita o código do jeito que ouviu: minúsculas e com hífen.
   await other.goto("/importar");
   await other
     .getByLabel("Código recebido")
@@ -55,7 +47,6 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
     password: "senha-forte-do-colega-e2e",
   });
 
-  // O link do e-mail leva de volta para a importação, já logado.
   await expectPath(other, new RegExp(`^/importar/${code}$`));
   await other.getByRole("button", { name: "Importar este semestre" }).click();
   await expect(other.getByRole("heading", { name: /^Atual/ })).toBeVisible();
@@ -63,7 +54,6 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
   await expect(card).toContainText("0 de 18 faltas");
   await colleague.close();
 
-  // A Ana vê a importação contada.
   await page.goto("/compartilhar");
   const mine = page
     .getByTestId("meu-codigo")
@@ -71,7 +61,6 @@ test("gera código, colega sem conta abre o link, cria a conta e importa a grade
   await expect(mine).toContainText("1 importação");
   await expect(mine).toContainText("Ativo");
 
-  // Revogar: o link para de funcionar.
   page.once("dialog", (d) => void d.accept());
   await mine.getByRole("button", { name: `Revogar o código ${code}` }).click();
   await expect(mine).toContainText("Revogado");
